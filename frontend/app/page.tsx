@@ -51,8 +51,9 @@ export default async function Home() {
       )}
 
       <footer className="mt-12 border-t border-[var(--color-edge)] pt-6 text-xs text-[var(--color-muted)]">
-        Session 1 (Foundation). The exam runner arrives in Session 2 &mdash; track
-        selection and blueprint inspection are live now.
+        The exam runner, scaled scoring and AI remediation are live. CCAO-F is the
+        seeded track; the other three publish their blueprint while their question banks
+        are authored.
       </footer>
     </main>
   );

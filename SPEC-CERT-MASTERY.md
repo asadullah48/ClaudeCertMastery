@@ -464,3 +464,70 @@ is worse than showing them nothing.
 track list in the frontend, would mean every coverage change touches two layers and can
 drift between them. Driving the panel from `concept_curriculum_map` makes the mapping
 table the single source of truth for what Zia can teach.
+
+---
+
+## 14. Exam runner and explanation engine (Session 4)
+
+The two items outstanding from the Session 2 brief. With these, a candidate can sit an
+exam end to end for the first time: compose, answer, submit, score, review.
+
+### 14.1 What shipped
+
+| Piece | Location |
+|---|---|
+| Explanation engine | `backend/app/services/explanation_engine.py` |
+| Route `POST /attempts/{id}/explanations` | `backend/app/routers/explanations.py` |
+| Runner state (timer, answers, flags, timing) | `frontend/lib/store.ts` |
+| Runner UI | `frontend/components/ExamRunner.tsx` |
+| Review screen | `frontend/components/ReviewScreen.tsx` |
+| Exam route | `frontend/app/tracks/[code]/exam/page.tsx` |
+
+### 14.2 Decisions
+
+**D-15 - The timer hard-submits at zero.** Whatever is on screen is graded; unanswered
+items count as incorrect. Locking input for a manual submit, a grace period, or stopping
+the clock would each make a mis-paced sitting feel kinder, and each would corrupt the
+signal the product exists to give. A candidate who needs 140 minutes for a 120-minute
+exam has not passed it. The review screen labels an expired sitting explicitly, so it is
+never silently conflated with one finished in time.
+
+**D-16 - Explanations require a submitted attempt.** `/exams/generate` is careful never
+to send the answer key: options are serialised through `AnswerOptionOut`, which has no
+`is_correct` field. An explanation names the correct answer outright, so serving one
+mid-exam would hand back through this route exactly what the generator withholds. The
+route returns 409 until the attempt is graded.
+
+**D-17 - The countdown is an absolute deadline, not a decrementing counter.** Browsers
+throttle `setInterval` in background tabs to once a minute or less, so a counter would
+drift and a 120-minute exam could run far longer in wall-clock terms. The store holds an
+epoch deadline and the interval only decides how often the display refreshes; it never
+decides how much time is left.
+
+**D-18 - Remediation is generated on expand, not on submission.** Fanning out twenty
+Claude calls before returning a score would add tens of seconds to the one request that
+must feel instant, and would bill for panels the candidate may never open. Submission
+returns immediately with the authored explanations; AI remediation is fetched per item.
+
+**D-19 - The cacheable prefix is guarded by a test.** `claude-opus-5` will not create a
+cache entry for a prefix under 512 tokens, and a shorter prefix is not an error -- it
+simply never caches while `cache_read_input_tokens` sits at 0. Because the failure is
+silent, `test_explanations.py::test_stable_prefix_is_long_enough_to_cache` asserts the
+length, and a companion test asserts the prefix is byte-identical across calls.
+
+### 14.3 Verified
+
+333 tests pass (28 new). A live end-to-end run against uvicorn with no `ANTHROPIC_API_KEY`
+confirmed: blueprint weighting holds at n=10 (`1/2/1/2/1/2/1`), the answer key is absent
+from the exam payload, explanations before submission return 409, and all ten items fell
+back to authored explanations at HTTP 200.
+
+### 14.4 Still outstanding
+
+- **A live Claude call.** Every AI path is tested against a fake. The engine has never
+  run against the real API, so the `output_config` + `output_format` pairing and the
+  actual cache hit rate are unverified in production.
+- **Batch fan-out is built but unused.** `build_batch_requests` shapes the payload; no
+  caller submits it yet.
+- **Zia OAuth**, **CCAR-F / CCAR-P question banks**, and the Session 3 scope
+  (dashboard, SM-2 flashcards, auth) remain.

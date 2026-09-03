@@ -160,10 +160,30 @@ export default async function TrackDetail({
         </section>
       )}
 
-      <p className="mt-6 rounded-lg border border-[var(--color-edge)] bg-[var(--color-surface)] p-4 text-sm text-[var(--color-muted)]">
-        The exam runner ships in a later session. The generator, scoring engine and
-        question bank behind this blueprint are complete and tested.
-      </p>
+      <section className="mt-8 rounded-lg border border-[var(--color-edge)] bg-[var(--color-surface)] p-5">
+        {track.is_seeded ? (
+          <>
+            <h2 className="text-sm font-medium">Ready to sit this exam?</h2>
+            <p className="mt-1 max-w-xl text-sm leading-relaxed text-[var(--color-muted)]">
+              {track.question_count} questions are authored for {track.code}. Choose a
+              full sitting or a shorter drill &mdash; the domain weighting above holds at
+              every length.
+            </p>
+            <Link
+              href={`/tracks/${code}/exam`}
+              className="mt-4 inline-block rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-[var(--color-ink)]"
+            >
+              Start a practice exam
+            </Link>
+          </>
+        ) : (
+          <p className="text-sm text-[var(--color-muted)]">
+            The blueprint for {track.code} is published, but its question bank is not
+            authored yet. The generator, scoring engine and runner are ready for it
+            &mdash; only the items are outstanding.
+          </p>
+        )}
+      </section>
     </main>
   );
 }

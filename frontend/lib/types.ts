@@ -97,3 +97,105 @@ export interface ZiaConcepts {
   /** Objectives with no lesson behind them, recorded rather than hidden. */
   unmapped: string[];
 }
+
+/* ---- Exam runner ---- */
+
+export interface ExamOption {
+  id: number;
+  label: string;
+  text: string;
+  position: number;
+}
+
+export interface ExamQuestion {
+  id: number;
+  external_id: string;
+  stem: string;
+  /** "mcq" accepts exactly one option; "mr" accepts a set. */
+  question_type: "mcq" | "mr";
+  difficulty: number;
+  domain_code: string;
+  /** Never carries is_correct: the answer key does not leave the server. */
+  options: ExamOption[];
+}
+
+export interface ExamGenerated {
+  attempt_id: number;
+  track_code: string;
+  seed: number;
+  item_count: number;
+  duration_minutes: number;
+  per_domain: Record<string, number>;
+  /** Set when a domain held too few questions and its quota was redistributed. */
+  composition_warning: string | null;
+  questions: ExamQuestion[];
+}
+
+export interface SubmitAnswer {
+  question_id: number;
+  selected_option_ids: number[];
+  time_spent_seconds: number | null;
+  flagged_for_review: boolean;
+}
+
+export interface DomainScore {
+  domain_code: string;
+  domain_name: string;
+  correct: number;
+  total: number;
+  percentage: number;
+  mastery_band: string;
+}
+
+export interface ItemResult {
+  question_id: number;
+  external_id: string;
+  domain_code: string;
+  is_correct: boolean;
+  partial_credit: number;
+  selected_option_ids: number[];
+  correct_option_ids: number[];
+  /** The authored explanation. Always present, with or without an API key. */
+  explanation: string;
+}
+
+export interface ExamResult {
+  attempt_id: number;
+  track_code: string;
+  raw_correct: number;
+  raw_total: number;
+  raw_percentage: number;
+  scaled_score: number;
+  pass_scaled_score: number;
+  passed: boolean;
+  domain_scores: DomainScore[];
+  items: ItemResult[];
+  composition_warning: string | null;
+}
+
+/* ---- AI explanations ---- */
+
+export interface Explanation {
+  question_id: number;
+  external_id: string;
+  domain_code: string;
+  /** "ai" when Claude wrote it, "static" when the authored fallback was served. */
+  source: "ai" | "static";
+  reused: boolean;
+  why_correct: string;
+  why_your_answer_wrong: string;
+  key_concept: string;
+  blueprint_link: string;
+  study_tip: string;
+  static_explanation: string;
+  detail: string;
+}
+
+export interface ExplanationResponse {
+  attempt_id: number;
+  ai_enabled: boolean;
+  generated: number;
+  reused: number;
+  fell_back: number;
+  explanations: Explanation[];
+}

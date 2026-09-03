@@ -27,9 +27,16 @@ from app.schemas.exam import (
     SubmitResponse,
 )
 
+from app.schemas.explanation import (
+    ExplanationOut,
+    ExplanationRequest,
+    ExplanationResponse,
+)
+
 __all__ = [
     "AnswerOptionOut", "AttemptOut", "BlueprintDomainOut", "BlueprintOut",
     "DomainOut", "DomainScoreOut", "ExamGenerateRequest", "ExamGenerateResponse",
+    "ExplanationOut", "ExplanationRequest", "ExplanationResponse",
     "ItemResultOut", "QuestionOut", "SubmitAnswer", "SubmitRequest",
     "SubmitResponse", "TrackOut",
 ]

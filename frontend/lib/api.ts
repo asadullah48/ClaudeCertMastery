@@ -1,6 +1,10 @@
 import type {
   Blueprint,
+  ExamGenerated,
+  ExamResult,
+  ExplanationResponse,
   Health,
+  SubmitAnswer,
   Track,
   ZiaCheckAnswer,
   ZiaConcepts,
@@ -49,6 +53,25 @@ export const api = {
   listTracks: () => get<Track[]>("/tracks"),
   getTrack: (code: string) => get<Track>(`/tracks/${code}`),
   getBlueprint: (code: string) => get<Blueprint>(`/tracks/${code}/blueprint`),
+
+  // Exam runner. generateExam persists an in-progress attempt server-side, so a
+  // refresh mid-exam does not lose the sitting -- the attempt id is the handle.
+  generateExam: (body: {
+    track_code: string;
+    item_count?: number;
+    seed?: number;
+    mode?: string;
+  }) => post<ExamGenerated>("/exams/generate", body),
+
+  submitAttempt: (attemptId: number, answers: SubmitAnswer[]) =>
+    post<ExamResult>(`/attempts/${attemptId}/submit`, { answers }),
+
+  // Remediation for wrong answers. Only valid after submission: an explanation names
+  // the correct answer, so the backend returns 409 for an in-progress attempt.
+  explanations: (
+    attemptId: number,
+    body: { question_ids?: number[]; force_regenerate?: boolean } = {},
+  ) => post<ExplanationResponse>(`/attempts/${attemptId}/explanations`, body),
 
   // Ask Zia. These never throw for an unavailable tutor -- the backend returns
   // 200 with available:false so the panel can simply hide itself.

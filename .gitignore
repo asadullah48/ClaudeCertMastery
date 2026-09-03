@@ -23,6 +23,8 @@ node_modules/
 .next/
 out/
 next-env.d.ts
+# TypeScript incremental build cache: machine-local and rewritten on every build.
+*.tsbuildinfo
 
 # Editors / OS
 .vscode/

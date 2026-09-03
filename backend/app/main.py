@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import attempts, exams, tracks, zia
+from app.routers import attempts, exams, explanations, tracks, zia
 
 app = FastAPI(
     title=settings.app_name,
@@ -28,6 +28,7 @@ app.add_middleware(
 app.include_router(tracks.router)
 app.include_router(exams.router)
 app.include_router(attempts.router)
+app.include_router(explanations.router)
 app.include_router(zia.router)
 
 
