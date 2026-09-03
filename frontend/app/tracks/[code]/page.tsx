@@ -1,9 +1,30 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { api } from "@/lib/api";
+import { AskZiaPanel } from "@/components/AskZiaPanel";
 import type { Blueprint, Track } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Session 2 scopes Ask Zia to the architect tracks. Those banks are not authored yet,
+ * so the panel is exercised by concept tag here rather than from a review screen.
+ * Session 3 widens this to all four tracks, driven by the mapping table alone.
+ */
+const ZIA_CONCEPTS: Record<string, string[]> = {
+  "CCAR-F": [
+    "multi-agent-supervisor-worker",
+    "prompt-caching-economics",
+    "claude-md-team-configuration",
+    "cli-args-config-flags",
+  ],
+  "CCAR-P": [
+    "enterprise-rag-pipelines",
+    "automated-eval-frameworks",
+    "compliance-cost-latency-tradeoffs",
+    "agent-deployment-runtime",
+  ],
+};
 
 export default async function TrackDetail({
   params,
@@ -118,9 +139,27 @@ export default async function TrackDetail({
         </div>
       </section>
 
+      {ZIA_CONCEPTS[code] && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-xs font-medium uppercase tracking-widest text-[var(--color-muted)]">
+            Ask Zia &mdash; companion tutor
+          </h2>
+          <p className="mb-4 text-sm text-[var(--color-muted)]">
+            Optional. Claude-generated explanations remain the default everywhere; Zia
+            teaches the same concepts from The AI Agent Factory curriculum, with a
+            source link on every answer.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {ZIA_CONCEPTS[code].map((tag) => (
+              <AskZiaPanel key={tag} trackCode={code} conceptTag={tag} label={tag} />
+            ))}
+          </div>
+        </section>
+      )}
+
       <p className="mt-6 rounded-lg border border-[var(--color-edge)] bg-[var(--color-surface)] p-4 text-sm text-[var(--color-muted)]">
-        The exam runner ships in Session 2. The generator, scoring engine and question
-        bank behind this blueprint are complete and tested.
+        The exam runner ships in a later session. The generator, scoring engine and
+        question bank behind this blueprint are complete and tested.
       </p>
     </main>
   );

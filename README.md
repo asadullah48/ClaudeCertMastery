@@ -4,7 +4,7 @@ Exam-prep platform for the four Claude certification tracks. Candidates sit
 blueprint-weighted practice exams, receive a scaled score on the real 100&ndash;1000 band
 with a 720 pass line, get a per-domain mastery breakdown, and drill weak areas.
 
-**Status:** Session 1 (Foundation) complete &mdash; 261 tests passing.
+**Status:** Session 2 complete &mdash; 287 tests passing.
 
 | | |
 |---|---|
@@ -83,10 +83,35 @@ silently point this application at somebody else's database.
 | `CERTMASTERY_ANTHROPIC_API_KEY` | *(unset)* | Enables AI explanations (Session 2) |
 | `CERTMASTERY_CLAUDE_MODEL` | `claude-opus-5` | Model for explanation generation |
 | `CERTMASTERY_CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed origins |
+| `CERTMASTERY_ZIA_MCP_ENDPOINT` | `https://zia-tutor-ai.panaversity.org/mcp` | Zia Tutor AI MCP server |
+| `CERTMASTERY_ZIA_MCP_TOKEN` | *(unset)* | Bearer access token for Ask Zia |
 
 Leaving the API key unset is fully supported: every question carries an authored
 explanation, so results stay useful without it. The AI layer augments rather than
 replaces that.
+
+### Ask Zia (optional companion tutor)
+
+`CERTMASTERY_ZIA_MCP_TOKEN` enables the Ask Zia panel, which teaches the same concepts
+from The AI Agent Factory curriculum with a source link on every answer.
+
+The endpoint is an **OAuth 2.0 protected resource**, not a static-key API. An
+unauthenticated probe returns `401` with an authorization server of
+`https://auth.panaversity.org`. This variable therefore holds a bearer **access token**
+issued by that server, not an API key you can mint locally.
+
+Check your setup at any time:
+
+```bash
+cd backend
+python scripts/verify_zia_connection.py
+# exit 0 usable | 1 reachable but unauthorized | 2 unreachable
+```
+
+**Fallback behaviour.** Unset, expired, unreachable, or a concept the curriculum does not
+cover all produce the same result: the panel renders nothing and the Claude-generated
+explanation continues to serve the question. A tutor outage never surfaces to a candidate
+as a broken screen, and never blocks an exam.
 
 ---
 
@@ -94,7 +119,7 @@ replaces that.
 
 ```bash
 cd backend
-pytest                              # 261 passed
+pytest                              # 287 passed
 pytest -q tests/test_scoring.py     # the scaled-scoring engine alone
 ```
 
@@ -106,6 +131,7 @@ pytest -q tests/test_scoring.py     # the scaled-scoring engine alone
 | `test_exam_generator.py` | Quotas, seed reproducibility, shortfall redistribution |
 | `test_seed_integrity.py` | Per-question validation across all 112 authored items |
 | `test_api.py` | Endpoint behaviour and the generate&rarr;submit round trip |
+| `test_zia.py` | Ask Zia session lifecycle, citations, evidence honesty, every fallback path |
 
 ---
 
@@ -160,6 +186,6 @@ On a 60-item exam: 41 correct &rarr; 705 (fail), 42 correct &rarr; 720 (pass),
 | Session | Scope | Status |
 |---|---|---|
 | 1 &mdash; Foundation | Spec, schema, seed bank, scoring engine, track selector | **Done** |
-| 2 &mdash; Integration | Exam runner UI, Claude explanation engine, prompt caching | Next |
+| 2 &mdash; Integration | Zia Tutor AI MCP companion for CCAR-F/CCAR-P | **Done** |
 | 3 &mdash; Advanced | Progress dashboard, SM-2 flashcards, auth | Planned |
 | 4 &mdash; Validation | CCDV-F/CCAR-F/CCAR-P banks, deployment, hardening | Planned |

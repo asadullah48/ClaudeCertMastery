@@ -45,3 +45,38 @@ export interface Health {
   version: string;
   ai_explanations_enabled: boolean;
 }
+
+/* ---- Ask Zia companion panel ---- */
+
+export interface ZiaCitation {
+  slug: string;
+  title: string | null;
+  heading_path: string;
+  url: string | null;
+}
+
+export interface ZiaExplain {
+  ok: boolean;
+  /** False means the panel hides itself: no mapping, tutor down, or corpus gap. */
+  available: boolean;
+  concept_tag: string | null;
+  concept_label: string | null;
+  matched_by: string | null;
+  explanation: string;
+  citations: ZiaCitation[];
+  follow_up_question: string | null;
+  detail: string;
+}
+
+export interface ZiaSession {
+  ok: boolean;
+  started_new_session: boolean;
+  session_handle: string | null;
+  detail: string;
+}
+
+export interface ZiaCheckAnswer {
+  ok: boolean;
+  recorded: boolean;
+  detail: string;
+}

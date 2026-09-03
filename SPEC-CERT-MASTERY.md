@@ -319,3 +319,101 @@ covers only one track.
 
 Proctoring; payment; certificate issuance; question authoring UI; multi-tenant orgs;
 adaptive/IRT item selection (the generator is blueprint-weighted random, not ability-adaptive).
+
+---
+
+## 13. Zia Tutor AI Integration (Session 2)
+
+An optional companion tutor for the architect tracks, backed by the Zia Tutor AI MCP
+server. The Claude API explanation engine (section 6) remains the default for every
+track; Zia augments it where a concept maps onto a real Agent Factory lesson.
+
+### 13.1 Probe result (2026-09-03)
+
+An unauthenticated MCP Streamable HTTP `initialize` against
+`https://zia-tutor-ai.panaversity.org/mcp` returned:
+
+```
+HTTP/1.1 401 Unauthorized
+www-authenticate: Bearer error="invalid_token",
+    error_description="Authentication required",
+    resource_metadata=".../.well-known/oauth-protected-resource/mcp"
+```
+
+That metadata names `https://auth.panaversity.org` as the authorization server with
+`bearer_methods_supported: ["header"]`.
+
+**Conclusion:** the endpoint is an OAuth 2.0 protected resource, not a static-key API.
+`CERTMASTERY_ZIA_MCP_TOKEN` therefore carries a bearer *access token* issued by that
+authorization server, sent as `Authorization: Bearer <token>`. Full OAuth client
+registration and refresh is out of scope for this session and is the first item of the
+next one.
+
+The curriculum slugs in section 13.3 were confirmed through an already-authenticated
+client against corpus generation 62.
+
+### 13.2 Architecture
+
+| Piece | Location |
+|---|---|
+| `ZiaTutorClient` | `backend/app/services/zia_client.py` |
+| Concept resolution | `backend/app/services/concept_map.py` |
+| Tables | `zia_learner_links`, `concept_curriculum_map` |
+| Routes | `POST /api/zia/session`, `GET /api/zia/explain`, `POST /api/zia/check-answer` |
+| Panel | `frontend/components/AskZiaPanel.tsx` |
+| Probe script | `backend/scripts/verify_zia_connection.py` |
+
+**Failure policy.** Every route returns HTTP 200 with `available: false` when the tutor
+is unconfigured, unreachable, unauthorized, or the corpus abstains. The panel then
+renders nothing. A tutor outage must never surface to a candidate as a broken review
+screen, and "the curriculum does not cover this" is a correct answer rather than a
+malfunction.
+
+**Error classification.** The MCP SDK runs its transport inside an anyio TaskGroup, so a
+plain 401 arrives wrapped in an `ExceptionGroup`. The client flattens nested groups
+before classifying, because reading `str(exc)` on the group loses the status code and
+reports an auth failure as a network failure -- sending an operator to debug DNS instead
+of their token.
+
+**Identity.** `zia_learner_links` maps a Cert Mastery user to a stable Zia learner
+handle. First panel open in a 4-hour visit window calls `begin_session`; later opens call
+`open_student_record`, so the learner is resumed rather than restarted and their mastery
+record stays continuous.
+
+**Evidence honesty.** `check-answer` reports only what the platform observed: the
+candidate's own words as `attempt`, with `evidence="teacher_reported_observed_in_chat"`.
+Cert Mastery never asserts mastery it did not witness, because an unverified claim would
+corrupt the tutor's record of what the learner can actually do.
+
+### 13.3 Concept map (confirmed slugs)
+
+| Track | Concept tag | Agent Factory lesson |
+|---|---|---|
+| CCAR-F | `multi-agent-supervisor-worker` | `claude-agent-sdk-crash-course` |
+| CCAR-F | `prompt-caching-economics` | `build-agents-crash-course` |
+| CCAR-F | `claude-md-team-configuration` | `claude-code-teams-crash-course` |
+| CCAR-F | `cli-args-config-flags` | `agentic-coding-crash-course` (0.7 confidence) |
+| CCAR-P | `enterprise-rag-pipelines` | `postgres-ai-crash-course` |
+| CCAR-P | `automated-eval-frameworks` | `trusting-the-checker-crash-course` |
+| CCAR-P | `compliance-cost-latency-tradeoffs` | `choosing-agentic-architectures-crash-course` |
+| CCAR-P | `agent-deployment-runtime` | `deploying-agents-crash-course` |
+
+Resolution order for a question: explicit `questions.tags` entry, then the question's
+domain code, then nothing (panel hidden). Explicit tags win so one question can point at
+a more specific lesson than its whole domain would.
+
+### 13.4 Decisions
+
+**D-10 - Zia tables are separate from the scoring schema.** Identity mapping stays out
+of `users` and curriculum mapping out of `questions`, so the integration can be removed
+or re-pointed without touching a row scoring depends on.
+
+**D-11 - A concept with no mapping hides the panel, with no generic fallback.** Sending
+a candidate to an unrelated lesson is worse than sending them nowhere.
+
+**D-12 - One MCP session per call rather than a pooled long-lived session.** Traffic is
+bursty and request-scoped, and keeping a session healthy across FastAPI workers is real
+complexity for an optional feature. Correctness over a saved handshake.
+
+**D-13 - `is_mapped=false` rows are stored explicitly.** A recorded coverage gap is
+useful; an omitted row is indistinguishable from an unseeded table.
