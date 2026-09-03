@@ -4,7 +4,15 @@ Exam-prep platform for the four Claude certification tracks. Candidates sit
 blueprint-weighted practice exams, receive a scaled score on the real 100&ndash;1000 band
 with a 720 pass line, get a per-domain mastery breakdown, and drill weak areas.
 
+**Live:** <https://claude-cert-mastery.vercel.app>
+
 **Status:** Session 4 complete &mdash; 333 tests passing.
+
+> **The live link is the frontend only.** The backend is not deployed yet, so the
+> deployed site renders its shell and then reports that it cannot reach the API. Nobody
+> can sit an exam on it. Follow [Setup](#setup) to run both halves locally, which is the
+> only way to use the product today. Wiring the two together is tracked under
+> [Deployment](#deployment).
 
 | | |
 |---|---|
@@ -267,6 +275,36 @@ graded incorrect. Locking input, a grace period or stopping the clock would each
 kinder to a mis-paced sitting, and each would corrupt the one signal the product exists
 to give. The review screen labels an expired sitting, so it is never mistaken for one
 finished in time.
+
+---
+
+## Deployment
+
+| Half | Target | State |
+|---|---|---|
+| Frontend | Vercel &mdash; <https://claude-cert-mastery.vercel.app> | **Live** |
+| Backend | Render (spec section 10) | Not deployed |
+
+The frontend is live and the backend is not, which is why the deployed site cannot load
+a track list. The frontend reads its API base URL from `NEXT_PUBLIC_API_URL`, which still
+points at `http://localhost:8000` &mdash; and from Vercel's servers that resolves to
+Vercel itself, not to your machine.
+
+The backend cannot go on Vercel as it stands: it keeps state in a SQLite file and runs
+Alembic migrations at deploy time, neither of which survives an ephemeral serverless
+filesystem. It needs a host with a persistent disk or a managed Postgres.
+
+Once the backend has a public URL:
+
+```bash
+cd frontend
+npx vercel env add NEXT_PUBLIC_API_URL production   # the deployed backend URL
+npx vercel --prod                                    # rebuild with it baked in
+```
+
+Both steps are required. `NEXT_PUBLIC_*` values are inlined into the bundle at build
+time, so setting the variable without redeploying leaves the live site still calling
+`localhost`.
 
 ---
 
