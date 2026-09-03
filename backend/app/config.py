@@ -34,6 +34,15 @@ class Settings(BaseSettings):
 
     cors_origins: str = "http://localhost:3000"
 
+    # --- Zia Tutor AI MCP (optional companion tutor) ---------------------------
+    # The endpoint is an OAuth 2.0 protected resource (probed 2026-09-03: 401 with
+    # authorization server auth.panaversity.org), so this token is a bearer ACCESS
+    # token, not a static API key. Unset is fully supported: the Ask Zia panel hides
+    # itself and the Claude explanation engine continues to serve every question.
+    zia_mcp_endpoint: str = "https://zia-tutor-ai.panaversity.org/mcp"
+    zia_mcp_token: str | None = None
+    zia_mcp_timeout_seconds: float = 20.0
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
@@ -41,6 +50,15 @@ class Settings(BaseSettings):
     @property
     def ai_explanations_enabled(self) -> bool:
         return bool(self.anthropic_api_key)
+
+    @property
+    def zia_enabled(self) -> bool:
+        """Whether the Ask Zia panel should be offered at all.
+
+        Only reports whether a credential is configured. Whether the tutor actually
+        answers is decided per request, since a token can be present but expired.
+        """
+        return bool(self.zia_mcp_token)
 
 
 settings = Settings()

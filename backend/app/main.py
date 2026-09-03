@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import attempts, exams, tracks
+from app.routers import attempts, exams, tracks, zia
 
 app = FastAPI(
     title=settings.app_name,
@@ -28,6 +28,7 @@ app.add_middleware(
 app.include_router(tracks.router)
 app.include_router(exams.router)
 app.include_router(attempts.router)
+app.include_router(zia.router)
 
 
 @app.get("/health", tags=["meta"])
@@ -38,4 +39,7 @@ def health() -> dict:
         # Lets the frontend show whether AI explanations are live without exposing
         # anything about the key itself.
         "ai_explanations_enabled": settings.ai_explanations_enabled,
+        # Whether the Ask Zia companion panel is offered. Availability per
+        # question still depends on a concept mapping existing.
+        "zia_enabled": settings.zia_enabled,
     }

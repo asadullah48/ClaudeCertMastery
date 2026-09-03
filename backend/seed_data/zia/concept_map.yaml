@@ -1,0 +1,115 @@
+# Concept tag -> Agent Factory lesson mapping.
+#
+# Every slug, title, section anchor and URL below was confirmed against the LIVE Zia
+# Tutor AI MCP on 2026-09-03 (corpus generation 62) via outline_agent_factory and
+# search_agent_factory. Nothing here is inferred from a lesson title.
+#
+# `mapped: false` marks an objective with no real lesson behind it. Those rows are
+# deliberate -- an explicit coverage gap is useful, an omission is indistinguishable
+# from an unseeded table.
+
+concepts:
+  # ---- CCAR-F : Architect, Foundation -----------------------------------------
+  - track_code: CCAR-F
+    concept_tag: multi-agent-supervisor-worker
+    label: Multi-agent supervisor/worker patterns
+    lesson_slug: claude-agent-sdk-crash-course
+    lesson_title: "Build AI Agents with the Claude Agent SDK: A Crash Course"
+    lesson_section: part-3-orchestration-enforcement-and-context/concept-10-when-one-agent-is-not-enough
+    lesson_url: https://agentfactory.panaversity.org/docs/claude-agent-sdk-crash-course
+    search_query: multi-agent supervisor worker orchestration delegating subagents context
+    confidence: 0.95
+    notes: >-
+      Confirmed hit covers subagent context isolation, parallel delegation and per-role
+      tool scoping. choosing-agentic-architectures-crash-course is the secondary source.
+
+  - track_code: CCAR-F
+    concept_tag: prompt-caching-economics
+    label: Prompt caching economics
+    lesson_slug: build-agents-crash-course
+    lesson_title: "Build AI Agents with the OpenAI Agents SDK: A 90-Minute Crash Course"
+    lesson_section: part-6-cost-discipline-routing-by-model-tier
+    lesson_url: https://agentfactory.panaversity.org/docs/build-agents-crash-course
+    search_query: prompt caching cost economics cache hit stable prefix token savings
+    confidence: 0.95
+    notes: >-
+      Strongest passage in the corpus on cache-hit economics and why every turn re-bills
+      the whole history. claude-agent-sdk-crash-course part-6-cost-discipline is the
+      Claude-specific counterpart.
+
+  - track_code: CCAR-F
+    concept_tag: claude-md-team-configuration
+    label: CLAUDE.md team configuration
+    lesson_slug: claude-code-teams-crash-course
+    lesson_title: "Claude Code for Teams: Configuration at Scale"
+    lesson_section: part-4-the-organisation-layer
+    lesson_url: https://agentfactory.panaversity.org/docs/claude-code-teams-crash-course
+    search_query: CLAUDE.md project configuration team shared rules memory hierarchy
+    confidence: 0.95
+    notes: >-
+      Covers the personal-vs-team boundary directly: auto memory is machine-local,
+      committed CLAUDE.md and .claude/rules/ carry team knowledge.
+
+  - track_code: CCAR-F
+    concept_tag: cli-args-config-flags
+    label: CLI arguments and configuration flags
+    lesson_slug: agentic-coding-crash-course
+    lesson_title: "Claude Code and OpenCode: A Crash Course"
+    lesson_section: null
+    lesson_url: https://agentfactory.panaversity.org/docs/agentic-coding-crash-course
+    search_query: CLI arguments configuration flags command line options agent harness
+    confidence: 0.7
+    notes: >-
+      Partial fit. The corpus teaches the harness and its configuration but has no
+      dedicated flag reference; cheatsheets carries the closest quick-reference material.
+
+  # ---- CCAR-P : Architect, Professional ---------------------------------------
+  - track_code: CCAR-P
+    concept_tag: enterprise-rag-pipelines
+    label: Enterprise RAG pipelines
+    lesson_slug: postgres-ai-crash-course
+    lesson_title: "Give Your AI Searchable Context: RAG on Postgres with pgvector"
+    lesson_section: part-2-your-first-rag-built-by-your-agent
+    lesson_url: https://agentfactory.panaversity.org/docs/postgres-ai-crash-course
+    search_query: enterprise RAG pipeline chunking embeddings retrieval pgvector eval
+    confidence: 0.95
+    notes: >-
+      End-to-end pipeline including the four named failure modes. context-layer-crash-course
+      covers scaling from one worker's store to a whole-workforce corpus.
+
+  - track_code: CCAR-P
+    concept_tag: automated-eval-frameworks
+    label: Automated eval frameworks and LLM-as-a-judge
+    lesson_slug: trusting-the-checker-crash-course
+    lesson_title: "Trusting the Checker: An Evals Crash Course"
+    lesson_section: null
+    lesson_url: https://agentfactory.panaversity.org/docs/trusting-the-checker-crash-course
+    search_query: automated evaluation framework LLM as a judge rubric calibration
+    confidence: 0.95
+    notes: >-
+      Dedicated evals course. eval-driven-development-crash-course extends it to
+      eval-driven development for AI employees.
+
+  - track_code: CCAR-P
+    concept_tag: compliance-cost-latency-tradeoffs
+    label: Compliance, cost and latency trade-offs
+    lesson_slug: choosing-agentic-architectures-crash-course
+    lesson_title: "Choosing Agentic Architectures: A Decision-Driven Crash Course"
+    lesson_section: null
+    lesson_url: https://agentfactory.panaversity.org/docs/choosing-agentic-architectures-crash-course
+    search_query: architecture decision cost latency compliance trade-offs choosing
+    confidence: 0.9
+    notes: >-
+      Decision-driven architecture selection. governance-risk-responsible-use-crash-course
+      supplies the compliance half.
+
+  - track_code: CCAR-P
+    concept_tag: agent-deployment-runtime
+    label: Deployment and runtime for agent workforces
+    lesson_slug: deploying-agents-crash-course
+    lesson_title: "Deploy Your Agent Harness to the Cloud: A Multi-Track Crash Course"
+    lesson_section: null
+    lesson_url: https://agentfactory.panaversity.org/docs/deploying-agents-crash-course
+    search_query: deploy agent harness cloud runtime production hosting
+    confidence: 0.9
+    notes: leaving-the-laptop-crash-course covers the runtime concepts.

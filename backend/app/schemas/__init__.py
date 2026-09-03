@@ -6,6 +6,14 @@ from app.schemas.catalog import (
     QuestionOut,
     TrackOut,
 )
+from app.schemas.zia import (
+    ZiaCheckAnswerRequest,
+    ZiaCheckAnswerResponse,
+    ZiaCitation,
+    ZiaExplainResponse,
+    ZiaSessionRequest,
+    ZiaSessionResponse,
+)
 from app.schemas.exam import (
     AttemptOut,
     DomainScoreOut,

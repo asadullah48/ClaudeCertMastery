@@ -1,3 +1,3 @@
-from app.routers import attempts, exams, tracks
+from app.routers import attempts, exams, tracks, zia
 
-__all__ = ["attempts", "exams", "tracks"]
+__all__ = ["attempts", "exams", "tracks", "zia"]

@@ -10,6 +10,7 @@ import enum
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     DateTime,
     ForeignKey,
@@ -123,6 +124,12 @@ class Question(Base):
     static_explanation: Mapped[str] = mapped_column(Text, default="")
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # Optional finer-grained concept tags, used to resolve a question to an Agent
+    # Factory lesson in concept_curriculum_map. Empty is normal: resolution falls back
+    # to the question's domain code, so tagging is an override, not a requirement.
+    tags: Mapped[list[str]] = mapped_column(JSON, default=list)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

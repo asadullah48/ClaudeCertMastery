@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from app.database import Base, SessionLocal, engine  # noqa: E402
 from app.models import (  # noqa: E402
     AnswerOption,
+    ConceptCurriculumMap,
     Domain,
     Question,
     QuestionType,
@@ -221,6 +222,59 @@ def seed_ccao_f(db: Session) -> tuple[int, int]:
     return domain_count, question_count
 
 
+def seed_concept_map(db: Session) -> tuple[int, int]:
+    """Load the Zia concept -> Agent Factory lesson mapping.
+
+    Slugs in the YAML were confirmed against the live MCP; this loader does not call it,
+    so seeding works offline and in CI. Re-confirm with:
+        python scripts/verify_zia_connection.py
+    """
+    path = SEED_DIR / "zia" / "concept_map.yaml"
+    if not path.exists():
+        print("  (no concept map file; skipping)")
+        return 0, 0
+
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    mapped = unmapped = 0
+    by_track: dict[str, int] = {}
+
+    for spec in data.get("concepts", []):
+        row = db.scalar(
+            select(ConceptCurriculumMap).where(
+                ConceptCurriculumMap.track_code == spec["track_code"],
+                ConceptCurriculumMap.concept_tag == spec["concept_tag"],
+            )
+        )
+        if row is None:
+            row = ConceptCurriculumMap(
+                track_code=spec["track_code"], concept_tag=spec["concept_tag"]
+            )
+            db.add(row)
+
+        row.label = spec["label"]
+        row.lesson_slug = spec.get("lesson_slug")
+        row.lesson_title = spec.get("lesson_title")
+        row.lesson_section = spec.get("lesson_section")
+        row.lesson_url = spec.get("lesson_url")
+        row.search_query = (spec.get("search_query") or spec["label"]).strip()
+        row.confidence = float(spec.get("confidence", 1.0))
+        row.notes = (spec.get("notes") or "").strip()
+        # Mapped only if it actually names a lesson. An entry claiming mapped:true with
+        # no slug would show the panel with nowhere to send the candidate.
+        row.is_mapped = bool(spec.get("mapped", True)) and bool(spec.get("lesson_slug"))
+
+        if row.is_mapped:
+            mapped += 1
+        else:
+            unmapped += 1
+        by_track[spec["track_code"]] = by_track.get(spec["track_code"], 0) + 1
+
+    db.flush()
+    for track_code in sorted(by_track):
+        print(f"  {track_code:<8} {by_track[track_code]:>2} concept tags")
+    return mapped, unmapped
+
+
 def seed_placeholder_tracks(db: Session) -> int:
     """Register the three tracks whose question banks are not yet authored."""
     for spec in PLACEHOLDER_TRACKS:
@@ -273,12 +327,17 @@ def main() -> int:
         print("\nRegistering placeholder tracks:")
         placeholders = seed_placeholder_tracks(db)
 
+        print("\nSeeding Zia concept map:")
+        mapped, unmapped = seed_concept_map(db)
+
         seed_dev_user(db)
         db.commit()
 
         print(
             f"\nDone. {1 + placeholders} tracks, {domains} CCAO-F domains, "
-            f"{questions} questions, 1 dev user."
+            f"{questions} questions, {mapped} mapped concepts"
+            + (f" ({unmapped} unmapped)" if unmapped else "")
+            + ", 1 dev user."
         )
     return 0
 

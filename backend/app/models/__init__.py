@@ -16,9 +16,11 @@ from app.models.catalog import AnswerOption, Domain, Question, QuestionType, Tra
 from app.models.explanation import Explanation
 from app.models.flashcard import Flashcard
 from app.models.user import User
+from app.models.zia import ConceptCurriculumMap, ZiaLearnerLink
 
 __all__ = [
     "AnswerOption",
+    "ConceptCurriculumMap",
     "AttemptDomainScore",
     "AttemptItem",
     "AttemptMode",
@@ -31,4 +33,5 @@ __all__ = [
     "QuestionType",
     "Track",
     "User",
+    "ZiaLearnerLink",
 ]
