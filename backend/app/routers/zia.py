@@ -22,11 +22,13 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.config import settings
 from app.database import get_db
-from app.models import Question, Track, User, ZiaLearnerLink
+from app.models import ConceptCurriculumMap, Question, Track, User, ZiaLearnerLink
 from app.schemas import (
     ZiaCheckAnswerRequest,
     ZiaCheckAnswerResponse,
     ZiaCitation,
+    ZiaConcept,
+    ZiaConceptsResponse,
     ZiaExplainResponse,
     ZiaSessionRequest,
     ZiaSessionResponse,
@@ -285,3 +287,41 @@ def check_answer(
     db.commit()
 
     return ZiaCheckAnswerResponse(ok=True, recorded=True)
+
+
+@router.get("/concepts", response_model=ZiaConceptsResponse)
+def list_concepts(
+    track_code: str = Query(...),
+    db: Session = Depends(get_db),
+    client: ZiaTutorClient = Depends(get_zia_client),
+) -> ZiaConceptsResponse:
+    """Concepts on a track that have an Agent Factory lesson behind them.
+
+    This is what makes the panel mapping-driven rather than track-gated (Session 3).
+    The frontend asks which concepts are available and renders accordingly, so widening
+    coverage to a new track is a data change -- a row in concept_curriculum_map -- and
+    needs no frontend edit at all.
+    """
+    rows = db.scalars(
+        select(ConceptCurriculumMap)
+        .where(ConceptCurriculumMap.track_code == track_code)
+        .order_by(ConceptCurriculumMap.concept_tag)
+    ).all()
+
+    return ZiaConceptsResponse(
+        track_code=track_code,
+        enabled=client.configured,
+        concepts=[
+            ZiaConcept(
+                concept_tag=r.concept_tag,
+                label=r.label,
+                lesson_slug=r.lesson_slug or "",
+                lesson_title=r.lesson_title,
+                lesson_url=r.lesson_url,
+                confidence=r.confidence,
+            )
+            for r in rows
+            if r.is_mapped and r.lesson_slug
+        ],
+        unmapped=[r.concept_tag for r in rows if not r.is_mapped],
+    )

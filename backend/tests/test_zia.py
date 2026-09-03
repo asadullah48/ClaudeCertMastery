@@ -375,12 +375,107 @@ class TestCcaoFlowUntouched:
         ).json()
         assert all(i["explanation"].strip() for i in body["items"])
 
-    def test_ccao_questions_have_no_zia_mapping_in_session_2(self, zia_env):
-        # Session 2 is scoped to CCAR-F/CCAR-P. Session 3 widens this deliberately.
+    def test_ccao_questions_gained_a_mapping_in_session_3(self, zia_env):
+        # Session 2 scoped Ask Zia to CCAR-F/CCAR-P and this asserted no CCAO-F mapping.
+        # Session 3 widened it deliberately, so the assertion is inverted rather than
+        # deleted -- the change of intent should be visible in the test history.
         client, _, _ = zia_env
         gen = client.post(
             "/exams/generate", json={"track_code": "CCAO-F", "seed": 5152}
         ).json()
         qid = gen["questions"][0]["id"]
         body = client.get(f"/api/zia/explain?question_id={qid}").json()
-        assert body["available"] is False
+        assert body["available"] is True
+        # Still a companion: the built-in explanation is unaffected by this.
+        assert body["matched_by"] == "domain"
+
+
+class TestSession3Widening:
+    """Ask Zia widened to all four tracks, driven by the mapping table alone."""
+
+    CCAO_DOMAINS = ["PTE", "OEV", "PMS", "WISD", "CKM", "GRR", "TRO"]
+
+    @pytest.mark.parametrize("domain", CCAO_DOMAINS)
+    def test_every_ccao_f_domain_is_mapped(self, zia_env, domain):
+        client, _, _ = zia_env
+        body = client.get(
+            f"/api/zia/explain?track_code=CCAO-F&concept_tag={domain}"
+        ).json()
+        assert body["available"] is True, domain
+
+    def test_every_ccao_f_question_resolves_through_its_domain(self, zia_env):
+        # 112 authored questions carry no tags; they must resolve via domain code, or
+        # widening would have required re-tagging the entire bank.
+        client, _, _ = zia_env
+        gen = client.post(
+            "/exams/generate", json={"track_code": "CCAO-F", "seed": 777}
+        ).json()
+        for q in gen["questions"][:12]:
+            body = client.get(f"/api/zia/explain?question_id={q['id']}").json()
+            assert body["available"] is True, q["external_id"]
+            assert body["matched_by"] == "domain"
+
+    def test_ccdv_f_core_objectives_are_mapped(self, zia_env):
+        client, _, _ = zia_env
+        for tag in [
+            "messages-api",
+            "streaming-and-batch",
+            "tool-schema-design",
+            "agentic-ai-fundamentals",
+            "python-for-ai",
+            "managed-agents",
+        ]:
+            body = client.get(
+                f"/api/zia/explain?track_code=CCDV-F&concept_tag={tag}"
+            ).json()
+            assert body["available"] is True, tag
+
+    def test_an_unmapped_objective_hides_the_panel(self, zia_env):
+        # typescript-sdk is a deliberate, recorded gap: the corpus is Python-centric.
+        client, _, _ = zia_env
+        body = client.get(
+            "/api/zia/explain?track_code=CCDV-F&concept_tag=typescript-sdk"
+        ).json()
+        assert body["ok"] is True and body["available"] is False
+
+    def test_unmapped_objectives_are_reported_not_hidden(self, zia_env):
+        client, _, _ = zia_env
+        body = client.get("/api/zia/concepts?track_code=CCDV-F").json()
+        assert "typescript-sdk" in body["unmapped"]
+        assert all(c["concept_tag"] != "typescript-sdk" for c in body["concepts"])
+
+    @pytest.mark.parametrize(
+        "track,minimum", [("CCAO-F", 7), ("CCDV-F", 6), ("CCAR-F", 4), ("CCAR-P", 4)]
+    )
+    def test_all_four_tracks_expose_mapped_concepts(self, zia_env, track, minimum):
+        client, _, _ = zia_env
+        body = client.get(f"/api/zia/concepts?track_code={track}").json()
+        assert len(body["concepts"]) >= minimum, track
+
+    def test_concepts_endpoint_drives_the_panel(self, zia_env):
+        # The frontend renders from this list, so every concept it advertises must
+        # actually resolve -- otherwise the panel offers a button that hides itself.
+        client, _, _ = zia_env
+        for track in ["CCAO-F", "CCDV-F", "CCAR-F", "CCAR-P"]:
+            listed = client.get(f"/api/zia/concepts?track_code={track}").json()
+            for c in listed["concepts"]:
+                body = client.get(
+                    f"/api/zia/explain?track_code={track}&concept_tag={c['concept_tag']}"
+                ).json()
+                assert body["available"] is True, (track, c["concept_tag"])
+
+    def test_a_track_with_no_mappings_returns_an_empty_list(self, zia_env):
+        client, _, _ = zia_env
+        body = client.get("/api/zia/concepts?track_code=NOPE").json()
+        assert body["concepts"] == [] and body["unmapped"] == []
+
+    def test_claude_engine_remains_the_default_everywhere(self, zia_env):
+        # Widening Ask Zia must not have replaced the built-in explanations.
+        client, _, _ = zia_env
+        gen = client.post(
+            "/exams/generate", json={"track_code": "CCAO-F", "seed": 778}
+        ).json()
+        body = client.post(
+            f"/attempts/{gen['attempt_id']}/submit", json={"answers": []}
+        ).json()
+        assert all(i["explanation"].strip() for i in body["items"])

@@ -8,6 +8,8 @@ from app.schemas.catalog import (
 )
 from app.schemas.zia import (
     ZiaCheckAnswerRequest,
+    ZiaConcept,
+    ZiaConceptsResponse,
     ZiaCheckAnswerResponse,
     ZiaCitation,
     ZiaExplainResponse,

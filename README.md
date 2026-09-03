@@ -4,7 +4,7 @@ Exam-prep platform for the four Claude certification tracks. Candidates sit
 blueprint-weighted practice exams, receive a scaled score on the real 100&ndash;1000 band
 with a 720 pass line, get a per-domain mastery breakdown, and drill weak areas.
 
-**Status:** Session 2 complete &mdash; 287 tests passing.
+**Status:** Session 3 complete &mdash; 305 tests passing.
 
 | | |
 |---|---|
@@ -93,7 +93,9 @@ replaces that.
 ### Ask Zia (optional companion tutor)
 
 `CERTMASTERY_ZIA_MCP_TOKEN` enables the Ask Zia panel, which teaches the same concepts
-from The AI Agent Factory curriculum with a source link on every answer.
+from The AI Agent Factory curriculum with a source link on every answer. It is available
+on all four tracks, driven by the `concept_curriculum_map` table: 22 concept tags, 21
+mapped, 1 recorded as an explicit gap.
 
 The endpoint is an **OAuth 2.0 protected resource**, not a static-key API. An
 unauthenticated probe returns `401` with an authorization server of
@@ -119,7 +121,7 @@ as a broken screen, and never blocks an exam.
 
 ```bash
 cd backend
-pytest                              # 287 passed
+pytest                              # 305 passed
 pytest -q tests/test_scoring.py     # the scaled-scoring engine alone
 ```
 
@@ -187,6 +189,7 @@ On a 60-item exam: 41 correct &rarr; 705 (fail), 42 correct &rarr; 720 (pass),
 |---|---|---|
 | 1 &mdash; Foundation | Spec, schema, seed bank, scoring engine, track selector | **Done** |
 | 2 &mdash; Integration | Zia Tutor AI MCP companion for CCAR-F/CCAR-P | **Done** |
-| 3 &mdash; Advanced | Progress dashboard, SM-2 flashcards, auth | Planned |
-| 4 &mdash; Validation | CCDV-F/CCAR-F/CCAR-P banks, deployment, hardening | Planned |
+| 3 &mdash; Advanced | Ask Zia widened to all four tracks (mapping-driven) | **Done** |
+| 4 &mdash; Advanced | Progress dashboard, SM-2 flashcards, auth | Planned |
+| 5 &mdash; Validation | CCDV-F/CCAR-F/CCAR-P banks, deployment, hardening | Planned |
 "# ClaudeCertMastery" 

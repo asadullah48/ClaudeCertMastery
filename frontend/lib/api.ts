@@ -3,6 +3,7 @@ import type {
   Health,
   Track,
   ZiaCheckAnswer,
+  ZiaConcepts,
   ZiaExplain,
   ZiaSession,
 } from "./types";
@@ -51,6 +52,8 @@ export const api = {
 
   // Ask Zia. These never throw for an unavailable tutor -- the backend returns
   // 200 with available:false so the panel can simply hide itself.
+  ziaConcepts: (trackCode: string) =>
+    get<ZiaConcepts>(`/api/zia/concepts?track_code=${encodeURIComponent(trackCode)}`),
   ziaSession: (goal?: string) => post<ZiaSession>("/api/zia/session", { goal }),
   ziaExplainByConcept: (trackCode: string, conceptTag: string) =>
     get<ZiaExplain>(

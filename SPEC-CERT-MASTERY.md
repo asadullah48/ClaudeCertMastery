@@ -417,3 +417,50 @@ complexity for an optional feature. Correctness over a saved handshake.
 
 **D-13 - `is_mapped=false` rows are stored explicitly.** A recorded coverage gap is
 useful; an omitted row is indistinguishable from an unseeded table.
+
+### 13.5 Widening to all four tracks (Session 3)
+
+Session 2 scoped Ask Zia to CCAR-F and CCAR-P on the assumption that the Agent Factory
+curriculum was agentic-AI-specific. **That assumption was wrong.** Panaversity's PCAO-F
+certification page publishes a Study Guide pairing every CCAO-F domain with an Agent
+Factory crash course:
+
+<https://agentfactory.panaversity.org/docs/certifications/pcao-f>
+
+| Study Guide topic | Lesson |
+|---|---|
+| What Claude is and is not | `what-ai-actually-is-crash-course` |
+| AI Fluency | `ai-fluency-crash-course` |
+| Getting useful output (prompting) | `ai-prompting-2026` |
+| Claude 101 | `claude-chatgpt-101-crash-course` |
+| Extending Claude with skills/connectors | `skills-connectors-crash-course` |
+| Cowork in a browser | `general-agents-web-crash-course` |
+| Fitting AI into a workflow, and fixing it | `workflow-design-diagnosis-crash-course` |
+| What is allowed, and who it affects | `governance-risk-responsible-use-crash-course` |
+| What is buildable without an engineer | `code-you-never-write-crash-course` |
+
+So the panel is no longer track-gated. `GET /api/zia/concepts?track_code=` returns the
+concepts a track has mappings for, and the frontend renders from that list alone.
+**Widening coverage to a new track is now a data change** -- a row in
+`concept_curriculum_map` -- with no frontend edit.
+
+**Concept tags for CCAO-F are the domain codes.** All 112 authored questions therefore
+resolve through their domain with no re-tagging, which is why the widening required no
+change to the question bank.
+
+One domain is not in the published Study Guide: **Output Evaluation & Validation**. It
+was mapped by search instead, onto `problem-solving-crash-course`
+§`principle-3-verification-as-a-core-step`, which covers verification as a workflow step
+and why asking the same model "is this correct?" is not verification -- the exact
+distinction the domain tests.
+
+CCDV-F is best-effort, as the brief allowed. Six objectives map onto real lessons;
+`typescript-sdk` has none, because the corpus teaches this track in Python. It is stored
+with `is_mapped=false` and surfaced in the `unmapped` field rather than forced onto the
+Python course, since sending a candidate somewhere that does not answer their question
+is worse than showing them nothing.
+
+**D-14 - Availability is decided by data, not by code.** The alternative, a hardcoded
+track list in the frontend, would mean every coverage change touches two layers and can
+drift between them. Driving the panel from `concept_curriculum_map` makes the mapping
+table the single source of truth for what Zia can teach.

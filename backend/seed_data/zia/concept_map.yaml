@@ -113,3 +113,181 @@ concepts:
     search_query: deploy agent harness cloud runtime production hosting
     confidence: 0.9
     notes: leaving-the-laptop-crash-course covers the runtime concepts.
+
+  # ---- CCAO-F : AI Operator, Foundation ---------------------------------------
+  # Mapped per Panaversity's PCAO-F Study Guide, which pairs every CCAO-F domain with
+  # an Agent Factory crash course. Tags are the domain codes, so all 112 existing
+  # CCAO-F questions resolve through their domain with no re-tagging.
+  - track_code: CCAO-F
+    concept_tag: PTE
+    label: Prompting & Task Execution
+    lesson_slug: ai-prompting-2026
+    lesson_title: "AI Prompting in 2026: A Crash Course"
+    lesson_section: null
+    lesson_url: https://agentfactory.panaversity.org/docs/ai-prompting-2026
+    search_query: prompting structure context task decomposition getting useful output
+    confidence: 0.95
+    notes: PCAO-F Study Guide, "Getting useful output (prompting)".
+
+  - track_code: CCAO-F
+    concept_tag: OEV
+    label: Output Evaluation & Validation
+    lesson_slug: problem-solving-crash-course
+    lesson_title: "Mode 1 - Problem-Solving Crash Course"
+    lesson_section: principle-3-verification-as-a-core-step
+    lesson_url: https://agentfactory.panaversity.org/docs/problem-solving-crash-course
+    search_query: verifying output hallucination grounding claims against source evidence
+    confidence: 0.9
+    notes: >-
+      Not in the published Study Guide mapping; confirmed by search instead. Principle 3
+      covers verification as a workflow step and why self-checking by the same model is
+      not verification -- the exact distinction this domain tests.
+      what-ai-actually-is-crash-course idea 3 is the secondary source on why confident
+      tone is not evidence.
+
+  - track_code: CCAO-F
+    concept_tag: PMS
+    label: Product & Model Selection
+    lesson_slug: claude-chatgpt-101-crash-course
+    lesson_title: "Claude and ChatGPT 101: A Crash Course"
+    lesson_section: null
+    lesson_url: https://agentfactory.panaversity.org/docs/claude-chatgpt-101-crash-course
+    search_query: choosing between models products surfaces chat versus API when to use which
+    confidence: 0.9
+    notes: PCAO-F Study Guide, "Claude 101".
+
+  - track_code: CCAO-F
+    concept_tag: WISD
+    label: Workflow Integration & Solution Design
+    lesson_slug: workflow-design-diagnosis-crash-course
+    lesson_title: Workflow Design & Diagnosis
+    lesson_section: null
+    lesson_url: https://agentfactory.panaversity.org/docs/workflow-design-diagnosis-crash-course
+    search_query: fitting AI into an existing workflow handoff human in the loop design
+    confidence: 0.95
+    notes: PCAO-F Study Guide, "Fitting AI into a workflow, and fixing it".
+
+  - track_code: CCAO-F
+    concept_tag: CKM
+    label: Configuration & Knowledge Management
+    lesson_slug: skills-connectors-crash-course
+    lesson_title: "Skills & Connectors: Teach AI Once, Connect It to Your Apps"
+    lesson_section: null
+    lesson_url: https://agentfactory.panaversity.org/docs/skills-connectors-crash-course
+    search_query: persistent context custom instructions knowledge sources connectors skills
+    confidence: 0.9
+    notes: PCAO-F Study Guide, "Extending Claude with skills/connectors".
+
+  - track_code: CCAO-F
+    concept_tag: GRR
+    label: Governance, Risk & Responsible Use
+    lesson_slug: governance-risk-responsible-use-crash-course
+    lesson_title: "Governance, Risk & Responsible Use: A Crash Course"
+    lesson_section: null
+    lesson_url: https://agentfactory.panaversity.org/docs/governance-risk-responsible-use-crash-course
+    search_query: governance policy privacy accountability responsible use who it affects
+    confidence: 0.95
+    notes: PCAO-F Study Guide, direct one-to-one match.
+
+  - track_code: CCAO-F
+    concept_tag: TRO
+    label: Troubleshooting & Optimization
+    lesson_slug: workflow-design-diagnosis-crash-course
+    lesson_title: Workflow Design & Diagnosis
+    lesson_section: null
+    lesson_url: https://agentfactory.panaversity.org/docs/workflow-design-diagnosis-crash-course
+    search_query: diagnosing why AI output degraded isolating the cause fixing a workflow
+    confidence: 0.85
+    notes: >-
+      Shares a lesson with WISD; the Study Guide pairs both halves of "fitting AI into a
+      workflow, and fixing it" with this one course. The diagnosis half serves TRO.
+
+  # ---- CCDV-F : Developer, Foundation -----------------------------------------
+  # Best-effort per the brief. The corpus is Python-centric, so Python and API-loop
+  # objectives map strongly while the TypeScript objective has no lesson behind it and
+  # is recorded as an explicit gap rather than forced onto an approximate match.
+  - track_code: CCDV-F
+    concept_tag: messages-api
+    label: Messages API and the request loop
+    lesson_slug: loop-by-hand-crash-course
+    lesson_title: "The Loop by Hand: The Anthropic Messages API"
+    lesson_section: null
+    lesson_url: https://agentfactory.panaversity.org/docs/loop-by-hand-crash-course
+    search_query: Anthropic Messages API request loop by hand tool use turn
+    confidence: 0.95
+    notes: Direct match - the course is built on the Messages API itself.
+
+  - track_code: CCDV-F
+    concept_tag: streaming-and-batch
+    label: Streaming and batch processing
+    lesson_slug: structured-extraction-crash-course
+    lesson_title: "Structured Extraction Pipelines: Schemas, Retries, and Batches"
+    lesson_section: null
+    lesson_url: https://agentfactory.panaversity.org/docs/structured-extraction-crash-course
+    search_query: streaming responses batch processing retries schemas pipeline
+    confidence: 0.85
+    notes: >-
+      Covers batches, schemas and retries strongly. Streaming is treated more lightly
+      here than a dedicated streaming lesson would.
+
+  - track_code: CCDV-F
+    concept_tag: tool-schema-design
+    label: Tool schema design
+    lesson_slug: connector-native-apps
+    lesson_title: "Connector-Native Apps: A Remote MCP Server Whose Customer Is an AI"
+    lesson_section: null
+    lesson_url: https://agentfactory.panaversity.org/docs/connector-native-apps
+    search_query: tool schema design JSON schema parameters describing tools to a model
+    confidence: 0.85
+    notes: >-
+      Tool and connector surface design from the server side.
+      claude-agent-sdk-crash-course covers the client-side tool definition.
+
+  - track_code: CCDV-F
+    concept_tag: agentic-ai-fundamentals
+    label: Agentic AI fundamentals
+    lesson_slug: claude-agent-sdk-crash-course
+    lesson_title: "Build AI Agents with the Claude Agent SDK: A Crash Course"
+    lesson_section: null
+    lesson_url: https://agentfactory.panaversity.org/docs/claude-agent-sdk-crash-course
+    search_query: agent loop tools orchestration context what makes something an agent
+    confidence: 0.9
+    notes: four-layers-crash-course (prompt, context, harness, loop) is the conceptual companion.
+
+  - track_code: CCDV-F
+    concept_tag: python-for-ai
+    label: Python for AI development
+    lesson_slug: python-crash-course
+    lesson_title: "Python in the AI Era: A Crash Course"
+    lesson_section: null
+    lesson_url: https://agentfactory.panaversity.org/docs/python-crash-course
+    search_query: Python for AI development typing async packaging environment
+    confidence: 0.95
+    notes: Phase 1 building block, direct match.
+
+  - track_code: CCDV-F
+    concept_tag: managed-agents
+    label: Managed agents and hosted harnesses
+    lesson_slug: claude-managed-agents-crash-course
+    lesson_title: "Claude Managed Agents: Renting the Harness"
+    lesson_section: null
+    lesson_url: https://agentfactory.panaversity.org/docs/claude-managed-agents-crash-course
+    search_query: managed agents hosted harness sessions server side agent loop
+    confidence: 0.95
+    notes: Direct match.
+
+  - track_code: CCDV-F
+    concept_tag: typescript-sdk
+    label: TypeScript SDK development
+    mapped: false
+    lesson_slug: null
+    lesson_title: null
+    lesson_section: null
+    lesson_url: null
+    search_query: TypeScript SDK node client
+    confidence: 0.0
+    notes: >-
+      EXPLICIT GAP. The Agent Factory corpus teaches the AI-development track in Python;
+      searches for a TypeScript equivalent return no dedicated lesson. Mapping this onto
+      the Python course would send a candidate somewhere that does not answer their
+      question, so the panel stays hidden for this objective until a lesson exists.

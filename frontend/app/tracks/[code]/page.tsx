@@ -2,29 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { api } from "@/lib/api";
 import { AskZiaPanel } from "@/components/AskZiaPanel";
-import type { Blueprint, Track } from "@/lib/types";
+import type { Blueprint, Track, ZiaConcepts } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Session 2 scopes Ask Zia to the architect tracks. Those banks are not authored yet,
- * so the panel is exercised by concept tag here rather than from a review screen.
- * Session 3 widens this to all four tracks, driven by the mapping table alone.
- */
-const ZIA_CONCEPTS: Record<string, string[]> = {
-  "CCAR-F": [
-    "multi-agent-supervisor-worker",
-    "prompt-caching-economics",
-    "claude-md-team-configuration",
-    "cli-args-config-flags",
-  ],
-  "CCAR-P": [
-    "enterprise-rag-pipelines",
-    "automated-eval-frameworks",
-    "compliance-cost-latency-tradeoffs",
-    "agent-deployment-runtime",
-  ],
-};
 
 export default async function TrackDetail({
   params,
@@ -35,6 +16,9 @@ export default async function TrackDetail({
 
   let track: Track;
   let blueprint: Blueprint;
+  // Availability is decided by the mapping table, not by a hardcoded track list, so
+  // widening Ask Zia to a new track is a data change with no frontend edit.
+  let zia: ZiaConcepts | null = null;
   try {
     [track, blueprint] = await Promise.all([
       api.getTrack(code),
@@ -42,6 +26,12 @@ export default async function TrackDetail({
     ]);
   } catch {
     notFound();
+  }
+
+  try {
+    zia = await api.ziaConcepts(code);
+  } catch {
+    zia = null; // tutor unreachable: panel simply does not render
   }
 
   return (
@@ -139,7 +129,7 @@ export default async function TrackDetail({
         </div>
       </section>
 
-      {ZIA_CONCEPTS[code] && (
+      {zia && zia.concepts.length > 0 && (
         <section className="mt-8">
           <h2 className="mb-3 text-xs font-medium uppercase tracking-widest text-[var(--color-muted)]">
             Ask Zia &mdash; companion tutor
@@ -150,10 +140,23 @@ export default async function TrackDetail({
             source link on every answer.
           </p>
           <div className="flex flex-wrap gap-2">
-            {ZIA_CONCEPTS[code].map((tag) => (
-              <AskZiaPanel key={tag} trackCode={code} conceptTag={tag} label={tag} />
+            {zia.concepts.map((c) => (
+              <AskZiaPanel
+                key={c.concept_tag}
+                trackCode={code}
+                conceptTag={c.concept_tag}
+                label={c.label}
+              />
             ))}
           </div>
+
+          {zia.unmapped.length > 0 && (
+            <p className="mt-4 text-xs text-[var(--color-muted)]">
+              No curriculum lesson yet for: {zia.unmapped.join(", ")}. The panel stays
+              hidden for those rather than pointing somewhere that would not answer the
+              question.
+            </p>
+          )}
         </section>
       )}
 

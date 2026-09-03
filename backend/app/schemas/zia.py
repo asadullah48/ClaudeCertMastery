@@ -54,3 +54,23 @@ class ZiaCheckAnswerResponse(BaseModel):
     ok: bool
     recorded: bool
     detail: str = ""
+
+
+class ZiaConcept(BaseModel):
+    """One mapped concept a track can offer Ask Zia for."""
+
+    concept_tag: str
+    label: str
+    lesson_slug: str
+    lesson_title: str | None = None
+    lesson_url: str | None = None
+    confidence: float = 1.0
+
+
+class ZiaConceptsResponse(BaseModel):
+    track_code: str
+    enabled: bool
+    concepts: list[ZiaConcept] = Field(default_factory=list)
+    # Objectives deliberately recorded as having no lesson behind them. Surfaced so a
+    # coverage gap is visible rather than looking like an empty table.
+    unmapped: list[str] = Field(default_factory=list)

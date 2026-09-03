@@ -80,3 +80,20 @@ export interface ZiaCheckAnswer {
   recorded: boolean;
   detail: string;
 }
+
+export interface ZiaConcept {
+  concept_tag: string;
+  label: string;
+  lesson_slug: string;
+  lesson_title: string | null;
+  lesson_url: string | null;
+  confidence: number;
+}
+
+export interface ZiaConcepts {
+  track_code: string;
+  enabled: boolean;
+  concepts: ZiaConcept[];
+  /** Objectives with no lesson behind them, recorded rather than hidden. */
+  unmapped: string[];
+}
