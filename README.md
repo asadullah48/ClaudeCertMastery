@@ -189,3 +189,4 @@ On a 60-item exam: 41 correct &rarr; 705 (fail), 42 correct &rarr; 720 (pass),
 | 2 &mdash; Integration | Zia Tutor AI MCP companion for CCAR-F/CCAR-P | **Done** |
 | 3 &mdash; Advanced | Progress dashboard, SM-2 flashcards, auth | Planned |
 | 4 &mdash; Validation | CCDV-F/CCAR-F/CCAR-P banks, deployment, hardening | Planned |
+"# ClaudeCertMastery" 
