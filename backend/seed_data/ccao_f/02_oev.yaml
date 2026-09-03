@@ -1,0 +1,272 @@
+domain:
+  code: OEV
+  name: Output Evaluation & Validation
+  weight_bps: 2100
+  position: 2
+  description: >-
+    Assessing the quality, accuracy and fitness of Claude output; detecting hallucination
+    and unsupported claims; designing verification steps and human review gates.
+
+questions:
+  - external_id: CCAO-F-OEV-001
+    type: mcq
+    difficulty: 1
+    stem: >-
+      Claude produces a market summary citing three industry reports with titles, authors
+      and page numbers. The operator cannot locate two of them. What is the correct
+      interpretation?
+    options:
+      - {label: A, text: "The reports are behind paywalls and the citations are therefore reliable.", correct: false}
+      - {label: B, text: "Plausible but unverifiable citations must be treated as unsupported until independently confirmed.", correct: true}
+      - {label: C, text: "Specific page numbers indicate the citations were retrieved from a source.", correct: false}
+      - {label: D, text: "Two out of three verifying is an acceptable accuracy rate for published work.", correct: false}
+    explanation: >-
+      Fluent, specific-looking citations are exactly the shape a fabricated reference
+      takes. Detail is not evidence of provenance. Any citation that cannot be traced to
+      a real source must be treated as unsupported.
+
+  - external_id: CCAO-F-OEV-002
+    type: mcq
+    difficulty: 2
+    stem: >-
+      An operator wants to reduce unsupported claims when Claude answers questions over a
+      supplied knowledge base. Which technique most directly enables verification?
+    options:
+      - {label: A, text: "Require each claim to quote the specific passage it rests on, so a reviewer can check it against the source.", correct: true}
+      - {label: B, text: "Ask Claude to state that it is confident in its answer.", correct: false}
+      - {label: C, text: "Request longer answers so more context is included.", correct: false}
+      - {label: D, text: "Ask the same question three times and take the most common answer.", correct: false}
+    explanation: >-
+      Requiring a grounding quote per claim makes verification a mechanical check against
+      the source. Self-reported confidence is not calibrated evidence, length does not
+      imply support, and repeated sampling reproduces consistent errors as readily as
+      correct answers.
+
+  - external_id: CCAO-F-OEV-003
+    type: mcq
+    difficulty: 2
+    stem: >-
+      Which output characteristic should most raise an operator suspicion of hallucination?
+    options:
+      - {label: A, text: "The response hedges and notes that a detail could not be determined from the source.", correct: false}
+      - {label: B, text: "The response supplies confident, highly specific figures on a point the source material does not address.", correct: true}
+      - {label: C, text: "The response is shorter than the operator expected.", correct: false}
+      - {label: D, text: "The response reorders the points relative to the source document.", correct: false}
+    explanation: >-
+      The classic hallucination signature is unwarranted specificity: precise numbers or
+      names on a point the source never covered. Hedging is the model correctly signalling
+      a gap, and brevity or reordering are stylistic, not accuracy, signals.
+
+  - external_id: CCAO-F-OEV-004
+    type: mr
+    difficulty: 2
+    stem: >-
+      Which checks belong in a validation step before Claude-generated financial figures
+      are published externally? Select all that apply.
+    options:
+      - {label: A, text: "Trace every figure back to the underlying source record.", correct: true}
+      - {label: B, text: "Confirm that arithmetic and totals are internally consistent.", correct: true}
+      - {label: C, text: "Have a qualified human reviewer approve the final output.", correct: true}
+      - {label: D, text: "Ask Claude to confirm that its own figures are correct.", correct: false}
+    explanation: >-
+      Source tracing, internal consistency and qualified human sign-off are independent
+      checks. Asking the model to self-certify adds no independent evidence, since the
+      same process that produced an error will tend to reaffirm it.
+
+  - external_id: CCAO-F-OEV-005
+    type: mcq
+    difficulty: 3
+    stem: >-
+      An operator evaluates two prompts by reading ten outputs from each and judging which
+      reads better. A colleague objects that this is not a sound evaluation. What is the
+      strongest basis for that objection?
+    options:
+      - {label: A, text: "Ten samples is always statistically insufficient regardless of method.", correct: false}
+      - {label: B, text: "Judging without predefined criteria on a non-representative sample invites confirmation bias and yields no reproducible result.", correct: true}
+      - {label: C, text: "Prompts can only be compared by their token cost.", correct: false}
+      - {label: D, text: "Human judgement should never be used to evaluate model output.", correct: false}
+    explanation: >-
+      The flaw is method, not sample size alone: with no criteria fixed in advance and no
+      representative input set, reads better is unreproducible and biased toward the
+      prompt the evaluator already favours. Human judgement is valid when it is applied
+      against a defined rubric.
+
+  - external_id: CCAO-F-OEV-006
+    type: mcq
+    difficulty: 2
+    stem: >-
+      A summarisation workflow is evaluated only on whether the summary is fluent and
+      well written. Which failure mode does this evaluation most obviously miss?
+    options:
+      - {label: A, text: "A fluent summary that omits or misstates material facts from the source.", correct: true}
+      - {label: B, text: "A summary that is longer than requested.", correct: false}
+      - {label: C, text: "A summary that uses British rather than American spelling.", correct: false}
+      - {label: D, text: "A summary delivered more slowly than expected.", correct: false}
+    explanation: >-
+      Fluency and faithfulness are independent. A polished summary can drop the one
+      material fact that mattered, and a fluency-only rubric scores it highly. Faithfulness
+      to the source must be evaluated separately.
+
+  - external_id: CCAO-F-OEV-007
+    type: mcq
+    difficulty: 3
+    stem: >-
+      An operator builds a regression set of 50 representative inputs with known-good
+      outputs, run after every prompt change. What is the primary value of this practice?
+    options:
+      - {label: A, text: "It proves the prompt will never fail in production.", correct: false}
+      - {label: B, text: "It detects when a change that fixes one case silently breaks cases that previously worked.", correct: true}
+      - {label: C, text: "It removes the need for human review of production output.", correct: false}
+      - {label: D, text: "It reduces the token cost of each production call.", correct: false}
+    explanation: >-
+      A regression set catches the failure that manual spot-checking misses: a targeted
+      fix that quietly degrades unrelated cases. It bounds risk rather than eliminating
+      it, and it neither replaces human review nor changes per-call cost.
+
+  - external_id: CCAO-F-OEV-008
+    type: mr
+    difficulty: 3
+    stem: >-
+      Which conditions make an automated LLM-as-judge evaluation more trustworthy?
+      Select all that apply.
+    options:
+      - {label: A, text: "The judge is given an explicit rubric with concrete criteria rather than a general quality question.", correct: true}
+      - {label: B, text: "Judge scores are periodically calibrated against human ratings on a sample.", correct: true}
+      - {label: C, text: "The judge evaluates output without knowing which prompt variant produced it.", correct: true}
+      - {label: D, text: "The judge is the same prompt and configuration that generated the output.", correct: false}
+    explanation: >-
+      A concrete rubric, periodic human calibration and blinding to the variant all reduce
+      judge bias and drift. Using the generating configuration as its own judge shares the
+      blind spots that caused the error in the first place.
+
+  - external_id: CCAO-F-OEV-009
+    type: mcq
+    difficulty: 2
+    stem: >-
+      Claude is asked to answer strictly from a supplied document and replies that the
+      document does not contain the requested information. The operator knows the
+      information exists elsewhere. How should this response be judged?
+    options:
+      - {label: A, text: "As a failure, because Claude did not supply the answer.", correct: false}
+      - {label: B, text: "As correct behaviour, because the instruction was to answer only from the supplied document.", correct: true}
+      - {label: C, text: "As a sign the model needs a larger context window.", correct: false}
+      - {label: D, text: "As evidence the document was corrupted.", correct: false}
+    explanation: >-
+      Correct abstention against a grounding constraint is the desired behaviour and should
+      be scored as a success. Penalising it trains the workflow toward exactly the
+      unsupported answers grounding was meant to prevent.
+
+  - external_id: CCAO-F-OEV-010
+    type: mcq
+    difficulty: 3
+    stem: >-
+      An operator observes that a prompt scores well on their evaluation set but performs
+      poorly on live traffic. What is the most likely explanation?
+    options:
+      - {label: A, text: "The evaluation set is not representative of the distribution of real inputs.", correct: true}
+      - {label: B, text: "Evaluation sets are inherently unable to predict live behaviour.", correct: false}
+      - {label: C, text: "The model performs worse at higher request volumes.", correct: false}
+      - {label: D, text: "Live traffic uses a different model by default.", correct: false}
+    explanation: >-
+      A gap between offline and live performance almost always traces to distribution
+      mismatch: the evaluation set is cleaner, shorter or less varied than production
+      input. The fix is to resample the evaluation set from real traffic.
+
+  - external_id: CCAO-F-OEV-011
+    type: mcq
+    difficulty: 2
+    stem: >-
+      Which review design best fits a workflow where Claude drafts responses to routine
+      customer queries and errors carry moderate cost?
+    options:
+      - {label: A, text: "Publish all output automatically with no review.", correct: false}
+      - {label: B, text: "Human review of every draft before it is sent, with sampling used to monitor quality trends over time.", correct: true}
+      - {label: C, text: "Review only the drafts that Claude marks as uncertain.", correct: false}
+      - {label: D, text: "Review a random 1 percent and publish the rest immediately.", correct: false}
+    explanation: >-
+      With moderate error cost and customer-facing output, per-item review before sending
+      is the appropriate gate, with sampling layered on to track drift. Relying on the
+      model to nominate its own uncertain cases misses confident errors, which are the
+      dangerous ones.
+
+  - external_id: CCAO-F-OEV-012
+    type: mr
+    difficulty: 2
+    stem: >-
+      An operator is designing acceptance criteria for a contract-clause extraction task.
+      Which criteria are meaningful and checkable? Select all that apply.
+    options:
+      - {label: A, text: "Every extracted clause must appear verbatim in the source contract.", correct: true}
+      - {label: B, text: "Clauses of the specified types present in the contract must all be captured.", correct: true}
+      - {label: C, text: "The extraction must read professionally.", correct: false}
+      - {label: D, text: "Each extracted clause must record its location in the source document.", correct: true}
+    explanation: >-
+      Verbatim fidelity, completeness against the target clause types, and recorded source
+      location are all objectively verifiable. Reads professionally is a subjective
+      property that cannot be consistently checked and does not bear on extraction
+      correctness.
+
+  - external_id: CCAO-F-OEV-013
+    type: mcq
+    difficulty: 3
+    stem: >-
+      Two prompt variants are compared on the same 200-input set. Variant A is correct on
+      182, variant B on 179. What is the most defensible conclusion?
+    options:
+      - {label: A, text: "Variant A is definitively better and should be deployed immediately.", correct: false}
+      - {label: B, text: "The difference is small enough that it may be noise; examine where each fails before deciding.", correct: true}
+      - {label: C, text: "The variants are identical in quality because both exceed 85 percent.", correct: false}
+      - {label: D, text: "The test is invalid because the variants were run on the same inputs.", correct: false}
+    explanation: >-
+      A three-case gap on 200 inputs is within the range of ordinary variation. The
+      informative step is qualitative: inspecting whether the failures are the same cases
+      or different ones. Running both variants on identical inputs is correct paired
+      design, not a flaw.
+
+  - external_id: CCAO-F-OEV-014
+    type: mcq
+    difficulty: 2
+    stem: >-
+      An operator adds the instruction Do not hallucinate to a prompt and sees no
+      measurable change in unsupported claims. What best explains this?
+    options:
+      - {label: A, text: "The instruction names an outcome rather than specifying a verifiable behaviour or constraint.", correct: true}
+      - {label: B, text: "The instruction must be placed in the first sentence to take effect.", correct: false}
+      - {label: C, text: "Hallucination cannot be influenced by prompting in any way.", correct: false}
+      - {label: D, text: "The instruction needs to be repeated at least three times.", correct: false}
+    explanation: >-
+      Do not hallucinate describes a desired outcome without giving the model a checkable
+      rule. Grounding constraints, required source quotes and a defined not-found response
+      change behaviour because they specify what to actually do.
+
+  - external_id: CCAO-F-OEV-015
+    type: mcq
+    difficulty: 3
+    stem: >-
+      A validation pipeline flags 40 percent of outputs for human review, which the team
+      finds unsustainable. Investigation shows most flags come from one over-broad rule.
+      What is the best response?
+    options:
+      - {label: A, text: "Reduce the review rate to a fixed 10 percent sample regardless of flags.", correct: false}
+      - {label: B, text: "Tighten the over-broad rule so it targets the specific failure it was written for, and re-measure.", correct: true}
+      - {label: C, text: "Remove the validation pipeline entirely.", correct: false}
+      - {label: D, text: "Keep the rule and accept the review burden indefinitely.", correct: false}
+    explanation: >-
+      A rule firing far beyond its intended failure mode is miscalibrated, and precision
+      should be restored at the source. Capping review volume without fixing the rule
+      leaves genuine failures unreviewed while still missing the miscalibration.
+
+  - external_id: CCAO-F-OEV-016
+    type: mcq
+    difficulty: 1
+    stem: >-
+      What does it mean for Claude output to be grounded in a supplied document?
+    options:
+      - {label: A, text: "The output was generated with a low temperature setting.", correct: false}
+      - {label: B, text: "The claims in the output are traceable to and supported by content in that document.", correct: true}
+      - {label: C, text: "The output mentions the document by name.", correct: false}
+      - {label: D, text: "The document was the longest item in the prompt.", correct: false}
+    explanation: >-
+      Grounding is about traceable support: each claim can be tied to specific source
+      content. Naming the document, or any sampling setting, says nothing about whether
+      the claims actually rest on it.

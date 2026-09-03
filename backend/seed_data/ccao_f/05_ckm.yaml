@@ -1,0 +1,264 @@
+domain:
+  code: CKM
+  name: Configuration & Knowledge Management
+  weight_bps: 1200
+  position: 5
+  description: >-
+    Configuring Claude with persistent context, managing shared knowledge sources, custom
+    instructions, and keeping organisational knowledge current and well scoped.
+
+questions:
+  - external_id: CCAO-F-CKM-001
+    type: mcq
+    difficulty: 1
+    stem: >-
+      A team repeatedly pastes the same style guide into every conversation. Which
+      configuration approach removes this repetition?
+    options:
+      - {label: A, text: "Store the style guide as persistent context in a Project so it applies across conversations.", correct: true}
+      - {label: B, text: "Ask Claude to memorise the style guide for future sessions.", correct: false}
+      - {label: C, text: "Shorten the style guide until pasting it is quick.", correct: false}
+      - {label: D, text: "Paste it only in the first message of each week.", correct: false}
+    explanation: >-
+      Persistent shared context is the intended mechanism for material every conversation
+      needs. Claude does not retain content between separate conversations on its own, so
+      asking it to memorise the guide does not work.
+
+  - external_id: CCAO-F-CKM-002
+    type: mcq
+    difficulty: 2
+    stem: >-
+      An organisation notices Claude giving advice based on a policy that was superseded six
+      months ago. The old policy is still present in the shared knowledge source. What is the
+      root cause?
+    options:
+      - {label: A, text: "The knowledge source has no process for retiring outdated material.", correct: true}
+      - {label: B, text: "The model context window is too small.", correct: false}
+      - {label: C, text: "The policy was written in the wrong file format.", correct: false}
+      - {label: D, text: "Claude prefers older documents by default.", correct: false}
+    explanation: >-
+      A knowledge base is only as accurate as its retirement process. If superseded material
+      remains available, it will be used. Currency is a maintenance discipline, not a model
+      capability.
+
+  - external_id: CCAO-F-CKM-003
+    type: mcq
+    difficulty: 2
+    stem: >-
+      Which content is most appropriate to place in custom instructions rather than in an
+      individual prompt?
+    options:
+      - {label: A, text: "The specific document to be analysed today.", correct: false}
+      - {label: B, text: "Standing preferences about tone, format and terminology that apply to all work in this context.", correct: true}
+      - {label: C, text: "A one-off question about a single record.", correct: false}
+      - {label: D, text: "The list of people to email with the result.", correct: false}
+    explanation: >-
+      Custom instructions carry stable, cross-cutting preferences. Task-specific inputs and
+      one-off questions belong in the individual prompt, where they can vary without
+      changing the standing configuration.
+
+  - external_id: CCAO-F-CKM-004
+    type: mr
+    difficulty: 2
+    stem: >-
+      Which practices keep a shared knowledge source reliable over time? Select all that apply.
+    options:
+      - {label: A, text: "A named owner responsible for each document.", correct: true}
+      - {label: B, text: "A review cadence with recorded review dates.", correct: true}
+      - {label: C, text: "A defined process for removing superseded content.", correct: true}
+      - {label: D, text: "Adding every document the organisation produces, for completeness.", correct: false}
+    explanation: >-
+      Ownership, scheduled review and retirement keep a corpus trustworthy. Indiscriminate
+      accumulation degrades it, because volume without curation increases the chance of
+      surfacing stale or contradictory material.
+
+  - external_id: CCAO-F-CKM-005
+    type: mcq
+    difficulty: 3
+    stem: >-
+      Two documents in a shared knowledge source give conflicting guidance on the same
+      question, and Claude answers inconsistently across conversations. What is the most
+      effective remedy?
+    options:
+      - {label: A, text: "Resolve the conflict at the source so a single authoritative version remains.", correct: true}
+      - {label: B, text: "Instruct Claude to pick whichever document is longer.", correct: false}
+      - {label: C, text: "Add a third document summarising both positions.", correct: false}
+      - {label: D, text: "Accept the variation as normal model behaviour.", correct: false}
+    explanation: >-
+      Inconsistent answers here reflect genuinely inconsistent source material. The fix
+      belongs upstream, in the knowledge base. Adding a third document leaves the original
+      contradiction in place and gives the model more conflicting material, not less.
+
+  - external_id: CCAO-F-CKM-006
+    type: mcq
+    difficulty: 2
+    stem: >-
+      An operator adds 400 documents to a Project to ensure nothing is missing. Answer
+      quality drops. What is the most likely explanation?
+    options:
+      - {label: A, text: "Relevant content now competes with a large volume of unrelated material, diluting the context that matters.", correct: true}
+      - {label: B, text: "Projects support a maximum of 100 documents.", correct: false}
+      - {label: C, text: "Document count has no relationship to answer quality.", correct: false}
+      - {label: D, text: "Adding documents automatically disables custom instructions.", correct: false}
+    explanation: >-
+      More context is not automatically better context. Indiscriminate inclusion raises the
+      proportion of irrelevant material and makes it harder for the genuinely relevant
+      passage to drive the answer. Curation beats accumulation.
+
+  - external_id: CCAO-F-CKM-007
+    type: mcq
+    difficulty: 2
+    stem: >-
+      Which approach best supports a team where different functions need different standing
+      context for their Claude work?
+    options:
+      - {label: A, text: "One shared configuration containing the union of every function requirements.", correct: false}
+      - {label: B, text: "Separate Projects per function, each scoped to that function documents and instructions.", correct: true}
+      - {label: C, text: "Each individual keeping their own notes and pasting them manually.", correct: false}
+      - {label: D, text: "Rotating a single configuration on a weekly schedule.", correct: false}
+    explanation: >-
+      Scoping configuration to the function that needs it keeps each context relevant and
+      maintainable. A union configuration burdens every function with everyone else
+      material, which is the dilution problem in another form.
+
+  - external_id: CCAO-F-CKM-008
+    type: mr
+    difficulty: 3
+    stem: >-
+      Which items should be version-controlled when a prompt is used in a production
+      workflow? Select all that apply.
+    options:
+      - {label: A, text: "The prompt text itself.", correct: true}
+      - {label: B, text: "The model and configuration the prompt was validated against.", correct: true}
+      - {label: C, text: "The evaluation set and results used to approve the prompt.", correct: true}
+      - {label: D, text: "The output of every production run.", correct: false}
+    explanation: >-
+      Reproducing and auditing a decision requires the prompt, the configuration it was
+      validated against, and the evidence used to approve it. Production outputs should be
+      logged for traceability, but they are operational records rather than version-
+      controlled configuration.
+
+  - external_id: CCAO-F-CKM-009
+    type: mcq
+    difficulty: 2
+    stem: >-
+      A new team member joins and produces noticeably different Claude output from the rest
+      of the team on the same tasks. What is the most likely configuration cause?
+    options:
+      - {label: A, text: "They are working outside the shared Project and its standing instructions.", correct: true}
+      - {label: B, text: "Their account uses a fundamentally different model.", correct: false}
+      - {label: C, text: "Output naturally varies by user identity.", correct: false}
+      - {label: D, text: "They have not used Claude for long enough for it to learn their style.", correct: false}
+    explanation: >-
+      Divergent output on identical tasks usually means divergent context. Someone working
+      outside the shared configuration lacks the standing instructions and documents that
+      shape everyone else results.
+
+  - external_id: CCAO-F-CKM-010
+    type: mcq
+    difficulty: 3
+    stem: >-
+      An operator wants standing instructions that will not be overridden by casual phrasing
+      in individual prompts. Which formulation is most robust?
+    options:
+      - {label: A, text: "Try to use formal language where possible.", correct: false}
+      - {label: B, text: "State the requirement as a firm constraint with its scope and the handling for exceptions.", correct: true}
+      - {label: C, text: "Repeat the same soft suggestion several times.", correct: false}
+      - {label: D, text: "Write the instruction entirely in capital letters.", correct: false}
+    explanation: >-
+      Robust instructions are specific about what is required, where it applies and what
+      happens at the edges. Hedged phrasing invites override, and repetition or capitals do
+      not add the missing precision.
+
+  - external_id: CCAO-F-CKM-011
+    type: mcq
+    difficulty: 2
+    stem: >-
+      Which is the strongest reason to document why a particular instruction exists in a
+      shared configuration?
+    options:
+      - {label: A, text: "So that a future maintainer can tell whether the instruction is still needed.", correct: true}
+      - {label: B, text: "So that the configuration file reaches a required length.", correct: false}
+      - {label: C, text: "So that Claude follows the instruction more closely.", correct: false}
+      - {label: D, text: "So that the instruction cannot be edited.", correct: false}
+    explanation: >-
+      Undocumented rules accumulate and become untouchable, because nobody knows what
+      removing them would break. Recording the reason is what makes later pruning possible.
+
+  - external_id: CCAO-F-CKM-012
+    type: mr
+    difficulty: 2
+    stem: >-
+      A shared knowledge source will contain material of differing sensitivity. Which
+      controls are appropriate? Select all that apply.
+    options:
+      - {label: A, text: "Restricting access to the source based on who needs it.", correct: true}
+      - {label: B, text: "Excluding material that the task does not require.", correct: true}
+      - {label: C, text: "Recording the sensitivity classification of each document.", correct: true}
+      - {label: D, text: "Including all sensitive material but instructing Claude not to reveal it.", correct: false}
+    explanation: >-
+      Access control, minimisation and classification are the substantive controls. An
+      instruction not to reveal material that has already been made available is not an
+      access control and does not reduce exposure.
+
+  - external_id: CCAO-F-CKM-013
+    type: mcq
+    difficulty: 3
+    stem: >-
+      A configuration has grown over two years to 40 standing instructions, several of which
+      conflict. What is the most appropriate remediation?
+    options:
+      - {label: A, text: "Audit the instructions against their documented purpose, remove those no longer needed, and resolve conflicts explicitly.", correct: true}
+      - {label: B, text: "Add a new instruction telling Claude how to resolve conflicts.", correct: false}
+      - {label: C, text: "Delete all instructions and start again with none.", correct: false}
+      - {label: D, text: "Keep all instructions but reorder them alphabetically.", correct: false}
+    explanation: >-
+      Accumulated configuration needs auditing against purpose so obsolete rules can be
+      retired and genuine conflicts resolved at source. A meta-instruction layers complexity
+      over the contradiction, and wholesale deletion discards rules that are still load-bearing.
+
+  - external_id: CCAO-F-CKM-014
+    type: mcq
+    difficulty: 1
+    stem: >-
+      What is the practical difference between context supplied in a single prompt and
+      context configured at the Project level?
+    options:
+      - {label: A, text: "Prompt context applies to that one request; Project context persists across the conversations in that Project.", correct: true}
+      - {label: B, text: "Project context is processed by a different model.", correct: false}
+      - {label: C, text: "Prompt context is always more accurate.", correct: false}
+      - {label: D, text: "There is no practical difference.", correct: false}
+    explanation: >-
+      The distinction is scope and persistence. Per-prompt context is transient and specific
+      to one request; Project context is standing and shared across the work in that Project.
+
+  - external_id: CCAO-F-CKM-015
+    type: mcq
+    difficulty: 2
+    stem: >-
+      An operator must ensure a specific regulatory definition is used consistently across
+      all outputs from a team. Where does that definition best live?
+    options:
+      - {label: A, text: "In the shared configuration, stated once as the authoritative definition.", correct: true}
+      - {label: B, text: "In each individual prompt, restated by whoever writes it.", correct: false}
+      - {label: C, text: "In a separate document that staff are asked to consult.", correct: false}
+      - {label: D, text: "Left implicit, since the model is likely to know it.", correct: false}
+    explanation: >-
+      Consistency requires a single authoritative statement applied automatically. Restating
+      it per prompt invites drift and omission, and relying on the model general knowledge
+      gives no guarantee it matches the organisation regulatory definition.
+
+  - external_id: CCAO-F-CKM-016
+    type: mcq
+    difficulty: 2
+    stem: >-
+      Which is the best indicator that a shared knowledge source needs pruning?
+    options:
+      - {label: A, text: "Answers increasingly cite material that is peripheral to the question asked.", correct: true}
+      - {label: B, text: "The number of documents has increased since launch.", correct: false}
+      - {label: C, text: "The team has been using the source for over a year.", correct: false}
+      - {label: D, text: "Some documents are longer than others.", correct: false}
+    explanation: >-
+      Peripheral material surfacing in answers is direct evidence that signal is being
+      diluted. Growth, elapsed time and varying document length are not by themselves
+      indicators of a problem.

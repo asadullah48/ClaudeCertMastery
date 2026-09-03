@@ -1,0 +1,275 @@
+domain:
+  code: PTE
+  name: Prompting & Task Execution
+  weight_bps: 1400
+  position: 1
+  description: >-
+    Constructing effective prompts, structuring context, decomposing tasks, and driving
+    Claude to reliable task completion in operator workflows.
+
+questions:
+  - external_id: CCAO-F-PTE-001
+    type: mcq
+    difficulty: 1
+    stem: >-
+      An operator needs Claude to extract invoice totals from 200 supplier emails and
+      return them in a consistent format for import into a finance system. Which
+      prompting approach most reliably produces machine-parseable output?
+    options:
+      - {label: A, text: "Ask Claude to return the totals clearly, then reformat the replies by hand.", correct: false}
+      - {label: B, text: "Specify the exact output schema, give one worked example, and instruct Claude to return only that structure with no commentary.", correct: true}
+      - {label: C, text: "Raise the temperature so Claude explores more formatting options.", correct: false}
+      - {label: D, text: "Send all 200 emails in a single prompt and ask for a summary of the totals.", correct: false}
+    explanation: >-
+      Machine-parseable output requires the schema to be stated explicitly, not implied.
+      A worked example anchors the format, and suppressing commentary stops preamble from
+      breaking a downstream parser. Clearly is not a specification.
+
+  - external_id: CCAO-F-PTE-002
+    type: mcq
+    difficulty: 2
+    stem: >-
+      A prompt contains a policy document, the operator question, and several formatting
+      rules, all run together as one block of prose. Output quality is inconsistent.
+      What is the most effective first change?
+    options:
+      - {label: A, text: "Shorten the policy document until the prompt uses fewer tokens.", correct: false}
+      - {label: B, text: "Delimit the sections with structural markers such as XML-style tags, so document, question and rules are unambiguously separated.", correct: true}
+      - {label: C, text: "Move the question to the very beginning of the prompt.", correct: false}
+      - {label: D, text: "Repeat the formatting rules after every paragraph of the document.", correct: false}
+    explanation: >-
+      When reference material, instructions and the task blend together, the model cannot
+      reliably tell which text is data and which is a directive. Explicit delimiters
+      resolve that ambiguity. Truncating the document loses information without fixing
+      the structural problem.
+
+  - external_id: CCAO-F-PTE-003
+    type: mcq
+    difficulty: 2
+    stem: >-
+      An operator asks Claude to draft a customer refund decision. The reply is fluent
+      but skips the eligibility rules the operator supplied. Which prompt change best
+      addresses this?
+    options:
+      - {label: A, text: "Ask Claude to work through each eligibility rule explicitly and state the finding for each before giving the decision.", correct: true}
+      - {label: B, text: "Instruct Claude to be more careful and thorough.", correct: false}
+      - {label: C, text: "Ask for a shorter answer so there is less room for omission.", correct: false}
+      - {label: D, text: "Resend the same prompt until a reply covers all the rules.", correct: false}
+    explanation: >-
+      Requiring an explicit per-rule finding makes the omission structurally visible and
+      forces the reasoning to be shown rather than skipped. Exhortations such as be
+      thorough give the model no verifiable structure to satisfy.
+
+  - external_id: CCAO-F-PTE-004
+    type: mr
+    difficulty: 2
+    stem: >-
+      Which practices meaningfully improve the reliability of a production prompt that
+      classifies incoming support tickets? Select all that apply.
+    options:
+      - {label: A, text: "Define each category explicitly, including how to handle edge cases and ambiguous tickets.", correct: true}
+      - {label: B, text: "Provide a small set of representative labelled examples covering the harder distinctions.", correct: true}
+      - {label: C, text: "Specify what Claude should output when a ticket fits no category.", correct: true}
+      - {label: D, text: "Leave the category list open so Claude can invent new labels as needed.", correct: false}
+    explanation: >-
+      Reliable classification needs an unambiguous label set, examples that disambiguate
+      the hard boundaries, and a defined fallback for out-of-scope inputs. Allowing
+      invented labels destroys the consistency that makes the output usable downstream.
+
+  - external_id: CCAO-F-PTE-005
+    type: mcq
+    difficulty: 3
+    stem: >-
+      An operator must summarise a 90-page contract and then answer twelve specific
+      questions about it. Which execution strategy is most reliable?
+    options:
+      - {label: A, text: "Ask all twelve questions and request the summary in a single prompt, to save calls.", correct: false}
+      - {label: B, text: "Place the contract in context once, then handle the summary and the questions as separate focused tasks against that same context.", correct: true}
+      - {label: C, text: "Paste one page at a time and ask all twelve questions about each page.", correct: false}
+      - {label: D, text: "Summarise the contract, discard it, then answer the questions from the summary alone.", correct: false}
+    explanation: >-
+      Keeping the source document available while running focused tasks against it gives
+      each answer full fidelity. Answering from a summary alone loses the detail the
+      twelve questions likely depend on, and bundling everything into one request
+      degrades attention across sub-tasks.
+
+  - external_id: CCAO-F-PTE-006
+    type: mcq
+    difficulty: 2
+    stem: >-
+      Which instruction is most likely to reduce unwanted preamble such as Here is the
+      summary you requested?
+    options:
+      - {label: A, text: "Please be concise.", correct: false}
+      - {label: B, text: "Begin your response directly with the first section heading and include no introductory sentence.", correct: true}
+      - {label: C, text: "Do not be verbose.", correct: false}
+      - {label: D, text: "Keep the response under 500 words.", correct: false}
+    explanation: >-
+      Stating exactly how the response must begin is a checkable structural constraint.
+      Concise and not verbose control length, not the presence of preamble, and a word
+      limit does nothing to remove an opening sentence.
+
+  - external_id: CCAO-F-PTE-007
+    type: mcq
+    difficulty: 3
+    stem: >-
+      A multi-step data-cleaning workflow produces good results for simple records but
+      degrades on complex ones. Steps are currently issued as one long instruction list.
+      What is the most appropriate operator response?
+    options:
+      - {label: A, text: "Decompose the workflow into discrete steps, validating the output of each before the next begins.", correct: true}
+      - {label: B, text: "Add the word carefully to the instruction list.", correct: false}
+      - {label: C, text: "Process only simple records and handle complex ones manually.", correct: false}
+      - {label: D, text: "Combine the steps into a single sentence to reduce ambiguity.", correct: false}
+    explanation: >-
+      Degradation that scales with input complexity points to too much being attempted in
+      one pass. Decomposition with validation between steps both improves reliability and
+      localises failures, which a monolithic instruction list cannot do.
+
+  - external_id: CCAO-F-PTE-008
+    type: mr
+    difficulty: 2
+    stem: >-
+      An operator is writing a prompt that will be reused daily by a team. Which elements
+      belong in the reusable prompt rather than being left to each run? Select all that apply.
+    options:
+      - {label: A, text: "The role and task framing that stays constant across runs.", correct: true}
+      - {label: B, text: "The required output format and its constraints.", correct: true}
+      - {label: C, text: "The specific record being processed on a given day.", correct: false}
+      - {label: D, text: "Handling rules for known edge cases the team has encountered.", correct: true}
+    explanation: >-
+      Stable framing, output contract and accumulated edge-case handling belong in the
+      reusable template so every run benefits. The per-run record is the variable input
+      and is supplied at call time, not baked into the template.
+
+  - external_id: CCAO-F-PTE-009
+    type: mcq
+    difficulty: 1
+    stem: >-
+      What is the primary purpose of giving Claude a role such as You are a compliance
+      analyst reviewing vendor contracts at the start of a prompt?
+    options:
+      - {label: A, text: "It grants Claude access to compliance data sources it could not otherwise reach.", correct: false}
+      - {label: B, text: "It sets the vocabulary, priorities and level of scrutiny appropriate to the task.", correct: true}
+      - {label: C, text: "It guarantees the output will be legally accurate.", correct: false}
+      - {label: D, text: "It reduces the number of tokens the request consumes.", correct: false}
+    explanation: >-
+      A role primes the framing: which terms are used, what is treated as important, and
+      how sceptical the analysis is. It confers no data access and no accuracy guarantee,
+      and it slightly increases rather than reduces token count.
+
+  - external_id: CCAO-F-PTE-010
+    type: mcq
+    difficulty: 3
+    stem: >-
+      An operator wants Claude to refuse to answer when supplied source material does not
+      contain the answer, rather than filling the gap. Which prompt element is most effective?
+    options:
+      - {label: A, text: "Ask Claude to be accurate.", correct: false}
+      - {label: B, text: "State that if the answer is not present in the supplied material, Claude must reply with a specified not-found response and nothing else.", correct: true}
+      - {label: C, text: "Ask Claude to note its confidence level at the end of each answer.", correct: false}
+      - {label: D, text: "Supply more source material so a gap is less likely.", correct: false}
+    explanation: >-
+      Giving the model an explicit, named escape hatch makes abstention a defined valid
+      output rather than an implicit failure. A confidence note still produces an answer,
+      and adding material reduces but does not define behaviour for the gap case.
+
+  - external_id: CCAO-F-PTE-011
+    type: mcq
+    difficulty: 2
+    stem: >-
+      An operator notices that placing the task instruction after a very long reference
+      document produces better adherence than placing it before. What does this most
+      likely reflect?
+    options:
+      - {label: A, text: "Instructions placed near the end of a long context are more salient when the model begins generating.", correct: true}
+      - {label: B, text: "The model reads prompts strictly from the bottom upward.", correct: false}
+      - {label: C, text: "Token costs are lower when instructions come last.", correct: false}
+      - {label: D, text: "Reference documents are ignored unless they appear first.", correct: false}
+    explanation: >-
+      With long context, an instruction sitting immediately before generation tends to be
+      followed more consistently. This is a positional salience effect, not a claim that
+      the model reads backwards or that ordering changes cost.
+
+  - external_id: CCAO-F-PTE-012
+    type: mcq
+    difficulty: 2
+    stem: >-
+      A prompt asks Claude to rewrite marketing copy and includes five example rewrites.
+      Output now closely imitates the examples, including a quirk the operator did not
+      intend to teach. What is the most likely cause?
+    options:
+      - {label: A, text: "The examples share an incidental pattern that the model generalised as part of the task.", correct: true}
+      - {label: B, text: "Five examples is below the minimum needed for any few-shot prompting.", correct: false}
+      - {label: C, text: "The model has memorised the examples from training.", correct: false}
+      - {label: D, text: "Examples must always be provided in ascending length order.", correct: false}
+    explanation: >-
+      Few-shot examples teach everything they have in common, including unintended
+      regularities. Diversifying the examples along the dimensions that should vary is the
+      fix. There is no universal minimum count and no length-ordering requirement.
+
+  - external_id: CCAO-F-PTE-013
+    type: mr
+    difficulty: 3
+    stem: >-
+      A prompt reliably produces correct content but in an inconsistent structure, making
+      downstream automation brittle. Which changes directly address structural
+      inconsistency? Select all that apply.
+    options:
+      - {label: A, text: "Define the output structure explicitly, field by field.", correct: true}
+      - {label: B, text: "State what to emit for a field whose value is absent or unknown.", correct: true}
+      - {label: C, text: "Increase the level of detail requested in each field.", correct: false}
+      - {label: D, text: "Provide an example of a fully formed output in the required structure.", correct: true}
+    explanation: >-
+      Structural consistency comes from specifying the shape, covering the missing-value
+      case that otherwise invites improvisation, and anchoring with a concrete example.
+      Asking for more detail per field changes content volume, not structure.
+
+  - external_id: CCAO-F-PTE-014
+    type: mcq
+    difficulty: 2
+    stem: >-
+      An operator processes confidential HR records and wants to reuse one prompt across
+      many records. Which construction best balances reuse against data minimisation?
+    options:
+      - {label: A, text: "Paste all records into the template so the prompt only needs writing once.", correct: false}
+      - {label: B, text: "Keep instructions and format in the reusable template, and supply only the single record under review at call time.", correct: true}
+      - {label: C, text: "Store the records inside the prompt template file for convenience.", correct: false}
+      - {label: D, text: "Remove all record detail and ask Claude to infer typical values.", correct: false}
+    explanation: >-
+      Separating the stable template from the per-call payload gives reuse while exposing
+      only the record actually being processed. Embedding the full corpus in the template
+      needlessly widens data exposure; inferring values defeats the purpose of the task.
+
+  - external_id: CCAO-F-PTE-015
+    type: mcq
+    difficulty: 3
+    stem: >-
+      Claude returns a well-reasoned answer that contradicts a rule stated earlier in a
+      long prompt. Investigation shows the rule appears once, in the middle of a large
+      reference block. What is the best corrective action?
+    options:
+      - {label: A, text: "Move the rule out of the reference block into an explicit constraints section near the task instruction.", correct: true}
+      - {label: B, text: "Instruct Claude to read the entire prompt twice before answering.", correct: false}
+      - {label: C, text: "Delete the reference block entirely.", correct: false}
+      - {label: D, text: "Restate the rule in every option of the question.", correct: false}
+    explanation: >-
+      A binding constraint buried in reference material reads as background, not as a
+      directive. Promoting it into a clearly labelled constraints section adjacent to the
+      task is the structural fix; asking the model to re-read does not change salience.
+
+  - external_id: CCAO-F-PTE-016
+    type: mcq
+    difficulty: 1
+    stem: >-
+      An operator wants Claude to produce a first draft that a human will then edit.
+      Which framing best supports that workflow?
+    options:
+      - {label: A, text: "Ask for a final, publication-ready version so no editing is needed.", correct: false}
+      - {label: B, text: "Ask for a draft and request that assumptions and open questions be flagged inline for the reviewer.", correct: true}
+      - {label: C, text: "Ask for three unrelated drafts and pick one at random.", correct: false}
+      - {label: D, text: "Ask Claude to withhold anything it is uncertain about.", correct: false}
+    explanation: >-
+      In a human-in-the-loop workflow, surfacing assumptions and open questions is what
+      makes review efficient, directing the editor to exactly the points needing judgement.
+      Withholding uncertain material hides the very items a reviewer most needs to see.

@@ -1,0 +1,266 @@
+domain:
+  code: WISD
+  name: Workflow Integration & Solution Design
+  weight_bps: 1600
+  position: 4
+  description: >-
+    Designing where Claude fits into existing processes, handling failure and handoff,
+    integrating with downstream systems, and structuring human-in-the-loop workflows.
+
+questions:
+  - external_id: CCAO-F-WISD-001
+    type: mcq
+    difficulty: 2
+    stem: >-
+      An operator is automating a process where an incorrect output would trigger an
+      irreversible financial transfer. Which integration design is most appropriate?
+    options:
+      - {label: A, text: "Fully automatic execution, with errors corrected after the fact.", correct: false}
+      - {label: B, text: "Claude prepares the transaction, and a human authorises it before execution.", correct: true}
+      - {label: C, text: "Automatic execution for amounts below an arbitrary threshold chosen for convenience.", correct: false}
+      - {label: D, text: "Automatic execution with a daily summary email sent afterwards.", correct: false}
+    explanation: >-
+      Irreversibility is the deciding property. When an error cannot be undone, the human
+      gate must sit before execution, not after. Post-hoc summaries and after-the-fact
+      correction cannot recover an irreversible action.
+
+  - external_id: CCAO-F-WISD-002
+    type: mcq
+    difficulty: 2
+    stem: >-
+      A nightly job calls Claude for each of 5,000 records. Occasionally a call fails due
+      to a transient network error, and the whole job aborts. What is the most appropriate
+      design change?
+    options:
+      - {label: A, text: "Retry transient failures with backoff, and record permanently failed records for follow-up without aborting the run.", correct: true}
+      - {label: B, text: "Reduce the batch to 500 records so failures are less likely.", correct: false}
+      - {label: C, text: "Ignore all errors and continue silently.", correct: false}
+      - {label: D, text: "Run the job twice each night and compare.", correct: false}
+    explanation: >-
+      Bulk pipelines need per-item fault isolation: retry the transient case, quarantine the
+      permanent one, and let the run complete. Silently ignoring errors loses records
+      without anyone knowing, which is worse than aborting.
+
+  - external_id: CCAO-F-WISD-003
+    type: mcq
+    difficulty: 3
+    stem: >-
+      An operator integrates Claude output directly into a downstream system that requires
+      strict JSON. Occasionally the system rejects a payload. What is the most robust
+      design?
+    options:
+      - {label: A, text: "Ask Claude in the prompt to always return valid JSON and rely on that.", correct: false}
+      - {label: B, text: "Validate every payload against the schema before submission, and route failures to a retry or review path.", correct: true}
+      - {label: C, text: "Wrap the downstream call in a try block and discard failures.", correct: false}
+      - {label: D, text: "Have the downstream system accept malformed input.", correct: false}
+    explanation: >-
+      A boundary between systems needs an enforced contract, not a requested one.
+      Schema validation with an explicit failure path makes the guarantee structural.
+      Discarding failures loses data, and loosening the downstream schema pushes the
+      problem further in.
+
+  - external_id: CCAO-F-WISD-004
+    type: mr
+    difficulty: 2
+    stem: >-
+      Which characteristics make a task a strong candidate for Claude automation within an
+      existing workflow? Select all that apply.
+    options:
+      - {label: A, text: "The task is repetitive and consumes significant human time.", correct: true}
+      - {label: B, text: "Output quality can be objectively checked before it is acted upon.", correct: true}
+      - {label: C, text: "Errors are detectable and recoverable within the process.", correct: true}
+      - {label: D, text: "The task requires final legal accountability that cannot be delegated.", correct: false}
+    explanation: >-
+      Good automation candidates are repetitive, verifiable and error-tolerant. Where legal
+      accountability rests on a named human, Claude can prepare and support the work but
+      cannot hold the responsibility.
+
+  - external_id: CCAO-F-WISD-005
+    type: mcq
+    difficulty: 3
+    stem: >-
+      A workflow chains four Claude calls, each consuming the previous output. Quality
+      degrades noticeably by the final step. What is the most likely cause?
+    options:
+      - {label: A, text: "Errors and ambiguities introduced early are carried forward and compounded at each subsequent stage.", correct: true}
+      - {label: B, text: "Four is the maximum number of chained calls that can be made.", correct: false}
+      - {label: C, text: "Each call uses a progressively less capable model by default.", correct: false}
+      - {label: D, text: "Chained calls always share a single token budget.", correct: false}
+    explanation: >-
+      In a chain, every stage inherits its predecessor errors and can amplify them. This is
+      why validation between stages, rather than only at the end, is the standard mitigation
+      for multi-step pipelines.
+
+  - external_id: CCAO-F-WISD-006
+    type: mcq
+    difficulty: 2
+    stem: >-
+      An operator wants to introduce Claude into a claims process without disrupting current
+      operations. Which rollout approach best manages that risk?
+    options:
+      - {label: A, text: "Replace the manual process entirely on a chosen date.", correct: false}
+      - {label: B, text: "Run Claude in parallel with the existing process, compare outputs, and expand scope only as agreement is demonstrated.", correct: true}
+      - {label: C, text: "Deploy to the highest-value claims first to maximise return.", correct: false}
+      - {label: D, text: "Let individual staff adopt it informally as they see fit.", correct: false}
+    explanation: >-
+      Shadow or parallel running produces evidence about real agreement rates before any
+      dependency is created, and it is reversible. Starting with the highest-value cases
+      concentrates risk exactly where it is least acceptable.
+
+  - external_id: CCAO-F-WISD-007
+    type: mcq
+    difficulty: 2
+    stem: >-
+      Which design most reduces the chance that a Claude-assisted workflow silently drifts
+      in quality over months of operation?
+    options:
+      - {label: A, text: "Continuous sampling of production output against fixed quality criteria, with results tracked over time.", correct: true}
+      - {label: B, text: "A thorough one-time evaluation before launch.", correct: false}
+      - {label: C, text: "Documenting the prompt in a shared wiki.", correct: false}
+      - {label: D, text: "Restricting who is allowed to edit the prompt.", correct: false}
+    explanation: >-
+      Drift is detected only by ongoing measurement. A launch-time evaluation certifies a
+      moment, not the following year; documentation and access control help governance but
+      surface no quality signal.
+
+  - external_id: CCAO-F-WISD-008
+    type: mr
+    difficulty: 3
+    stem: >-
+      A Claude-assisted workflow will hand cases to a human when confidence is low. Which
+      elements should the handoff include? Select all that apply.
+    options:
+      - {label: A, text: "The reason the case was escalated.", correct: true}
+      - {label: B, text: "The work already completed and the intermediate findings.", correct: true}
+      - {label: C, text: "The source material needed to make the decision.", correct: true}
+      - {label: D, text: "Only the final recommendation, so the reviewer is not anchored.", correct: false}
+    explanation: >-
+      An effective handoff preserves context so the human resumes rather than restarts:
+      why it escalated, what was already established, and the underlying material. Passing
+      only a recommendation forces duplicate work and hides the basis for review.
+
+  - external_id: CCAO-F-WISD-009
+    type: mcq
+    difficulty: 2
+    stem: >-
+      An operator plans to give Claude access to an internal tool that can modify customer
+      records. Which control is most important to design first?
+    options:
+      - {label: A, text: "Scoping the tool permissions to the minimum actions the task requires.", correct: true}
+      - {label: B, text: "Maximising the number of tools available so the task can be completed flexibly.", correct: false}
+      - {label: C, text: "Ensuring the tool returns results as quickly as possible.", correct: false}
+      - {label: D, text: "Allowing the tool to run without logging to reduce overhead.", correct: false}
+    explanation: >-
+      Least privilege is the first control when an action can change real records: the
+      blast radius of a mistake is bounded by what the tool is permitted to do. Broad
+      permissions and absent logging both enlarge and obscure that radius.
+
+  - external_id: CCAO-F-WISD-010
+    type: mcq
+    difficulty: 3
+    stem: >-
+      A team wants Claude to process documents that arrive irregularly, sometimes 5 per day
+      and sometimes 5,000. Which architectural property matters most?
+    options:
+      - {label: A, text: "A queue-based design that decouples arrival rate from processing rate and handles bursts without loss.", correct: true}
+      - {label: B, text: "Processing every document the instant it arrives, regardless of volume.", correct: false}
+      - {label: C, text: "A fixed daily processing window with a hard capacity limit.", correct: false}
+      - {label: D, text: "Rejecting documents that arrive during a burst.", correct: false}
+    explanation: >-
+      Highly variable arrival rates call for buffering so that a burst becomes a longer
+      queue rather than dropped work. Synchronous instant processing fails under load, and
+      a hard cap or rejection policy loses documents.
+
+  - external_id: CCAO-F-WISD-011
+    type: mcq
+    difficulty: 2
+    stem: >-
+      What is the primary risk of designing a workflow where Claude output feeds another
+      Claude call with no intermediate check?
+    options:
+      - {label: A, text: "An unnoticed error in the first output becomes an unquestioned premise for the second.", correct: true}
+      - {label: B, text: "The second call will always cost more than the first.", correct: false}
+      - {label: C, text: "Claude cannot process its own previous output.", correct: false}
+      - {label: D, text: "Chained calls are not supported by the API.", correct: false}
+    explanation: >-
+      Without a check between stages, a downstream call treats upstream output as
+      established fact and reasons confidently from a flawed premise. This is why
+      validation gates are placed between stages in multi-step designs.
+
+  - external_id: CCAO-F-WISD-012
+    type: mr
+    difficulty: 2
+    stem: >-
+      Which signals should trigger a review of a production Claude workflow? Select all that apply.
+    options:
+      - {label: A, text: "A measurable change in the rate of human corrections.", correct: true}
+      - {label: B, text: "A change in the format or nature of incoming inputs.", correct: true}
+      - {label: C, text: "A change to the model or prompt used by the workflow.", correct: true}
+      - {label: D, text: "A calendar month elapsing with no operational changes.", correct: false}
+    explanation: >-
+      Correction-rate movement, input distribution shifts and configuration changes are all
+      substantive triggers. The mere passage of time without change is a reason for routine
+      sampling, not for a full workflow review.
+
+  - external_id: CCAO-F-WISD-013
+    type: mcq
+    difficulty: 3
+    stem: >-
+      An operator must decide where to place a human review gate in a five-stage pipeline.
+      Which placement principle is soundest?
+    options:
+      - {label: A, text: "At the last stage, since that is where the final output appears.", correct: false}
+      - {label: B, text: "Immediately before the first stage whose effects are external or irreversible.", correct: true}
+      - {label: C, text: "At every stage, regardless of the cost of review.", correct: false}
+      - {label: D, text: "At the stage that runs slowest, to use the waiting time.", correct: false}
+    explanation: >-
+      A review gate is worth most immediately before the point of no return. Reviewing only
+      at the end can come after an external effect has already occurred; reviewing every
+      stage adds cost without proportionate risk reduction.
+
+  - external_id: CCAO-F-WISD-014
+    type: mcq
+    difficulty: 2
+    stem: >-
+      A workflow currently passes a customer full record, including unrelated sensitive
+      fields, into every Claude call. What is the most appropriate change?
+    options:
+      - {label: A, text: "Pass only the fields the task actually requires.", correct: true}
+      - {label: B, text: "Continue passing the full record so context is never missing.", correct: false}
+      - {label: C, text: "Pass the full record but instruct Claude to ignore sensitive fields.", correct: false}
+      - {label: D, text: "Encrypt the record and pass the ciphertext.", correct: false}
+    explanation: >-
+      Data minimisation is applied by not sending the data, not by asking the model to
+      overlook it. An instruction to ignore fields does not reduce exposure, and passing
+      ciphertext the model cannot read defeats the task.
+
+  - external_id: CCAO-F-WISD-015
+    type: mcq
+    difficulty: 2
+    stem: >-
+      Which practice best supports troubleshooting when a production Claude workflow
+      produces an unexpected output weeks later?
+    options:
+      - {label: A, text: "Logging the prompt version, model, inputs and outputs for each run.", correct: true}
+      - {label: B, text: "Logging only the final output to minimise storage.", correct: false}
+      - {label: C, text: "Relying on the operator memory of what the prompt contained.", correct: false}
+      - {label: D, text: "Regenerating the output and assuming it matches the original.", correct: false}
+    explanation: >-
+      Reproducing a past result requires knowing exactly what produced it. Without the
+      prompt version, model and inputs, an investigation cannot distinguish a prompt change
+      from an input change, and regeneration is not guaranteed to reproduce the original.
+
+  - external_id: CCAO-F-WISD-016
+    type: mcq
+    difficulty: 1
+    stem: >-
+      What is the main purpose of a fallback path in a Claude-integrated workflow?
+    options:
+      - {label: A, text: "To ensure the business process can still complete when the Claude step is unavailable or fails.", correct: true}
+      - {label: B, text: "To reduce the cost of successful requests.", correct: false}
+      - {label: C, text: "To improve the quality of successful outputs.", correct: false}
+      - {label: D, text: "To increase the throughput of the pipeline.", correct: false}
+    explanation: >-
+      A fallback exists for continuity: the surrounding process must not halt because one
+      component is unavailable. It is a resilience mechanism and has no bearing on the cost
+      or quality of calls that succeed.
