@@ -316,9 +316,25 @@ time, so setting the variable without redeploying leaves the live site still cal
 | 2 &mdash; Integration | Zia Tutor AI MCP companion for CCAR-F/CCAR-P | **Done** |
 | 3 &mdash; Advanced | Ask Zia widened to all four tracks (mapping-driven) | **Done** |
 | 4 &mdash; Advanced | Exam runner UI, Claude explanation engine | **Done** |
-| 5 &mdash; Advanced | Progress dashboard, SM-2 flashcards, auth + email verification | Planned |
-| 6 &mdash; Validation | CCDV-F/CCAR-F/CCAR-P banks, deployment, hardening | Planned |
+| 5 &mdash; Deployment | Frontend on Vercel | **Done** |
+| &nbsp; | Backend on a persistent host, Postgres, CORS | **In progress** |
+| 6 &mdash; Advanced | Progress dashboard, SM-2 flashcards, auth + email verification | Planned |
+| 7 &mdash; Validation | CCDV-F / CCAR-F / CCAR-P question banks, hardening | Planned |
 
-Known gaps: no live Claude call has been made yet (every AI path is tested against a
-fake), the Batch API fan-out is built but unused, and Zia OAuth is blocked on a
-credential.
+Deployment is split across two rows because it is genuinely half done, and a single
+"Planned" would have contradicted the [Deployment](#deployment) section above. The
+frontend is live; the backend is not, which is the one thing standing between the
+deployed site and a usable product.
+
+### Known gaps
+
+- **The deployed site cannot load data.** Frontend only &mdash; see
+  [Deployment](#deployment). Run both halves locally to use the product.
+- **No live Claude call has been made.** Every AI path is tested against a fake, so the
+  `output_config` + `output_format` pairing and the real cache hit rate are unverified
+  against the API.
+- **Batch fan-out is built but unused.** `build_batch_requests` shapes the 50%-cost
+  payload; nothing submits it yet.
+- **Zia OAuth is blocked** on a credential from `auth.panaversity.org`.
+- **Three of four tracks have no questions.** CCDV-F, CCAR-F and CCAR-P publish their
+  blueprint and resolve their Zia concepts, but no exam can be sat on them.
