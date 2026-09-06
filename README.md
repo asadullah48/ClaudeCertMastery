@@ -338,3 +338,12 @@ deployed site and a usable product.
 - **Zia OAuth is blocked** on a credential from `auth.panaversity.org`.
 - **Three of four tracks have no questions.** CCDV-F, CCAR-F and CCAR-P publish their
   blueprint and resolve their Zia concepts, but no exam can be sat on them.
+
+---
+
+## Author
+
+Built by **Asadullah Shafique**.
+
+🔗 Explore my portfolio showcasing Agentic AI projects and real-world applications:
+[asadullahshafique-devunity.vercel.app](https://asadullahshafique-devunity.vercel.app)
