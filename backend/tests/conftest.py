@@ -9,7 +9,19 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from app.main import limiter as _rate_limiter  # noqa: E402
 from app.services.blueprint import DomainWeight  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _disable_rate_limiting():
+    """Gate B1A added a global per-IP rate limit (main.py). Every TestClient in this
+    suite resolves to the same client address, so the full run would trip a
+    production-appropriate limit well before finishing. Real traffic is unaffected --
+    this only toggles the limiter's enabled flag for the test process.
+    """
+    _rate_limiter.enabled = False
+    yield
 
 # The published CCAO-F blueprint. Used across suites so that a change to the real
 # blueprint surfaces as a single failing constant rather than seven scattered ones.

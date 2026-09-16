@@ -1,4 +1,4 @@
-import { api, API_URL } from "@/lib/api";
+import { api } from "@/lib/api";
 import { TrackCard } from "@/components/TrackCard";
 import type { Track } from "@/lib/types";
 
@@ -11,7 +11,10 @@ export default async function Home() {
   try {
     tracks = await api.listTracks();
   } catch {
-    error = `Could not reach the API at ${API_URL}.`;
+    // Never surface the internal API URL (e.g. a localhost default) to a real
+    // visitor -- it is meaningless to them and looks like a broken deployment
+    // rather than a temporary outage.
+    error = "Could not reach the exam platform right now. Please try again in a few minutes.";
   }
 
   return (
@@ -31,12 +34,20 @@ export default async function Home() {
       {error ? (
         <div className="rounded-lg border border-[var(--color-warn)]/40 bg-[var(--color-warn)]/5 p-5">
           <p className="text-sm font-medium text-[var(--color-warn)]">{error}</p>
-          <p className="mt-2 text-sm text-[var(--color-muted)]">
-            Start the backend, then reload:
+          {process.env.NODE_ENV === "development" && (
+            <>
+              <p className="mt-2 text-sm text-[var(--color-muted)]">
+                Start the backend, then reload:
+              </p>
+              <pre className="mt-3 overflow-x-auto rounded bg-[var(--color-ink)] p-3 font-mono text-xs">
+                cd backend{"\n"}uvicorn app.main:app --reload
+              </pre>
+            </>
+          )}
+          <p className="mt-3 text-xs text-[var(--color-muted)]">
+            The exam runner, scaled scoring and AI remediation are not reachable while
+            this message is showing.
           </p>
-          <pre className="mt-3 overflow-x-auto rounded bg-[var(--color-ink)] p-3 font-mono text-xs">
-            cd backend{"\n"}uvicorn app.main:app --reload
-          </pre>
         </div>
       ) : (
         <>
@@ -48,14 +59,13 @@ export default async function Home() {
               <TrackCard key={track.code} track={track} />
             ))}
           </div>
+          <footer className="mt-12 border-t border-[var(--color-edge)] pt-6 text-xs text-[var(--color-muted)]">
+            The exam runner, scaled scoring and AI remediation are live. CCAO-F is the
+            seeded track; the other three publish their blueprint while their question
+            banks are authored.
+          </footer>
         </>
       )}
-
-      <footer className="mt-12 border-t border-[var(--color-edge)] pt-6 text-xs text-[var(--color-muted)]">
-        The exam runner, scaled scoring and AI remediation are live. CCAO-F is the
-        seeded track; the other three publish their blueprint while their question banks
-        are authored.
-      </footer>
     </main>
   );
 }

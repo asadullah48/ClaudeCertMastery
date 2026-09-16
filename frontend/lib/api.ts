@@ -49,7 +49,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 }
 
 export const api = {
-  health: () => get<Health>("/health"),
+  health: () => get<Health>("/health/ready"),
   listTracks: () => get<Track[]>("/tracks"),
   getTrack: (code: string) => get<Track>(`/tracks/${code}`),
   getBlueprint: (code: string) => get<Blueprint>(`/tracks/${code}/blueprint`),

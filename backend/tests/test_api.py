@@ -56,13 +56,18 @@ def client(tmp_path_factory):
 
 
 class TestHealth:
-    def test_health_reports_ok(self, client):
-        r = client.get("/health")
+    def test_health_live_reports_ok(self, client):
+        r = client.get("/health/live")
         assert r.status_code == 200
         assert r.json()["status"] == "ok"
 
-    def test_health_reports_ai_availability(self, client):
-        assert "ai_explanations_enabled" in client.get("/health").json()
+    def test_health_ready_reports_ok(self, client):
+        r = client.get("/health/ready")
+        assert r.status_code == 200
+        assert r.json()["status"] == "ok"
+
+    def test_health_ready_reports_ai_availability(self, client):
+        assert "ai_explanations_enabled" in client.get("/health/ready").json()
 
 
 class TestTracks:
