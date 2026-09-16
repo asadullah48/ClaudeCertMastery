@@ -57,7 +57,7 @@ export default async function TrackDetail({
         {[
           ["Items", String(track.item_count)],
           ["Duration", `${track.duration_minutes} min`],
-          ["Pass score", `${track.pass_scaled_score}/1000`],
+          ["Practice pass score", `${track.pass_scaled_score}/1000`],
           ["Valid for", `${track.validity_months} months`],
         ].map(([label, value]) => (
           <div

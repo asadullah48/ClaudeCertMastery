@@ -24,7 +24,7 @@ function ScoreHeadline({ result, expired }: { result: ExamResult; expired: boole
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <div>
           <div className="text-xs uppercase tracking-widest text-[var(--color-muted)]">
-            Scaled score
+            Practice score
           </div>
           <div className="mt-1 flex items-baseline gap-2">
             <span className="text-4xl font-semibold tabular-nums">{scaled_score}</span>

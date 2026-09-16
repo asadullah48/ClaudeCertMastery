@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SiteFooter } from "@/components/SiteFooter";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,7 +14,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen antialiased">
-        <div className="mx-auto max-w-5xl px-6 py-10">{children}</div>
+        <div className="mx-auto max-w-5xl px-6 py-10">
+          {children}
+          <SiteFooter />
+        </div>
       </body>
     </html>
   );

@@ -23,7 +23,8 @@ export default async function Home() {
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--color-muted)]">
           Blueprint-weighted practice exams for the Claude certification tracks.
           Every exam mirrors the published domain weighting, and results are reported
-          on the real 100&ndash;1000 scale with a 720 pass line.
+          as a Practice score on a 100&ndash;1000 scale &mdash; ClaudeCertMastery&apos;s
+          own estimated-readiness model, not an official Anthropic score.
         </p>
       </header>
 

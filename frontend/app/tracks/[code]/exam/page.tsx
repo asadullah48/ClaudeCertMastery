@@ -57,9 +57,9 @@ export default function ExamPage({ params }: { params: Promise<{ code: string }>
       <header className="mt-4 mb-8">
         <h1 className="text-2xl font-semibold tracking-tight">Start a practice exam</h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--color-muted)]">
-          Items are drawn to match the published blueprint weighting, so the mix mirrors
-          the real exam rather than whichever domains happen to have the most questions
-          authored. Your score is reported on the 100&ndash;1000 scale.
+          Items are drawn to match the published blueprint weighting, rather than
+          whichever domains happen to have the most questions authored. Your Practice
+          score is reported on ClaudeCertMastery&apos;s 100&ndash;1000 scale.
         </p>
       </header>
 
@@ -97,7 +97,7 @@ export default function ExamPage({ params }: { params: Promise<{ code: string }>
         <ul className="space-y-1.5 leading-relaxed">
           <li>The timer runs on wall-clock time, so leaving the tab does not pause it.</li>
           <li>You can flag questions and revisit them in any order before submitting.</li>
-          <li>Multi-response items are all-or-nothing, exactly as on the real exam.</li>
+          <li>Multi-response items are all-or-nothing for the practice score.</li>
           <li>
             Submission is final. Remediation appears on the review screen afterwards.
           </li>
