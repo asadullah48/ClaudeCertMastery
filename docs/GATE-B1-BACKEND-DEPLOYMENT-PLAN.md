@@ -264,6 +264,45 @@ This confirms Section 13B's `eco-micro`/`eco-small` pricing was already correct.
 
 ---
 
+## 13D. Gate B1B Phase 3 — `bazaar` deleted by the founder; Free Instance strategy added (this session)
+
+**The founder manually deleted the `bazaar` Koyeb app.** Confirmed read-only via `koyeb apps list` and `koyeb services list`: neither `bazaar` nor `bazaar/backend` appear any longer. `level-hazel/cmt-stitching-system` is unchanged — still present, still `UNHEALTHY`, still undeployed (`active_deployment_id: ""`). Newly checked this session: `level-hazel`'s configured instance type is `nano` (a paid Standard instance, region `was`), **not** `free` — so it was never competing for the organization's single free-instance slot. This confirms `bazaar` was the sole occupant of that slot, and its deletion should free it. No `claude-cert-mastery` app or service exists. `koyeb instances list` returned empty (no instances running anywhere in the org). No unexpected app, service, or deployment was found.
+
+**Free-instance availability is inferred, not directly confirmed.** No Koyeb CLI command reports numeric quota usage (`koyeb organizations describe` is not a supported subcommand — only `list`/`switch` exist). The conclusion above is reasoned from elimination (bazaar was the only `type: free` resource; it is now gone; nothing else claims that type), not read from a quota API. **Treat this as very likely true, confirmed only at the moment `--instance-type free` is actually attempted** — Koyeb will reject the create request immediately (and harmlessly) if the slot is somehow still unavailable.
+
+**Revised deployment strategy — two stages, not one:**
+
+| Stage | Purpose | Instance | Listed cost | Production-ready? |
+|---|---|---|---|---|
+| **1. Initial validation** | Prove the backend deploys, connects to a real Postgres, and serves `/health/live` and `/health/ready` correctly | `free` (0.1 vCPU, 512MB) | **$0** | **No — see limitations below** |
+| **2. Commercial beta** | Real student traffic | `eco-small` (0.5 vCPU, 1GB) | ~$5.36/month (not a hard ceiling — Section 13C) | Yes, at the scale reasoned through in Section 9 |
+
+**The Free Instance must never be described as production-ready.** Its documented limitations (Section 6, restated here because they now directly gate Stage 1):
+- **512MB RAM / 0.1 vCPU** — thin headroom for FastAPI + SQLAlchemy + Pydantic + slowapi under any real concurrent load; adequate only for a single-user connectivity smoke test, not multiple simultaneous students.
+- **Scales to zero after 1 hour of no traffic, unconditionally** (Section 13C's Eco-instance scale-to-zero ambiguity does not apply here — the Free instance's scale-to-zero behavior *is* directly documented by Koyeb). Every cold start after that costs real wake latency — acceptable for a validation smoke test, unacceptable for a real user waiting on a page load.
+- **Single instance, no autoscaling, no redundancy** — one process, one failure domain.
+- **Region restricted to Frankfurt or Washington D.C. only** — the Free tier does **not** support Singapore, so Stage 1 cannot validate the Section 13C Singapore/Neon pairing; it can only rehearse the Frankfurt fallback pairing's connectivity shape (region choice for Stage 1 is otherwise inconsequential, since it will be torn down or upgraded before real traffic, not left running as the production region).
+
+**Stage 1 proposed command (not run — same secret-safety rules as Section 14.4 apply in full):**
+```
+koyeb secrets create certmastery-database-url --value-from-stdin
+
+koyeb apps init claude-cert-mastery \
+  --git github.com/asadullah48/ClaudeCertMastery \
+  --git-branch main \
+  --git-workdir backend \
+  --instance-type free \
+  --regions fra \
+  --env CERTMASTERY_DATABASE_URL={{secret.certmastery-database-url}} \
+  --env CERTMASTERY_CORS_ORIGINS=https://claude-cert-mastery.vercel.app \
+  --checks 8000:http:/health/live
+```
+This differs from Section 14.4's commands only in `--instance-type free` in place of `eco-small` — everything else (secret handling, health-check path, deliberately-absent AI env vars, git-workdir) is identical. **Upgrading Stage 1 to Stage 2 later is a `koyeb services update` on `--instance-type` and, if the Singapore condition in Section 13C is met, `--regions`** — not a rebuild from scratch.
+
+This section does not authorize creating anything. No Neon project, Koyeb secret, app, service, deployment, or billing change has been made this session.
+
+---
+
 ## 14. Koyeb CLI operational procedure (documented only — nothing in this section has been run)
 
 Per the founder's Koyeb operational policy: the Koyeb CLI is the primary interface for deployment, the same way the Vercel CLI was used for the frontend. This section documents the exact commands for a *later, separately approved* deployment step. **No command in this section was executed this pass.** No install, no auth, no app/service/domain/secret/database/deployment was created.
