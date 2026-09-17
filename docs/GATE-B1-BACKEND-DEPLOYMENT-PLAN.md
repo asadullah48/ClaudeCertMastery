@@ -191,6 +191,79 @@ Deployment to Koyeb, creation of a Koyeb or Neon account/project, setting `CERTM
 
 ---
 
+## 13B. Gate B1B correction — instance type, region, and Neon pairing (evidence-based update)
+
+This section corrects and refines Section 9's recommendation with evidence gathered directly from the live Koyeb account and further research, superseding the generic `--instance-type free` assumption implicit in the earlier proposed command.
+
+**The organization's one Free Instance is already in use.** The `agenticengineer` organization's existing `bazaar/backend` service occupies the account's single free instance (confirmed via its deployment record: `instance_types: type: free`). `claude-cert-mastery` must use a **paid** Eco instance instead — `bazaar/backend` was not modified to make room for this.
+
+**Instance size — recommend `eco-small` (1GB), not `eco-micro` (512MB):**
+
+| | `eco-micro` | `eco-small` |
+|---|---|---|
+| RAM | 512MB | 1GB |
+| Max monthly list price (24/7, no sleep) | **$2.68/mo** | **$5.36/mo** |
+| Available regions | Frankfurt, Washington D.C. | Frankfurt, Washington D.C. |
+
+For a FastAPI + SQLAlchemy + Pydantic + Anthropic-SDK + slowapi stack, 512MB leaves thin headroom once the interpreter, imports, and SQLAlchemy's connection pool are accounted for — workable, but closer to the edge than a "commercial beta" should sit. The cost delta between the two tiers is $2.68/month — trivial against the reliability value of avoiding an OOM-triggered restart during real student usage. **Recommendation: `eco-small`, prioritizing reliability over the smaller tier's marginal saving, as instructed.**
+
+**Real-world cost is likely much lower than the ceiling above.** Koyeb's paid Eco instances support **Deep Sleep scale-to-zero, billed at $0 while fully idle** (confirmed via Koyeb's own docs: billing is per-second, and a scaled-to-zero instance has zero active seconds to bill). The $2.68/$5.36 figures are the ceiling for continuous 24/7 use with no idle time — a low-traffic small-cohort exam-prep app will realistically spend much of each day asleep, so actual monthly cost should land well under that ceiling. (Light Sleep — faster ~200ms wake — is free during its current preview and will cost 15% of the normal rate once it reaches general availability; not required for this stage.)
+
+**Region — recommend Frankfurt (`fra`), not Washington D.C. (`was`).** The existing `bazaar` service uses `was`, but that's an unrelated project and not a reason to default to the same region here. For users in Pakistan, Frankfurt is geographically much closer than the US East Coast, meaningfully reducing API latency. **Caveat:** `was` was empirically confirmed as a valid region code via `bazaar`'s live deployment record on this account; `fra` is the expected code based on Koyeb's documented region list and naming convention, but has not been empirically exercised on this specific account — worth a quick confirmation at actual creation time.
+
+**Neon pairs cleanly with this choice:** Neon supports **AWS `eu-central-1` (Frankfurt)** as a real, current region — confirmed directly (Neon's own changelog references ongoing infrastructure expansion there through mid-to-late 2026). Pairing Koyeb `fra` with a Neon Frankfurt project keeps compute and database in the same metro area, minimizing cross-region query latency on top of the Pakistan-latency win.
+
+**Secret handling — exact syntax, no raw values:**
+- Create the secret without ever putting its value on the command line, in shell history, or in any log: `koyeb secrets create certmastery-database-url --value-from-stdin` (the CLI reads the value from stdin — the founder pastes it interactively at that prompt, never Claude).
+- Reference it in the service definition with: `--env CERTMASTERY_DATABASE_URL={{secret.certmastery-database-url}}` — this is Koyeb's own documented secret-reference syntax (confirmed via `koyeb apps init --help`), not a placeholder that could be mistaken for a literal value if run as-is.
+
+**Billing protection — alerts only, no hard cap (residual risk restated):** No CLI command exists for configuring billing alerts (confirmed via `koyeb organizations --help` — no billing subcommand). This remains **dashboard-only**: set the lowest practical budget threshold in Koyeb's billing settings so the existing 80%/100% alert points fire early and cheaply (e.g., a $5-10 threshold, not a large one). These are **alerts, not a hard spending cap** — Koyeb can still charge beyond the threshold before anyone reacts. **Immediate pause command for an unexpected cost event:** `koyeb services pause claude-cert-mastery` (stops billing-relevant compute immediately, fully reversible, does not delete the service).
+
+---
+
+## 13C. Gate B1B Phase 2 — corrected read-only investigation (this session)
+
+This section corrects one overconfident claim from Section 13B and adds evidence gathered directly from the live Koyeb CLI (`--help` output) and Koyeb/Neon's current public documentation. Nothing was created, modified, or deleted; `bazaar/backend` and `level-hazel/cmt-stitching-system` were only read (`koyeb apps list`, `koyeb services list`, `koyeb services describe`, `koyeb deployments describe`), never touched.
+
+**Correction — Eco instance scale-to-zero is unresolved, not confirmed.** Section 13B stated Eco instances "support Deep Sleep scale-to-zero, billed at $0 while fully idle (confirmed via Koyeb's own docs)." Re-checking Koyeb's current docs this session produced **conflicting** results: the dedicated Scale-to-Zero doc states Light Sleep/Deep Sleep apply "on the `Starter`, `Pro`, `Scale`, or `Enterprise` plan" to **CPU instances**, without mentioning Eco instances by name, while a third-party aggregator claims "both instance types benefit from the scale-to-zero feature." Koyeb's own original Eco-instance announcement blog (older) says scale-to-zero for Eco was, at that time, still "next features in line," not yet shipped. **No single authoritative Koyeb page directly and unambiguously confirms scale-to-zero for Eco instances specifically as of this session.** Given the founder's capital-preservation constraint, **the safe planning assumption is now the full flat monthly ceiling** (`eco-small` = $5.36/mo) as the *expected*, not worst-case, cost — not an idle-time discount. This should be confirmed directly in the Koyeb dashboard's instance-selection UI (which typically shows a scale-to-zero indicator per instance type) or with Koyeb support before assuming any idle-time saving.
+
+**New — exact instance specs and pricing, confirmed from Koyeb's instances reference doc:**
+
+| Type | vCPU | RAM | Monthly price |
+|---|---|---|---|
+| `free` | 0.1 | 512MB | $0 (scales to zero after 1h no traffic — confirmed) |
+| `eco-nano` | 0.1 | 256MB | $1.61 |
+| `eco-micro` | 0.25 | 512MB | $2.68 |
+| `eco-small` | 0.5 | 1GB | $5.36 |
+| `nano` (standard) | 0.25 | 256MB | $2.68 |
+| `micro` (standard) | 0.5 | 512MB | $5.36 |
+| `small` (standard) | 1 | 1GB | $10.71 |
+
+This confirms Section 13B's `eco-micro`/`eco-small` pricing was already correct. The recommendation stands: **`eco-small`** — **approximately $5.36/month listed cost for one continuously running eco-small instance; this is not a hard spending ceiling.**
+
+**Billing is a notification system, not an enforcement system — restated plainly:**
+- Koyeb's billing alerts (80%/100% of a self-set dashboard threshold) are **notifications only**. They do not pause, throttle, or block spend. An alert can fire and the bill can still keep growing before anyone acts on it.
+- **Unexpected extra resources or usage could increase the bill** beyond the $5.36/mo listed figure — e.g., traffic-driven autoscaling if enabled, a second region, a larger instance size, additional add-ons, or genuinely high sustained traffic. The $5.36/mo figure assumes exactly one `eco-small` instance in one region with no autoscaling and no additional paid resources.
+- **No additional service, region, replica, or paid database is authorized** beyond the single `claude-cert-mastery` app / single `eco-small` instance / single region / Neon free-tier project described in this plan. Any expansion beyond that scope requires a new, explicit approval — it is not implied by this gate.
+
+**Region pairing — preference changed to Singapore, conditional; Frankfurt remains the documented fallback.**
+
+- **Preferred pairing (conditional):** Koyeb region **Singapore (`sin`)** + Neon region **AWS Asia Pacific (Singapore) — `ap-southeast-1`**. Koyeb's current docs confirm Eco instances are "available in Washington, D.C., Frankfurt, and Singapore," and Neon currently lists `ap-southeast-1` as a supported region. **This pairing is conditional**: it is only to be used if, at the moment of actual Neon project creation, the Neon console/CLI shows `ap-southeast-1` as an available region **for the free plan being selected**. If Neon does not offer that region on the free plan at creation time, do not force it — fall through to the fallback pairing below instead of paying for a plan upgrade to reach a specific region. Neither the Koyeb `sin` region code nor Neon's free-plan availability in `ap-southeast-1` was empirically exercised on this specific account this session — both are documented facts, not tested transactions.
+- **Fallback pairing (kept, previously reasoned through in this section):** Koyeb region **Frankfurt (`fra`)** + Neon region **AWS EU Central (Frankfurt) — `eu-central-1`**. Use this pairing if the Singapore condition above is not met.
+- No latency measurement was performed this session for either pairing — the Singapore preference is based on Koyeb/Neon region availability and general proximity reasoning for Pakistan-based users, not a measured benchmark.
+
+**New — `--git-workdir` flag confirmed, resolving Section 14.4's open question.** `koyeb apps init --help` confirms a `--git-workdir` flag ("Path to the sub-directory containing the code to build and deploy"). This means the proposed command can explicitly point Koyeb at `backend/` instead of relying on buildpack auto-detection from the repo root — removing the uncertainty flagged in Section 14.4.
+
+**Confirmed exact secret syntax (matches Section 13B, now verified against live `--help` output, not just prior recollection):**
+- Create: `koyeb secrets create <name> --value-from-stdin` (also supports `-v/--value`, but stdin avoids the value ever touching command-line args or shell history).
+- Reference: `--env KEY={{secret.<name>}}` — confirmed verbatim in `koyeb apps init --help`.
+
+**Confirmed pause/resume commands:** `koyeb services pause <service> -a <app>` and `koyeb services resume <service> -a <app>` — both read from `--help`, neither executed. This is the exact cost-control command for an unexpected billing event.
+
+**Reconfirmed — no CLI billing-alert command exists.** `koyeb organizations --help` still exposes only `list` and `switch`; billing-alert configuration remains dashboard-only, alerts-not-caps, as stated in Section 13B.
+
+---
+
 ## 14. Koyeb CLI operational procedure (documented only — nothing in this section has been run)
 
 Per the founder's Koyeb operational policy: the Koyeb CLI is the primary interface for deployment, the same way the Vercel CLI was used for the frontend. This section documents the exact commands for a *later, separately approved* deployment step. **No command in this section was executed this pass.** No install, no auth, no app/service/domain/secret/database/deployment was created.
@@ -226,22 +299,51 @@ This opens an interactive browser-based or token-prompt flow. Per the founder's 
 
 All five are **read-only**.
 
-### 14.4 Proposed service-creation command (to be shown for approval before ever running)
+### 14.4 Proposed service-creation command — corrected per Section 13C (to be shown for approval before ever running)
 
+**Precondition, not yet satisfied:** the secret referenced below (`certmastery-database-url`) must be created first, with its value piped via stdin so it **never appears in any command, chat message, log, or shell history** — it must not be displayed, echoed, inspected, or pasted anywhere by Claude at any point in this process:
+```
+koyeb secrets create certmastery-database-url --value-from-stdin
+```
+(The founder pastes the Neon connection string at the interactive prompt this opens — Claude never sees, requests, types, or reveals the value. `koyeb secrets reveal` must never be run by Claude against this secret.)
+
+Only once that secret exists does one of the two service-creation commands below become valid — **use exactly one**, chosen by the condition stated:
+
+**Preferred, only if Neon's console/CLI shows `ap-southeast-1` as available for the selected free plan at the moment of Neon project creation:**
 ```
 koyeb apps init claude-cert-mastery \
   --git github.com/asadullah48/ClaudeCertMastery \
   --git-branch main \
-  --env CERTMASTERY_DATABASE_URL=<PLACEHOLDER> \
+  --git-workdir backend \
+  --instance-type eco-small \
+  --regions sin \
+  --env CERTMASTERY_DATABASE_URL={{secret.certmastery-database-url}} \
   --env CERTMASTERY_CORS_ORIGINS=https://claude-cert-mastery.vercel.app \
   --checks 8000:http:/health/live
 ```
 
-Notes on this exact command:
-- `--git` points at this repository directly (Koyeb builds from Git, matching the Vercel pattern already used for the frontend) — the app root is `backend/`, which Koyeb's buildpack detection should find via the presence of `requirements.txt`/`Procfile`/`.python-version` there; if Koyeb requires an explicit subdirectory flag for a non-root app, that flag will need to be added and re-shown before running (not guessed here).
-- `--env` values are shown as `<PLACEHOLDER>` — real values are supplied interactively or via the founder's own secure input at execution time, never typed into chat or committed.
+**Fallback, if that condition is not met (Neon project created in `eu-central-1` instead):**
+```
+koyeb apps init claude-cert-mastery \
+  --git github.com/asadullah48/ClaudeCertMastery \
+  --git-branch main \
+  --git-workdir backend \
+  --instance-type eco-small \
+  --regions fra \
+  --env CERTMASTERY_DATABASE_URL={{secret.certmastery-database-url}} \
+  --env CERTMASTERY_CORS_ORIGINS=https://claude-cert-mastery.vercel.app \
+  --checks 8000:http:/health/live
+```
+
+Notes on both commands (updated this session — see Section 13C for the evidence behind each change):
+- `--git-workdir backend` explicitly points Koyeb at the `backend/` subdirectory, replacing the earlier reliance on buildpack auto-detection from the repo root — this flag was confirmed to exist via `koyeb apps init --help` this session, resolving the prior open question.
+- `--instance-type eco-small` is explicit rather than left at the CLI's `nano` default, since the organization's single Free Instance is already occupied by `bazaar/backend` (confirmed: `instance_types: type: free`, region `was`) and cannot be reused here without disrupting that unrelated service, which is not authorized. This is the **only** instance and the **only** region for this service — no additional service, region, replica, or paid database is authorized alongside it.
+- `--regions sin` (Singapore) is the preferred choice, **conditional** on Neon's free plan actually offering `ap-southeast-1` at project-creation time (Section 13C). `--regions fra` (Frankfurt) is the documented fallback, pairing with a Neon project in `eu-central-1`. Neither Koyeb region code was empirically exercised on this account this session.
+- `--env CERTMASTERY_DATABASE_URL={{secret.certmastery-database-url}}` is Koyeb's confirmed secret-reference syntax — no raw connection string appears anywhere in this command, and none should ever be displayed, logged, echoed, or pasted by Claude during setup or troubleshooting.
+- `--env CERTMASTERY_CORS_ORIGINS` is the one non-secret value in this command; it is a public URL, not a credential.
 - `--checks 8000:http:/health/live` wires Koyeb's own health check to the liveness-only endpoint (Section 5/13) — this is deliberate: a slow database must never make Koyeb kill an otherwise-healthy process. `CERTMASTERY_ANTHROPIC_API_KEY` and `CERTMASTERY_ZIA_MCP_TOKEN` are **deliberately absent** from this command, per the requirement to keep both integrations disabled for initial validation.
-- This command **creates a resource** and will not be run without the founder explicitly approving this exact command text first, per policy item 7 ("Show the exact proposed create/update command before executing it").
+- The listed cost of this configuration is **approximately $5.36/month for one continuously running `eco-small` instance; this is not a hard spending ceiling** — see Section 13C for the full billing-alert-is-not-enforcement statement.
+- This command **creates a resource** (and the `secrets create` command above it also creates a resource) and neither will be run without the founder explicitly approving this exact command text first, per policy item 7 ("Show the exact proposed create/update command before executing it"). Approval has **not** been given as of this session.
 
 ### 14.5 Environment-variable setup procedure (names only — see Section 3)
 
