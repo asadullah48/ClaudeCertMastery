@@ -15,7 +15,16 @@ connect_args = (
     {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
 )
 
-engine = create_engine(settings.database_url, connect_args=connect_args, future=True)
+# pool_pre_ping=True: production has shown pooled PostgreSQL connections going stale
+# (Neon closing the underlying TCP connection while it sits idle in the pool), which
+# surfaced as `OperationalError: SSL connection has been closed unexpectedly` on the
+# first query after the idle period -- and self-healed on retry, which is exactly the
+# symptom pre-ping eliminates: it runs a cheap liveness check before handing a pooled
+# connection to the caller and transparently reconnects if that check fails, instead of
+# handing back a connection that dies on first use. Harmless for SQLite too.
+engine = create_engine(
+    settings.database_url, connect_args=connect_args, pool_pre_ping=True, future=True
+)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 

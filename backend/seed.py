@@ -23,8 +23,10 @@ sys.path.insert(0, str(Path(__file__).parent))
 from app.database import Base, SessionLocal, engine  # noqa: E402
 from app.models import (  # noqa: E402
     AnswerOption,
+    AttemptItem,
     ConceptCurriculumMap,
     Domain,
+    ExamAttempt,
     Question,
     QuestionType,
     Track,
@@ -305,6 +307,33 @@ def seed_dev_user(db: Session) -> User:
     return user
 
 
+def check_no_production_attempts(db: Session) -> None:
+    """Refuse to proceed if a real candidate has already sat an exam.
+
+    Once an attempt exists, upserting content by external_id (or --reset dropping
+    tables outright) could change or destroy the questions and options underneath an
+    already-graded sitting. There is no way to distinguish "safe to reseed" from
+    "would corrupt candidate history" other than checking for attempt data first, so
+    this runs before any table is dropped or any content row is touched -- including
+    under --reset, which must stay destructive but must never destroy attempts by
+    accident.
+    """
+    if db.scalar(select(ExamAttempt.id).limit(1)) is not None:
+        print(
+            "Refusing to seed: existing exam attempts found in this database. "
+            "Seeding or --reset could alter or destroy candidate history. Aborting.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+    if db.scalar(select(AttemptItem.id).limit(1)) is not None:
+        print(
+            "Refusing to seed: existing attempt items found in this database. "
+            "Seeding or --reset could alter or destroy candidate history. Aborting.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Seed the Claude Cert Mastery database.")
     parser.add_argument(
@@ -314,11 +343,18 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    # Tables must exist before they can be queried for attempts, so create_all runs
+    # first -- that's schema DDL, not content mutation, and is a no-op on a database
+    # that already has its tables. The guard then runs before --reset's drop_all and
+    # before any seed function, so it cannot be bypassed by either path.
+    Base.metadata.create_all(engine)
+    with SessionLocal() as db:
+        check_no_production_attempts(db)
+
     if args.reset:
         print("Dropping all tables...")
         Base.metadata.drop_all(engine)
-
-    Base.metadata.create_all(engine)
+        Base.metadata.create_all(engine)
 
     with SessionLocal() as db:
         print("\nSeeding CCAO-F:")
