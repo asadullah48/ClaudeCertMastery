@@ -15,6 +15,15 @@ from app.models.attempt import (
 from app.models.catalog import AnswerOption, Domain, Question, QuestionType, Track
 from app.models.explanation import Explanation
 from app.models.flashcard import Flashcard
+from app.models.scenario import (
+    Scenario,
+    ScenarioAttempt,
+    ScenarioEvent,
+    ScenarioStep,
+    ScenarioStepAttempt,
+    ScenarioStepHint,
+    ScenarioStepOption,
+)
 from app.models.user import User
 from app.models.zia import ConceptCurriculumMap, ZiaLearnerLink
 
@@ -31,6 +40,13 @@ __all__ = [
     "Flashcard",
     "Question",
     "QuestionType",
+    "Scenario",
+    "ScenarioAttempt",
+    "ScenarioEvent",
+    "ScenarioStep",
+    "ScenarioStepAttempt",
+    "ScenarioStepHint",
+    "ScenarioStepOption",
     "Track",
     "User",
     "ZiaLearnerLink",
