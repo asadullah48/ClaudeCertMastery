@@ -199,3 +199,83 @@ export interface ExplanationResponse {
   fell_back: number;
   explanations: Explanation[];
 }
+
+/* ---- Scenario Lab (Gate C1 Slice 3) ---- */
+
+export interface ScenarioListItem {
+  external_id: string;
+  title: string;
+  domain_code: string;
+  difficulty: number;
+}
+
+export interface ScenarioStepOption {
+  id: number;
+  label: string;
+  text: string;
+  position: number;
+}
+
+export interface ScenarioStep {
+  position: number;
+  total_steps: number;
+  prompt_text: string;
+  step_type: "mcq" | "mr";
+  options: ScenarioStepOption[];
+  hints_available: number;
+}
+
+export interface ScenarioStartResponse {
+  attempt_id: number;
+  scenario_external_id: string;
+  title: string;
+  setup_text: string;
+  domain_code: string;
+  status: string;
+  current_step: ScenarioStep;
+}
+
+export interface ScenarioHintResponse {
+  step_position: number;
+  hint_position: number;
+  text: string;
+  penalty_bps: number;
+  hints_remaining: number;
+}
+
+export interface SelectedOptionFeedback {
+  option_id: number;
+  label: string;
+  is_correct: boolean;
+  /** Authored reflection prose. The reflection text a learner reads -- never a raw
+   * evidence tag. */
+  rationale: string;
+  /** Machine evidence only. Never rendered verbatim in the UI -- see
+   * ScenarioStepRunner.tsx. */
+  misconception_tag: string | null;
+}
+
+export interface ScenarioResult {
+  score_pct: number;
+  mastery_band: string;
+}
+
+export interface ScenarioStepAnswerResponse {
+  step_position: number;
+  is_correct: boolean;
+  step_credit: number;
+  selected_option_ids: number[];
+  correct_option_ids: number[];
+  feedback: SelectedOptionFeedback[];
+  attempt_status: "in_progress" | "submitted";
+  next_step: ScenarioStep | null;
+  result: ScenarioResult | null;
+}
+
+export interface ScenarioAttemptState {
+  attempt_id: number;
+  scenario_external_id: string;
+  status: string;
+  current_step: ScenarioStep | null;
+  result: ScenarioResult | null;
+}

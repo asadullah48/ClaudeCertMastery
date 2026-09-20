@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { api } from "@/lib/api";
 import { AskZiaPanel } from "@/components/AskZiaPanel";
-import type { Blueprint, Track, ZiaConcepts } from "@/lib/types";
+import type { Blueprint, ScenarioListItem, Track, ZiaConcepts } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +32,13 @@ export default async function TrackDetail({
     zia = await api.ziaConcepts(code);
   } catch {
     zia = null; // tutor unreachable: panel simply does not render
+  }
+
+  let scenarios: ScenarioListItem[] = [];
+  try {
+    scenarios = await api.listScenarios(code);
+  } catch {
+    scenarios = []; // Scenario Lab section simply does not render
   }
 
   return (
@@ -128,6 +135,25 @@ export default async function TrackDetail({
           </table>
         </div>
       </section>
+
+      {scenarios.length > 0 && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-xs font-medium uppercase tracking-widest text-[var(--color-muted)]">
+            Scenario Lab
+          </h2>
+          <p className="mb-4 text-sm text-[var(--color-muted)]">
+            Short, decision-driven exercises grounded in this track&apos;s blueprint
+            domains. Work through a realistic situation and see the consequence of
+            your call.
+          </p>
+          <Link
+            href={`/tracks/${code}/scenarios`}
+            className="inline-block rounded-md border border-[var(--color-edge)] px-4 py-2 text-sm hover:border-[var(--color-accent)]"
+          >
+            Browse scenarios ({scenarios.length})
+          </Link>
+        </section>
+      )}
 
       {zia && zia.concepts.length > 0 && (
         <section className="mt-8">

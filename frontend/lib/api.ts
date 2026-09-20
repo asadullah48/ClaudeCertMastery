@@ -4,6 +4,11 @@ import type {
   ExamResult,
   ExplanationResponse,
   Health,
+  ScenarioAttemptState,
+  ScenarioHintResponse,
+  ScenarioListItem,
+  ScenarioStartResponse,
+  ScenarioStepAnswerResponse,
   SubmitAnswer,
   Track,
   ZiaCheckAnswer,
@@ -18,9 +23,23 @@ class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    /** FastAPI's {"detail": "..."} body, when the response had one. Scenario Lab's
+     * error recovery (409 content-version conflict, 404 unknown attempt, etc.)
+     * distinguishes these by status rather than by parsing this string -- it exists
+     * for a human-readable fallback message only, never for control flow. */
+    readonly detail?: string,
   ) {
     super(message);
     this.name = "ApiError";
+  }
+}
+
+async function parseDetail(res: Response): Promise<string | undefined> {
+  try {
+    const body = (await res.clone().json()) as { detail?: string };
+    return typeof body.detail === "string" ? body.detail : undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -31,7 +50,7 @@ async function get<T>(path: string): Promise<T> {
     cache: "no-store",
   });
   if (!res.ok) {
-    throw new ApiError(`GET ${path} failed`, res.status);
+    throw new ApiError(`GET ${path} failed`, res.status, await parseDetail(res));
   }
   return res.json() as Promise<T>;
 }
@@ -43,7 +62,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    throw new ApiError(`POST ${path} failed`, res.status);
+    throw new ApiError(`POST ${path} failed`, res.status, await parseDetail(res));
   }
   return res.json() as Promise<T>;
 }
@@ -91,6 +110,30 @@ export const api = {
     follow_up_question?: string;
     learner_answer: string;
   }) => post<ZiaCheckAnswer>("/api/zia/check-answer", body),
+
+  // Scenario Lab (Gate C1 Slice 3). Consumes the Slice 2 API exactly as designed --
+  // every field below is exactly what the backend returns; nothing is reconstructed
+  // or inferred client-side.
+  listScenarios: (trackCode: string) =>
+    get<ScenarioListItem[]>(`/scenarios?track_code=${encodeURIComponent(trackCode)}`),
+  startScenario: (externalId: string) =>
+    post<ScenarioStartResponse>(`/scenarios/${encodeURIComponent(externalId)}/start`, {}),
+  revealHint: (attemptId: number, position: number) =>
+    post<ScenarioHintResponse>(
+      `/scenario-attempts/${attemptId}/steps/${position}/hint`,
+      {},
+    ),
+  answerStep: (
+    attemptId: number,
+    position: number,
+    body: { selected_option_ids: number[]; time_spent_seconds?: number | null },
+  ) =>
+    post<ScenarioStepAnswerResponse>(
+      `/scenario-attempts/${attemptId}/steps/${position}/answer`,
+      body,
+    ),
+  getScenarioAttempt: (attemptId: number) =>
+    get<ScenarioAttemptState>(`/scenario-attempts/${attemptId}`),
 };
 
 export { ApiError, API_URL };
