@@ -33,10 +33,29 @@ from app.schemas.explanation import (
     ExplanationResponse,
 )
 
+from app.schemas.scenario import (
+    ScenarioAttemptOut,
+    ScenarioHintRequest,
+    ScenarioHintResponse,
+    ScenarioListItemOut,
+    ScenarioResultOut,
+    ScenarioStartResponse,
+    ScenarioStepAnswerRequest,
+    ScenarioStepAnswerResponse,
+    ScenarioStepOptionOut,
+    ScenarioStepOut,
+    SelectedOptionFeedback,
+)
+
 __all__ = [
     "AnswerOptionOut", "AttemptOut", "BlueprintDomainOut", "BlueprintOut",
     "DomainOut", "DomainScoreOut", "ExamGenerateRequest", "ExamGenerateResponse",
     "ExplanationOut", "ExplanationRequest", "ExplanationResponse",
-    "ItemResultOut", "QuestionOut", "SubmitAnswer", "SubmitRequest",
+    "ItemResultOut", "QuestionOut",
+    "ScenarioAttemptOut", "ScenarioHintRequest", "ScenarioHintResponse",
+    "ScenarioListItemOut", "ScenarioResultOut", "ScenarioStartResponse",
+    "ScenarioStepAnswerRequest", "ScenarioStepAnswerResponse",
+    "ScenarioStepOptionOut", "ScenarioStepOut", "SelectedOptionFeedback",
+    "SubmitAnswer", "SubmitRequest",
     "SubmitResponse", "TrackOut",
 ]

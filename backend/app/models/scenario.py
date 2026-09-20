@@ -189,6 +189,13 @@ class ScenarioAttempt(Base):
     # enum.
     status: Mapped[str] = mapped_column(String(16), default="in_progress")
 
+    # Snapshot of Scenario.content_version at start time (Gate C1 Slice 2). Lets the
+    # API detect and reject continuing an attempt whose scenario content was edited
+    # mid-attempt (acceptance criterion: "changing scenario/content version
+    # mid-attempt" must be protected against) -- without this, there would be no way
+    # to tell which version an in-progress attempt was actually started against.
+    scenario_content_version: Mapped[int] = mapped_column(Integer, default=1)
+
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
