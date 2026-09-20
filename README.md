@@ -20,7 +20,7 @@ with a 720 pass line, get a per-domain mastery breakdown, and drill weak areas.
 | Backend | FastAPI, SQLAlchemy 2.0, Alembic, Pydantic v2 |
 | Database | SQLite (dev) / PostgreSQL (prod) |
 | AI | Claude API &mdash; `claude-opus-5` |
-| Companion tutor | Zia Tutor AI over MCP (optional) |
+| Companion tutor | Zia Tutor AI over MCP (optional, dormant &mdash; transport verified, no authorization credential yet; see Known gaps) |
 | Email verification | Mailboxlayer via APILayer (selected, not yet integrated) |
 
 See [`SPEC-CERT-MASTERY.md`](SPEC-CERT-MASTERY.md) for the full specification, and the
@@ -174,9 +174,15 @@ feature.
 ## Ask Zia (optional companion tutor)
 
 `CERTMASTERY_ZIA_MCP_TOKEN` enables the Ask Zia panel, which teaches the same concepts
-from The AI Agent Factory curriculum with a source link on every answer. It is available
-on all four tracks, driven by the `concept_curriculum_map` table: 22 concept tags, 21
-mapped, 1 recorded as an explicit gap.
+from The AI Agent Factory curriculum with a source link on every answer. It is designed
+to be available on all four tracks, driven by the `concept_curriculum_map` table: 22
+concept tags, 21 mapped, 1 recorded as an explicit gap.
+
+**Current status: transport-capable, not yet authorized.** As of Gate C2C-1, the `mcp`
+client library is a declared dependency and the live endpoint is confirmed reachable
+(`scripts/verify_zia_connection.py` gets a real `401 Unauthorized` from the server, not
+an import error) &mdash; but no working `CERTMASTERY_ZIA_MCP_TOKEN` has been obtained, so
+the panel does not activate for any user yet. See Known gaps.
 
 The endpoint is an **OAuth 2.0 protected resource**, not a static-key API. An
 unauthenticated probe returns `401` with an authorization server of
@@ -313,8 +319,8 @@ time, so setting the variable without redeploying leaves the live site still cal
 | Session | Scope | Status |
 |---|---|---|
 | 1 &mdash; Foundation | Spec, schema, seed bank, scoring engine, track selector | **Done** |
-| 2 &mdash; Integration | Zia Tutor AI MCP companion for CCAR-F/CCAR-P | **Done** |
-| 3 &mdash; Advanced | Ask Zia widened to all four tracks (mapping-driven) | **Done** |
+| 2 &mdash; Integration | Zia Tutor AI MCP companion for CCAR-F/CCAR-P | **Code complete** (see Known gaps &mdash; not yet authorized) |
+| 3 &mdash; Advanced | Ask Zia widened to all four tracks (mapping-driven) | **Code complete** (see Known gaps &mdash; not yet authorized) |
 | 4 &mdash; Advanced | Exam runner UI, Claude explanation engine | **Done** |
 | 5 &mdash; Deployment | Frontend on Vercel | **Done** |
 | &nbsp; | Backend on a persistent host, Postgres, CORS | **In progress** |
@@ -335,7 +341,12 @@ deployed site and a usable product.
   against the API.
 - **Batch fan-out is built but unused.** `build_batch_requests` shapes the 50%-cost
   payload; nothing submits it yet.
-- **Zia OAuth is blocked** on a credential from `auth.panaversity.org`.
+- **Zia OAuth is blocked** on a credential from `auth.panaversity.org`. The MCP
+  transport itself is verified working as of Gate C2C-1 (`mcp` client installed, live
+  endpoint reachable, correctly reports `401 Unauthorized`) &mdash; but without a
+  credential, and without resolved content-licensing/learner-data questions (see
+  `docs/GATE-C2C-PRE-IMPLEMENTATION-DECISIONS.md`), the Ask Zia panel does not activate
+  for any user.
 - **Three of four tracks have no questions.** CCDV-F, CCAR-F and CCAR-P publish their
   blueprint and resolve their Zia concepts, but no exam can be sat on them.
 
