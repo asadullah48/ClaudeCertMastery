@@ -704,7 +704,41 @@ def main() -> int:
         action="store_true",
         help="Drop and recreate all tables before seeding (destroys existing data).",
     )
+    parser.add_argument(
+        "--scenarios-only",
+        action="store_true",
+        help=(
+            "Load/update only the Scenario Lab YAML content via seed_ccao_f_scenarios(), "
+            "touching no other table. Safe to run against a database that already has "
+            "ExamAttempt/AttemptItem history, since it shares no write surface with the "
+            "foundational seed path check_no_production_attempts() protects. Cannot be "
+            "combined with --reset."
+        ),
+    )
     args = parser.parse_args()
+
+    if args.scenarios_only and args.reset:
+        print(
+            "--scenarios-only cannot be combined with --reset: scenario-only seeding "
+            "exists specifically to avoid the destructive foundational-content path "
+            "that --reset triggers. Run them separately if both are truly needed.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+
+    if args.scenarios_only:
+        # Deliberately skips check_no_production_attempts(): that guard protects
+        # seed_ccao_f()'s destructive AnswerOption replace, a table this path never
+        # writes. seed_ccao_f_scenarios() carries its own evidence guard (Scenario.
+        # content_version / _scenario_has_evidence) scoped to the tables it actually
+        # touches -- see upsert_scenario()'s own docstring for that contract.
+        Base.metadata.create_all(engine)
+        with SessionLocal() as db:
+            print("\nSeeding CCAO-F scenario content:")
+            scenario_files, scenario_actions = seed_ccao_f_scenarios(db)
+            db.commit()
+            print(f"\nDone. {scenario_files} scenarios.")
+        return 0
 
     # Tables must exist before they can be queried for attempts, so create_all runs
     # first -- that's schema DDL, not content mutation, and is a no-op on a database

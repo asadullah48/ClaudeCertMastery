@@ -22,7 +22,14 @@ import seed  # noqa: E402
 from app import models as _models  # noqa: E402,F401  registers metadata
 from app.database import Base  # noqa: E402
 from app.models import (  # noqa: E402
+    AnswerOption,
+    AttemptItem,
+    AttemptMode,
+    AttemptStatus,
     Domain,
+    ExamAttempt,
+    Question,
+    QuestionType,
     Scenario,
     ScenarioAttempt,
     ScenarioStep,
@@ -325,3 +332,311 @@ class TestRealProductionScenarioContent:
                         tag = opt["misconception_tag"]
                         assert tag.lower() != opt["label"].lower()
                         assert "_" in tag or len(tag) > 8  # a real conceptual slug
+
+
+ALL_CCAO_F_DOMAIN_CODES = ["PTE", "OEV", "PMS", "WISD", "CKM", "GRR", "TRO"]
+
+
+def make_full_ccao_f(db) -> Track:
+    """A Track with all seven real CCAO-F domains, so the real seed_data YAMLs
+    (which reference every one of those codes) can be loaded without a
+    'not a seeded domain' validation failure."""
+    track = Track(
+        code="CCAO-F", name="t", item_count=60, duration_minutes=120,
+        pass_scaled_score=720, pass_raw_threshold=0.70, price_usd=99.0,
+        validity_months=12, is_seeded=True,
+    )
+    db.add(track)
+    db.flush()
+    for position, code in enumerate(ALL_CCAO_F_DOMAIN_CODES, start=1):
+        db.add(Domain(
+            track_id=track.id, code=code, name=code, description="",
+            weight_bps=1428, position=position,
+        ))
+    db.commit()
+    return track
+
+
+def make_exam_history(db, track: Track) -> None:
+    """One real exam sitting: a Question with two AnswerOptions, a User, an
+    ExamAttempt, and its AttemptItem -- the exact shape check_no_production_attempts()
+    exists to protect."""
+    domain = db.scalar(
+        select(Domain).where(Domain.track_id == track.id, Domain.code == "WISD")
+    )
+    question = Question(
+        domain_id=domain.id, external_id="CCAO-F-WISD-001", stem="A real exam question.",
+        question_type=QuestionType.MCQ, difficulty=2, static_explanation="Because reasons.",
+        is_active=True,
+    )
+    db.add(question)
+    db.flush()
+    opt_a = AnswerOption(question_id=question.id, label="A", text="Right", is_correct=True, position=1)
+    opt_b = AnswerOption(question_id=question.id, label="B", text="Wrong", is_correct=False, position=2)
+    db.add_all([opt_a, opt_b])
+    db.flush()
+
+    user = User(email="candidate@example.com", display_name="Candidate")
+    db.add(user)
+    db.flush()
+
+    attempt = ExamAttempt(
+        user_id=user.id, track_id=track.id, mode=AttemptMode.EXAM,
+        status=AttemptStatus.SUBMITTED, seed=42,
+        raw_correct=1, raw_total=1, scaled_score=1000, passed=True,
+    )
+    db.add(attempt)
+    db.flush()
+
+    db.add(AttemptItem(
+        attempt_id=attempt.id, question_id=question.id, domain_id=domain.id,
+        position=1, selected_option_ids=[opt_a.id], is_correct=True,
+    ))
+    db.commit()
+
+
+def snapshot_table(db, model) -> list[tuple]:
+    """Every row of `model` as a sorted tuple of every column's value -- a
+    logical (not just row-count) before/after equality check."""
+    cols = [c.name for c in model.__table__.columns]
+    rows = db.scalars(select(model)).all()
+    return sorted(tuple(getattr(row, c) for c in cols) for row in rows)
+
+
+HISTORY_MODELS = (User, Track, Domain, Question, AnswerOption, ExamAttempt, AttemptItem)
+
+
+def snapshot_history(db) -> dict[str, list[tuple]]:
+    return {model.__name__: snapshot_table(db, model) for model in HISTORY_MODELS}
+
+
+class TestScenariosOnlyMode:
+    """Gate C1-SCENARIO-ONLY-SEEDER: `python seed.py --scenarios-only` must load only
+    Scenario Lab content -- even with historical ExamAttempt/AttemptItem evidence
+    already present -- without mutating any table the foundational seed path owns."""
+
+    def test_succeeds_with_historical_exam_evidence_and_leaves_it_unchanged(
+        self, seed_db, monkeypatch
+    ):
+        with seed_db() as db:
+            track = make_full_ccao_f(db)
+            make_exam_history(db, track)
+
+        with seed_db() as db:
+            before = snapshot_history(db)
+
+        code = run_seed(monkeypatch, "--scenarios-only")
+        assert code == 0
+
+        with seed_db() as db:
+            after = snapshot_history(db)
+            assert len(db.scalars(select(Scenario)).all()) == 7
+
+        for name, rows in before.items():
+            assert after[name] == rows, f"{name} rows changed by --scenarios-only"
+
+    def test_does_not_modify_unrelated_tables(self, seed_db, monkeypatch):
+        with seed_db() as db:
+            track = make_full_ccao_f(db)
+            make_exam_history(db, track)
+            before = {
+                model.__name__: snapshot_table(db, model)
+                for model in (User, Track, Domain, Question, AnswerOption, ExamAttempt, AttemptItem)
+            }
+
+        run_seed(monkeypatch, "--scenarios-only")
+
+        with seed_db() as db:
+            for name, rows in before.items():
+                model = next(m for m in HISTORY_MODELS if m.__name__ == name)
+                assert snapshot_table(db, model) == rows
+
+    def test_loads_all_seven_real_scenarios(self, seed_db, monkeypatch):
+        with seed_db() as db:
+            make_full_ccao_f(db)
+
+        code = run_seed(monkeypatch, "--scenarios-only")
+        assert code == 0
+
+        with seed_db() as db:
+            scenarios = db.scalars(select(Scenario)).all()
+            assert len(scenarios) == 7
+            domains = {db.get(Domain, s.domain_id).code for s in scenarios}
+            assert domains == set(ALL_CCAO_F_DOMAIN_CODES)
+
+    def test_is_idempotent_and_repeated_run_still_preserves_history(self, seed_db, monkeypatch):
+        with seed_db() as db:
+            track = make_full_ccao_f(db)
+            make_exam_history(db, track)
+
+        run_seed(monkeypatch, "--scenarios-only")
+        with seed_db() as db:
+            history_first = snapshot_history(db)
+            scenarios = db.scalars(select(Scenario)).all()
+            option_ids_first = sorted(
+                o.id for s in scenarios for step in s.steps for o in step.options
+            )
+
+        run_seed(monkeypatch, "--scenarios-only")
+        with seed_db() as db:
+            scenarios = db.scalars(select(Scenario)).all()
+            assert len(scenarios) == 7  # no duplicates
+            option_ids_second = sorted(
+                o.id for s in scenarios for step in s.steps for o in step.options
+            )
+            history_second = snapshot_history(db)
+
+        assert option_ids_second == option_ids_first  # stable IDs, no wholesale replace
+        for name, rows in history_first.items():
+            assert history_second[name] == rows
+
+
+class TestScenariosOnlyControlFlow:
+    """Proves --scenarios-only's call boundaries precisely, at the seed.main()
+    control-flow level -- not just its net DB effect -- using spies on the real
+    module-level functions (each spy still calls through to the original)."""
+
+    def _spy(self, monkeypatch, name: str) -> list:
+        calls: list = []
+        original = getattr(seed, name)
+
+        def wrapper(*args, **kwargs):
+            calls.append((args, kwargs))
+            return original(*args, **kwargs)
+
+        monkeypatch.setattr(seed, name, wrapper)
+        return calls
+
+    def test_scenarios_only_reaches_scenario_loading_despite_exam_history(
+        self, seed_db, monkeypatch
+    ):
+        with seed_db() as db:
+            track = make_full_ccao_f(db)
+            make_exam_history(db, track)
+
+        scenario_calls = self._spy(monkeypatch, "seed_ccao_f_scenarios")
+        guard_calls = self._spy(monkeypatch, "check_no_production_attempts")
+        foundational_calls = self._spy(monkeypatch, "seed_ccao_f")
+        placeholder_calls = self._spy(monkeypatch, "seed_placeholder_tracks")
+        concept_calls = self._spy(monkeypatch, "seed_concept_map")
+        dev_user_calls = self._spy(monkeypatch, "seed_dev_user")
+
+        code = run_seed(monkeypatch, "--scenarios-only")
+
+        assert code == 0
+        assert len(scenario_calls) == 1
+        assert guard_calls == []
+        assert foundational_calls == []
+        assert placeholder_calls == []
+        assert concept_calls == []
+        assert dev_user_calls == []
+
+    def test_plain_seed_still_refuses_with_exam_attempt_history(self, seed_db, monkeypatch):
+        with seed_db() as db:
+            track, _domain = make_track_and_domain(db)
+            user = User(email="y@example.com", display_name="Y")
+            db.add(user)
+            db.flush()
+            db.add(ExamAttempt(
+                user_id=user.id, track_id=track.id, mode=AttemptMode.EXAM,
+                status=AttemptStatus.SUBMITTED, seed=1,
+                raw_correct=1, raw_total=1, scaled_score=1000, passed=True,
+            ))
+            db.commit()
+
+        scenario_calls = self._spy(monkeypatch, "seed_ccao_f_scenarios")
+        foundational_calls = self._spy(monkeypatch, "seed_ccao_f")
+
+        with pytest.raises(SystemExit) as exc:
+            run_seed(monkeypatch)
+        assert exc.value.code == 1
+        assert scenario_calls == []
+        assert foundational_calls == []
+
+    def test_plain_seed_still_refuses_with_attempt_item_history_alone(self, seed_db, monkeypatch):
+        # The guard checks ExamAttempt and AttemptItem independently and
+        # unconditionally -- prove AttemptItem alone is sufficient to refuse, even
+        # in this synthetic case with no matching ExamAttempt row.
+        with seed_db() as db:
+            _track, domain = make_track_and_domain(db)
+            question = Question(
+                domain_id=domain.id, external_id="CCAO-F-WISD-002", stem="Q",
+                question_type=QuestionType.MCQ, difficulty=2, static_explanation="Because.",
+                is_active=True,
+            )
+            db.add(question)
+            db.flush()
+            db.add(AttemptItem(
+                attempt_id=999999, question_id=question.id, domain_id=domain.id,
+                position=1, selected_option_ids=[], is_correct=None,
+            ))
+            db.commit()
+
+        scenario_calls = self._spy(monkeypatch, "seed_ccao_f_scenarios")
+
+        with pytest.raises(SystemExit) as exc:
+            run_seed(monkeypatch)
+        assert exc.value.code == 1
+        assert scenario_calls == []
+
+    def test_scenarios_only_combined_with_reset_fails_closed(self, seed_db, monkeypatch):
+        with seed_db() as db:
+            make_track_and_domain(db)
+            db.commit()
+
+        with seed_db() as db:
+            before_codes = sorted(t.code for t in db.scalars(select(Track)).all())
+            assert before_codes == ["CCAO-F"]  # fixture actually persisted
+
+        scenario_calls = self._spy(monkeypatch, "seed_ccao_f_scenarios")
+
+        with pytest.raises(SystemExit) as exc:
+            run_seed(monkeypatch, "--scenarios-only", "--reset")
+        assert exc.value.code == 1
+        assert scenario_calls == []  # rejected before any mutation, including the drop
+
+        with seed_db() as db:
+            after_codes = sorted(t.code for t in db.scalars(select(Track)).all())
+        assert after_codes == before_codes  # --reset's drop never ran either
+
+    def test_scenarios_only_does_not_fall_through_to_normal_seeding(self, seed_db, monkeypatch):
+        with seed_db() as db:
+            make_full_ccao_f(db)
+
+        foundational_calls = self._spy(monkeypatch, "seed_ccao_f")
+        placeholder_calls = self._spy(monkeypatch, "seed_placeholder_tracks")
+        concept_calls = self._spy(monkeypatch, "seed_concept_map")
+        dev_user_calls = self._spy(monkeypatch, "seed_dev_user")
+
+        code = run_seed(monkeypatch, "--scenarios-only")
+
+        assert code == 0
+        assert foundational_calls == []
+        assert placeholder_calls == []
+        assert concept_calls == []
+        assert dev_user_calls == []
+
+    def test_scenarios_only_path_makes_no_ai_provider_calls(self):
+        # Scoped to exactly the call chain --scenarios-only exercises
+        # (seed_ccao_f_scenarios -> upsert_scenario -> its helpers), not the whole
+        # module -- seed_concept_map()'s unrelated docstring legitimately mentions
+        # "Zia"/"MCP" in prose to explain that *it* doesn't call them either, which
+        # would be a false positive for a whole-file substring scan.
+        import inspect
+
+        functions = (
+            seed.seed_ccao_f_scenarios,
+            seed.upsert_scenario,
+            seed._write_scenario_steps,
+            seed.validate_scenario_spec,
+            seed._scenario_has_evidence,
+            seed._scenario_spec_signature,
+            seed._scenario_db_signature,
+        )
+        source = "\n".join(inspect.getsource(fn) for fn in functions)
+        for forbidden in ("anthropic", "zia", "mcp", "requests.", "httpx."):
+            assert forbidden not in source.lower(), (
+                f"the --scenarios-only call chain must not reference {forbidden!r} -- "
+                "Scenario Lab content loading must work fully offline, with no "
+                "model-provider or MCP dependency."
+            )
