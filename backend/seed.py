@@ -29,6 +29,11 @@ from app.models import (  # noqa: E402
     ExamAttempt,
     Question,
     QuestionType,
+    Scenario,
+    ScenarioAttempt,
+    ScenarioStep,
+    ScenarioStepHint,
+    ScenarioStepOption,
     Track,
     User,
 )
@@ -224,6 +229,364 @@ def seed_ccao_f(db: Session) -> tuple[int, int]:
     return domain_count, question_count
 
 
+def _scenario_spec_signature(spec: dict) -> tuple:
+    """Canonical, comparable shape of a scenario YAML spec's evidence-affecting
+    content -- used to detect whether a re-seed actually changes anything (Gate
+    C1-CONTENT Section 6)."""
+    return (
+        spec["title"].strip(),
+        spec["setup_text"].strip(),
+        bool(spec.get("active", True)),
+        int(spec.get("difficulty", 2)),
+        tuple(
+            (
+                step["position"],
+                step["type"],
+                step["prompt"].strip(),
+                tuple(
+                    (
+                        opt["label"],
+                        opt["text"].strip(),
+                        bool(opt.get("correct", False)),
+                        opt["rationale"].strip(),
+                        opt.get("misconception_tag") or None,
+                    )
+                    for opt in step["options"]
+                ),
+                tuple(
+                    (h["position"], h["penalty_bps"], h["text"].strip())
+                    for h in step.get("hints", [])
+                ),
+            )
+            for step in sorted(spec["steps"], key=lambda s: s["position"])
+        ),
+    )
+
+
+def _scenario_db_signature(scenario: Scenario) -> tuple:
+    """The same shape as `_scenario_spec_signature`, read back from the ORM."""
+    return (
+        scenario.title,
+        scenario.setup_text,
+        scenario.is_active,
+        scenario.difficulty,
+        tuple(
+            (
+                step.position,
+                step.step_type,
+                step.prompt_text,
+                tuple(
+                    (o.label, o.text, o.is_correct, o.rationale, o.misconception_tag)
+                    for o in sorted(step.options, key=lambda o: o.position)
+                ),
+                tuple(
+                    (h.position, h.penalty_bps, h.text)
+                    for h in sorted(step.hints, key=lambda h: h.position)
+                ),
+            )
+            for step in sorted(scenario.steps, key=lambda s: s.position)
+        ),
+    )
+
+
+def _scenario_has_evidence(db: Session, scenario: Scenario) -> bool:
+    """Whether any learner has ever started this scenario.
+
+    Every ScenarioStepAttempt/ScenarioEvent row is only ever created (in
+    app/routers/scenarios.py) after a ScenarioAttempt row already exists for the
+    same scenario, so checking for a ScenarioAttempt is sufficient: zero attempts
+    means zero evidence anywhere downstream of it.
+    """
+    return (
+        db.scalar(
+            select(ScenarioAttempt.id)
+            .where(ScenarioAttempt.scenario_id == scenario.id)
+            .limit(1)
+        )
+        is not None
+    )
+
+
+def validate_scenario_spec(spec: dict, domain_codes: set[str]) -> None:
+    """Fail loudly on malformed scenario content before it reaches the database.
+
+    Mirrors validate_bank()'s philosophy exactly, extended for scenario-specific
+    invariants: step/option structure, the misconception_tag authoring contract
+    (conceptual, not an option identifier), and the source_reference provenance
+    requirement (Gate C1-CONTENT Section 5 -- see that report for why this is a
+    required YAML field rather than a new database column).
+    """
+    ext_id = spec.get("external_id", "<missing external_id>")
+
+    if spec.get("domain_code") not in domain_codes:
+        raise ValueError(
+            f"{ext_id}: domain_code {spec.get('domain_code')!r} is not a seeded "
+            f"domain for this track. Known domains: {sorted(domain_codes)}."
+        )
+    if not spec.get("title", "").strip():
+        raise ValueError(f"{ext_id}: title is required.")
+    if not spec.get("setup_text", "").strip():
+        raise ValueError(f"{ext_id}: setup_text is required.")
+    if not spec.get("source_reference", "").strip():
+        raise ValueError(
+            f"{ext_id}: source_reference is required -- every production scenario "
+            "must record what grounds it, even when 'originally authored'."
+        )
+    if not isinstance(spec.get("content_version"), int) or spec["content_version"] < 1:
+        raise ValueError(f"{ext_id}: content_version must be a positive integer.")
+
+    steps = spec.get("steps") or []
+    if not steps:
+        raise ValueError(f"{ext_id}: at least one step is required.")
+
+    positions = [s["position"] for s in steps]
+    if positions != list(range(1, len(steps) + 1)):
+        raise ValueError(
+            f"{ext_id}: step positions must be 1..N with no gaps or duplicates, "
+            f"got {positions}."
+        )
+
+    for step in steps:
+        step_id = f"{ext_id} step {step['position']}"
+        if step.get("type") not in ("mcq", "mr"):
+            raise ValueError(f"{step_id}: type must be 'mcq' or 'mr'.")
+        if not step.get("prompt", "").strip():
+            raise ValueError(f"{step_id}: prompt is required.")
+
+        options = step.get("options") or []
+        if len(options) < 2:
+            raise ValueError(f"{step_id}: needs at least 2 options.")
+        labels = [o["label"] for o in options]
+        if len(set(labels)) != len(labels):
+            raise ValueError(f"{step_id}: duplicate option labels {labels}.")
+
+        correct = [o for o in options if o.get("correct")]
+        if step["type"] == "mcq" and len(correct) != 1:
+            raise ValueError(
+                f"{step_id}: mcq must have exactly 1 correct option, found {len(correct)}."
+            )
+        if step["type"] == "mr" and len(correct) < 2:
+            raise ValueError(
+                f"{step_id}: mr must have at least 2 correct options, found {len(correct)}."
+            )
+
+        for opt in options:
+            opt_id = f"{step_id} option {opt.get('label')}"
+            if not opt.get("text", "").strip():
+                raise ValueError(f"{opt_id}: text is required.")
+            rationale = opt.get("rationale", "").strip()
+            if not rationale:
+                raise ValueError(f"{opt_id}: rationale is required.")
+            if rationale.rstrip(".").lower() in ("correct", "incorrect"):
+                raise ValueError(
+                    f"{opt_id}: rationale must not merely restate correct/incorrect "
+                    "(Scenario Lab authoring contract -- see ScenarioStepOption's "
+                    "own docstring)."
+                )
+            tag = opt.get("misconception_tag")
+            if opt.get("correct"):
+                if tag:
+                    raise ValueError(
+                        f"{opt_id}: a correct option must not carry a misconception_tag."
+                    )
+            else:
+                if not tag or not tag.strip():
+                    raise ValueError(
+                        f"{opt_id}: an incorrect option must carry a misconception_tag."
+                    )
+                if tag.strip().lower() == opt["label"].strip().lower() or len(tag.strip()) < 4:
+                    raise ValueError(
+                        f"{opt_id}: misconception_tag {tag!r} looks like an option "
+                        "identifier, not a conceptual label -- it must name the "
+                        "learner's inferred error, never the option itself."
+                    )
+
+        hints = step.get("hints") or []
+        hint_positions = [h["position"] for h in hints]
+        if hint_positions != list(range(1, len(hints) + 1)):
+            raise ValueError(
+                f"{step_id}: hint positions must be 1..N with no gaps, got {hint_positions}."
+            )
+        for hint in hints:
+            if not hint.get("text", "").strip():
+                raise ValueError(f"{step_id} hint {hint['position']}: text is required.")
+            if not isinstance(hint.get("penalty_bps"), int) or hint["penalty_bps"] <= 0:
+                raise ValueError(
+                    f"{step_id} hint {hint['position']}: penalty_bps must be a "
+                    "positive integer."
+                )
+
+
+def _write_scenario_steps(db: Session, scenario: Scenario, spec: dict) -> None:
+    """Replace a scenario's steps/options/hints wholesale from the spec.
+
+    Only ever called for a brand-new scenario, or one confirmed (by the caller,
+    upsert_scenario) to have zero recorded learner evidence -- see that function's
+    docstring for why this ordering matters.
+    """
+    for existing in list(scenario.steps):
+        db.delete(existing)
+    db.flush()
+
+    for step_spec in sorted(spec["steps"], key=lambda s: s["position"]):
+        step = ScenarioStep(
+            scenario_id=scenario.id,
+            position=step_spec["position"],
+            prompt_text=step_spec["prompt"].strip(),
+            step_type=step_spec["type"],
+        )
+        db.add(step)
+        db.flush()
+
+        for position, opt in enumerate(step_spec["options"], start=1):
+            db.add(
+                ScenarioStepOption(
+                    step_id=step.id,
+                    label=opt["label"],
+                    text=opt["text"].strip(),
+                    is_correct=bool(opt.get("correct", False)),
+                    position=position,
+                    rationale=opt["rationale"].strip(),
+                    misconception_tag=(opt.get("misconception_tag") or None),
+                )
+            )
+
+        for hint in step_spec.get("hints", []):
+            db.add(
+                ScenarioStepHint(
+                    step_id=step.id,
+                    position=hint["position"],
+                    text=hint["text"].strip(),
+                    penalty_bps=hint["penalty_bps"],
+                )
+            )
+    db.flush()
+
+
+def upsert_scenario(db: Session, domain: Domain, spec: dict) -> tuple[Scenario, str]:
+    """Create or update a scenario, matched on external_id. Returns (scenario, action)
+    where action is one of "created" / "unchanged" / "updated".
+
+    Content-version and evidence-safety contract (Gate C1-CONTENT Section 6):
+
+    A. Scenario does not exist  -> created fresh at the YAML's content_version.
+    B. Same content_version, identical content -> true no-op (only cosmetic,
+       non-evidence-affecting fields like is_active/difficulty/title are refreshed).
+    C. Same content_version, DIFFERENT content -> refused. An evidence-affecting
+       edit without a version bump is an authoring mistake, not a valid state.
+    D. Higher content_version (an intentional bump):
+         - no recorded evidence yet for this scenario -> safe to replace steps/
+           options/hints in place, matching upsert_question()'s own pattern.
+         - evidence already exists -> refused. Replacing steps in place would
+           either be rejected by the database's own foreign-key constraints (a
+           ScenarioStep referenced by a ScenarioStepAttempt cannot be deleted) or,
+           on an engine that doesn't enforce that FK, silently orphan/relabel the
+           option IDs a past attempt's selected_option_ids point to -- exactly the
+           silent evidence mutation this contract must never allow. Author a new
+           scenario (new external_id) instead.
+    E. Lower content_version than what's stored -> refused; content_version must
+       never move backward.
+    """
+    ext_id = spec["external_id"]
+    incoming_version = spec["content_version"]
+    scenario = db.scalar(select(Scenario).where(Scenario.external_id == ext_id))
+
+    if scenario is None:
+        scenario = Scenario(
+            external_id=ext_id,
+            domain_id=domain.id,
+            title=spec["title"].strip(),
+            setup_text=spec["setup_text"].strip(),
+            difficulty=spec.get("difficulty", 2),
+            is_active=spec.get("active", True),
+            content_version=incoming_version,
+        )
+        db.add(scenario)
+        db.flush()
+        _write_scenario_steps(db, scenario, spec)
+        return scenario, "created"
+
+    if incoming_version < scenario.content_version:
+        raise ValueError(
+            f"{ext_id}: YAML content_version {incoming_version} is behind the "
+            f"stored version {scenario.content_version}. content_version must "
+            "never move backward."
+        )
+
+    content_changed = _scenario_db_signature(scenario) != _scenario_spec_signature(spec)
+
+    if incoming_version == scenario.content_version:
+        if content_changed:
+            raise ValueError(
+                f"{ext_id}: authored content differs from what is stored, but "
+                f"content_version was not bumped past {scenario.content_version}. "
+                "Bump content_version for any evidence-affecting change, per "
+                "Scenario.content_version's own contract (app/models/scenario.py)."
+            )
+        scenario.domain_id = domain.id
+        scenario.title = spec["title"].strip()
+        scenario.is_active = spec.get("active", True)
+        scenario.difficulty = spec.get("difficulty", 2)
+        db.flush()
+        return scenario, "unchanged"
+
+    # incoming_version > scenario.content_version: an intentional bump.
+    if _scenario_has_evidence(db, scenario):
+        raise ValueError(
+            f"{ext_id}: content_version bumped to {incoming_version}, but existing "
+            f"learner evidence already references version {scenario.content_version}. "
+            "Replacing steps/options in place here would risk corrupting or being "
+            "rejected for that historical evidence. Author a new scenario (a new "
+            "external_id) instead of versioning this one further while evidence "
+            "exists against it."
+        )
+
+    scenario.domain_id = domain.id
+    scenario.title = spec["title"].strip()
+    scenario.setup_text = spec["setup_text"].strip()
+    scenario.difficulty = spec.get("difficulty", 2)
+    scenario.is_active = spec.get("active", True)
+    scenario.content_version = incoming_version
+    db.flush()
+    _write_scenario_steps(db, scenario, spec)
+    return scenario, "updated"
+
+
+def seed_ccao_f_scenarios(db: Session) -> tuple[int, dict[str, str]]:
+    """Load production Scenario Lab content from YAML, one file per domain.
+
+    Deliberately optional and separate from seed_ccao_f(): a missing or empty
+    seed_data/ccao_f_scenarios/ directory must not fail seeding overall, mirroring
+    seed_concept_map()'s own optional-file stance. Scenario Lab already handles
+    zero scenarios honestly at the API and UI layers (Gate C1-INTEGRATION Section 4).
+    """
+    scenario_dir = SEED_DIR / "ccao_f_scenarios"
+    if not scenario_dir.exists():
+        print("  (no scenario content directory; skipping)")
+        return 0, {}
+
+    track = db.scalar(select(Track).where(Track.code == "CCAO-F"))
+    if track is None:
+        raise RuntimeError("CCAO-F track must be seeded before scenario content.")
+    domains_by_code = {
+        d.code: d
+        for d in db.scalars(select(Domain).where(Domain.track_id == track.id))
+    }
+
+    files = sorted(scenario_dir.glob("*.yaml"))
+    actions: dict[str, str] = {}
+    for path in files:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        spec = data["scenario"]
+        validate_scenario_spec(spec, set(domains_by_code))
+        domain = domains_by_code[spec["domain_code"]]
+        scenario, action = upsert_scenario(db, domain, spec)
+        actions[scenario.external_id] = action
+        print(f"  {spec['domain_code']:<5} {spec['external_id']:<24} {action}")
+
+    return len(files), actions
+
+
 def seed_concept_map(db: Session) -> tuple[int, int]:
     """Load the Zia concept -> Agent Factory lesson mapping.
 
@@ -360,6 +723,9 @@ def main() -> int:
         print("\nSeeding CCAO-F:")
         domains, questions = seed_ccao_f(db)
 
+        print("\nSeeding CCAO-F scenario content:")
+        scenario_files, scenario_actions = seed_ccao_f_scenarios(db)
+
         print("\nRegistering placeholder tracks:")
         placeholders = seed_placeholder_tracks(db)
 
@@ -371,7 +737,7 @@ def main() -> int:
 
         print(
             f"\nDone. {1 + placeholders} tracks, {domains} CCAO-F domains, "
-            f"{questions} questions, {mapped} mapped concepts"
+            f"{questions} questions, {scenario_files} scenarios, {mapped} mapped concepts"
             + (f" ({unmapped} unmapped)" if unmapped else "")
             + ", 1 dev user."
         )

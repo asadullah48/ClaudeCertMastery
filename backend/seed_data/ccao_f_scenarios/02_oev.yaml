@@ -1,0 +1,85 @@
+scenario:
+  external_id: CCAO-F-OEV-SCN-001
+  domain_code: OEV
+  title: "The Confident Citation"
+  content_version: 1
+  active: true
+  difficulty: 2
+  source_reference: >-
+    Originally authored for ClaudeCertMastery. Grounded in the CCAO-F Output Evaluation
+    & Validation domain description (backend/seed_data/ccao_f/02_oev.yaml). Not derived
+    from any certification exam, course, transcript, or third-party teaching material.
+  setup_text: >-
+    Claude is used to draft a competitive analysis summary for a sales team. The draft
+    cites "a recent industry report" to support a specific market-share statistic. The
+    paragraph reads fluently, the number looks plausible, and nothing about the tone
+    suggests uncertainty.
+  steps:
+    - position: 1
+      type: mcq
+      prompt: >-
+        What should the operator do before this goes to the sales team?
+      hints:
+        - position: 1
+          penalty_bps: 1000
+          text: >-
+            Ask what property of the writing would actually tell you whether the
+            cited number is real, as opposed to just well written.
+      options:
+        - label: A
+          text: >-
+            Verify the specific statistic against the actual report before it is
+            used, since the citation could be fabricated or misattributed even
+            though the prose sounds authoritative.
+          correct: true
+          rationale: >-
+            A specific factual claim with a citation is exactly the kind of output
+            that needs checking against the real source. Fluency and specificity are
+            stylistic properties, not evidence that the claim is grounded.
+        - label: B
+          text: >-
+            Ship it as written -- the writing is polished and internally
+            consistent, which is a good sign of accuracy.
+          correct: false
+          rationale: >-
+            Confident, well-structured prose is a writing quality, not a factual
+            one. Fabricated numbers are frequently just as well written as real
+            ones, so fluency cannot substitute for checking the source.
+          misconception_tag: fluency_as_evidence
+        - label: C
+          text: >-
+            Add a footnote saying "verify before use" and send it to the sales team
+            as is, treating the disclaimer as equivalent to having actually checked.
+          correct: false
+          rationale: >-
+            A disclaimer changes who is nominally responsible if the number is
+            wrong, not whether the claim is true. A sales team reading a specific
+            number will use it, disclaimer or not.
+          misconception_tag: hedge_language_sufficient
+    - position: 2
+      type: mcq
+      prompt: >-
+        The claim turns out to be wrong: the report is real, but the actual figure
+        differs from what Claude produced. The operator wants to prevent this next
+        time without adding manual fact-checking to every single output.
+      options:
+        - label: A
+          text: >-
+            Restrict Claude to only cite sources that are actually provided in its
+            context, and treat any output citing a source that was not supplied as
+            needing verification by design.
+          correct: true
+          rationale: >-
+            This closes off the failure mode structurally -- an ungrounded citation
+            becomes something the workflow catches by construction, rather than
+            something that depends on a person happening to notice it.
+        - label: B
+          text: >-
+            Switch to a larger or newer model, assuming a more capable model will
+            not fabricate citations.
+          correct: false
+          rationale: >-
+            Model capability can reduce some error rates, but it does not eliminate
+            the structural risk of citing a source it was never given. A more
+            capable model can still produce a fluent, wrong citation.
+          misconception_tag: model_upgrade_fixes_grounding

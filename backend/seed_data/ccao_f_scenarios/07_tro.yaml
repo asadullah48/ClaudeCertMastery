@@ -1,0 +1,86 @@
+scenario:
+  external_id: CCAO-F-TRO-SCN-001
+  domain_code: TRO
+  title: "The Slow Regression"
+  content_version: 1
+  active: true
+  difficulty: 2
+  source_reference: >-
+    Originally authored for ClaudeCertMastery. Grounded in the CCAO-F Troubleshooting &
+    Optimization domain description (backend/seed_data/ccao_f/07_tro.yaml). Not derived
+    from any certification exam, course, transcript, or third-party teaching material.
+  setup_text: >-
+    A team's Claude-powered document summarizer normally responds in about three
+    seconds. Over the past two weeks it has degraded to about twelve seconds. Nothing
+    in the team's own prompt or model configuration was changed on their end during
+    that time.
+  steps:
+    - position: 1
+      type: mcq
+      prompt: >-
+        What should the operator do first?
+      hints:
+        - position: 1
+          penalty_bps: 1000
+          text: >-
+            "Nothing changed on our end" usually means "nothing we deliberately
+            changed." Ask what could have drifted without anyone touching a setting.
+      options:
+        - label: A
+          text: >-
+            Check whether the size or length of the input documents being
+            summarized has grown, since that is a common source of "nothing changed
+            but it got slower."
+          correct: true
+          rationale: >-
+            Latency for a summarization task typically scales with how much text
+            has to be processed. A growing average input size is the cheapest thing
+            to rule out before assuming something changed upstream.
+        - label: B
+          text: >-
+            Immediately escalate to Anthropic, assuming a platform-side outage or
+            degradation, without checking anything on the team's own side first.
+          correct: false
+          rationale: >-
+            Escalating before ruling out the obvious, controllable variable on your
+            own side wastes time on both sides if the actual cause turns out to be
+            input growth.
+          misconception_tag: assume_external_outage
+        - label: C
+          text: >-
+            Try lowering the temperature and shortening the prompt's instructions,
+            assuming that will address the slowdown.
+          correct: false
+          rationale: >-
+            Temperature affects sampling randomness, not throughput, and shortening
+            instructions does not address a root cause that has not been identified
+            yet. This is a guess, not a diagnosis.
+          misconception_tag: temperature_or_prompt_tuning_fixes_latency
+    - position: 2
+      type: mcq
+      prompt: >-
+        Input document size has not changed. Looking closer, the operator finds that
+        a recent internal change routed every request through an extra logging hop,
+        adding a fixed delay to every call regardless of input size. What should the
+        operator do?
+      options:
+        - label: A
+          text: >-
+            Measure where the added time actually occurs with a per-call latency
+            breakdown, rather than continuing to guess based on plausible-sounding
+            causes.
+          correct: true
+          rationale: >-
+            Once the simple explanation (input size) is ruled out, the next step is
+            to localize the delay directly. A latency breakdown would have surfaced
+            the added hop immediately, instead of relying on another guess.
+        - label: B
+          text: >-
+            Conclude the model itself has gotten slower, since the slowdown roughly
+            coincided with when the team assumes the model provider made changes.
+          correct: false
+          rationale: >-
+            Correlation with an assumed timeline is not evidence of causation,
+            especially when there is an actual, identifiable change on the team's
+            own side (the new logging hop) that has not been checked yet.
+          misconception_tag: symptom_matches_cause

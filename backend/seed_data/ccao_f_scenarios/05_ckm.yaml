@@ -1,0 +1,88 @@
+scenario:
+  external_id: CCAO-F-CKM-SCN-001
+  domain_code: CKM
+  title: "The Stale Playbook"
+  content_version: 1
+  active: true
+  difficulty: 2
+  source_reference: >-
+    Originally authored for ClaudeCertMastery. Grounded in the CCAO-F Configuration &
+    Knowledge Management domain description (backend/seed_data/ccao_f/05_ckm.yaml). Not
+    derived from any certification exam, course, transcript, or third-party teaching
+    material.
+  setup_text: >-
+    A team configured Claude with a persistent knowledge document describing their
+    return policy, refreshed on a quarterly schedule. Two weeks after the last
+    refresh, the company runs a temporary promotion extending the return window from
+    30 to 90 days for one product line. Unaware of the promotion, Claude keeps citing
+    the standard 30-day policy to customers asking about that product line.
+  steps:
+    - position: 1
+      type: mcq
+      prompt: >-
+        What should the operator do?
+      hints:
+        - position: 1
+          penalty_bps: 1000
+          text: >-
+            Ask what the quarterly refresh schedule is actually for, and whether
+            that purpose is served by waiting when the document is already known to
+            be wrong.
+      options:
+        - label: A
+          text: >-
+            Add the temporary exception to the knowledge document immediately, with
+            a clear expiry date, rather than waiting for the scheduled quarterly
+            refresh.
+          correct: true
+          rationale: >-
+            The scheduled cadence is a default, not a ceiling. A knowledge source
+            known to be actively producing wrong answers right now should be
+            corrected as soon as that is known.
+        - label: B
+          text: >-
+            Leave it until the next scheduled quarterly refresh, since that is the
+            established process.
+          correct: false
+          rationale: >-
+            This elevates the cadence above the reason it exists. The process
+            exists to serve accurate answers; it should not override accuracy when
+            the document is already known to be stale.
+          misconception_tag: schedule_over_accuracy
+        - label: C
+          text: >-
+            Tell Claude in the system prompt to "mention that some products have
+            extended returns," without updating the knowledge document itself.
+          correct: false
+          rationale: >-
+            This creates two sources of truth that can now contradict each other --
+            a system-prompt patch and an unchanged document. The underlying source
+            should be the one that gets corrected.
+          misconception_tag: instruction_patch_without_source_update
+    - position: 2
+      type: mcq
+      prompt: >-
+        The promotion ends and the return window reverts to 30 days for that
+        product line. A month later, the operator notices the temporary exception is
+        still sitting in the knowledge document with no expiry ever set. What should
+        the operator do?
+      options:
+        - label: A
+          text: >-
+            Set an explicit removal or expiry step whenever a temporary exception is
+            added, not only when it is first created.
+          correct: true
+          rationale: >-
+            A knowledge source that only ever grows accumulates stale, contradictory
+            information exactly like this. Temporary content needs a defined end,
+            decided at the same time it is added.
+        - label: B
+          text: >-
+            Keep adding new exceptions on top over time, since removing old content
+            risks breaking something that depends on it.
+          correct: false
+          rationale: >-
+            Knowledge sources are not safe by default when left untouched. An
+            unremoved stale exception is itself a source of exactly the kind of
+            wrong answer this scenario started with.
+          misconception_tag: additive_only_maintenance

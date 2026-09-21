@@ -1,0 +1,88 @@
+scenario:
+  external_id: CCAO-F-GRR-SCN-001
+  domain_code: GRR
+  title: "The Borrowed Example"
+  content_version: 1
+  active: true
+  difficulty: 3
+  source_reference: >-
+    Originally authored for ClaudeCertMastery. Grounded in the CCAO-F Governance, Risk
+    & Responsible Use domain description (backend/seed_data/ccao_f/06_grr.yaml). Not
+    derived from any certification exam, course, transcript, or third-party teaching
+    material.
+  setup_text: >-
+    An operator is drafting an internal training document with Claude's help,
+    illustrating "good customer service tone." To make the example concrete, the
+    operator has Claude build it around a real transcript pulled from last week's
+    support queue, including the customer's name and account details, exactly as
+    recorded.
+  steps:
+    - position: 1
+      type: mcq
+      prompt: >-
+        What should the operator do before this document is circulated?
+      hints:
+        - position: 1
+          penalty_bps: 1000
+          text: >-
+            Ask what the customer's transcript was originally collected for, and
+            whether this new use matches that.
+      options:
+        - label: A
+          text: >-
+            Remove or replace the customer's identifying details before the
+            document is shared, even internally, since the transcript was not
+            collected for this purpose.
+          correct: true
+          rationale: >-
+            Using a customer's real, identifiable interaction for an unrelated
+            internal purpose is a data-handling issue regardless of audience. The
+            fix is removing the identifying details, not discarding the example
+            itself.
+        - label: B
+          text: >-
+            Share it as is internally, since it is only going to employees and not
+            the public.
+          correct: false
+          rationale: >-
+            "Internal only" describes the audience, not whether the customer would
+            reasonably expect their transcript to be reused this way. An audience
+            restriction does not resolve a scope-of-use problem.
+          misconception_tag: internal_sharing_is_safe
+        - label: C
+          text: >-
+            Leave the identifying details in, since the customer's experience is a
+            genuinely compelling training example.
+          correct: false
+          rationale: >-
+            How compelling or positive an example is does not change what the data
+            was collected for, or what the customer would reasonably expect it to be
+            used for.
+          misconception_tag: good_intent_excuses_scope_creep
+    - position: 2
+      type: mcq
+      prompt: >-
+        The anonymized version is approved for internal training. A month later,
+        someone wants to reuse the same anonymized example in an external marketing
+        blog post about "how we help customers." What should happen?
+      options:
+        - label: A
+          text: >-
+            Treat this as a new use requiring its own review, since external
+            publication carries different exposure and expectations than internal
+            training, even with identical anonymized text.
+          correct: true
+          rationale: >-
+            An approval scoped to one use (internal training) does not automatically
+            extend to a materially different one (public marketing). The review
+            boundary is the use case, not the artifact.
+        - label: B
+          text: >-
+            Reuse it directly, since the content was already reviewed and approved
+            once.
+          correct: false
+          rationale: >-
+            This treats "cleared for purpose X" as "generally pre-cleared." Different
+            purposes carry different risk and expectations, and each deserves its
+            own check.
+          misconception_tag: one_time_approval_covers_all_uses

@@ -1,0 +1,96 @@
+scenario:
+  external_id: CCAO-F-WISD-SCN-001
+  domain_code: WISD
+  title: "The Escalation Loop"
+  content_version: 1
+  active: true
+  difficulty: 2
+  source_reference: >-
+    Originally authored for ClaudeCertMastery. Grounded in the CCAO-F Workflow
+    Integration & Solution Design domain description
+    (backend/seed_data/ccao_f/04_wisd.yaml). Distinct from, and not derived from, the
+    test-only "Silent Handoff" fixture used in backend/tests/test_scenario_api.py. Not
+    derived from any certification exam, course, transcript, or third-party teaching
+    material.
+  setup_text: >-
+    A team wired Claude into their support system to draft first responses to
+    tickets, with one fixed rule: any ticket classified as a "billing dispute" is
+    escalated to a human specialist and Claude does not respond to it directly. After
+    a product change, billing-dispute volume quadruples overnight. The human
+    specialist queue is now backed up by three days, while Claude sits completely
+    idle on every one of those tickets.
+  steps:
+    - position: 1
+      type: mcq
+      prompt: >-
+        What should the operator do?
+      hints:
+        - position: 1
+          penalty_bps: 1000
+          text: >-
+            The rule says Claude should not respond directly to billing disputes.
+            Ask whether "does not respond directly" has to mean "does nothing at
+            all."
+      options:
+        - label: A
+          text: >-
+            Have Claude draft a holding response and gather the relevant details for
+            these tickets while they wait for a human, instead of leaving them
+            completely untouched.
+          correct: true
+          rationale: >-
+            The handoff boundary (a human must decide) does not have to mean total
+            inactivity until a human is free. Claude can still do useful,
+            within-bounds preparatory work without crossing the line the rule
+            actually protects.
+        - label: B
+          text: >-
+            Narrow Claude's classification rules so fewer tickets qualify as
+            "billing dispute," reducing how many get escalated.
+          correct: false
+          rationale: >-
+            This relabels the problem instead of solving it. The real billing
+            disputes still exist; they are simply no longer flagged as such, which
+            removes the safeguard rather than addressing the capacity mismatch
+            behind the backlog.
+          misconception_tag: automation_binary
+        - label: C
+          text: >-
+            Quietly let Claude answer billing disputes directly for now, since the
+            queue is backed up and something has to give.
+          correct: false
+          rationale: >-
+            Bypassing a human-in-the-loop boundary that was deliberately set,
+            because of queue pressure, defeats the reason the boundary existed. If
+            the boundary needs to change, that should be a visible decision, not a
+            quiet workaround.
+          misconception_tag: silent_bypass_is_progress
+    - position: 2
+      type: mcq
+      prompt: >-
+        Three months later, the "prepare while waiting" step is working well. A new
+        pattern appears: refund requests tied to a known, unresolved billing-system
+        bug. Claude is unaware of the bug and prepares files recommending denial,
+        strictly following the written refund policy. What should the operator do?
+      options:
+        - label: A
+          text: >-
+            Give Claude explicit, current knowledge of the known bug and its refund
+            guidance, so its prep work reflects it rather than assuming the static
+            policy text is complete.
+          correct: true
+          rationale: >-
+            Correctly following stale instructions still produces wrong output once
+            the operating context has changed. The written policy is only reliable
+            as long as it reflects current reality, and here a known bug means it
+            does not.
+        - label: B
+          text: >-
+            Leave Claude's instructions unchanged, since it is correctly following
+            the written policy exactly as given.
+          correct: false
+          rationale: >-
+            This treats textual compliance with the policy as the goal, rather than
+            a means to the actual goal of a correct outcome. A known operational bug
+            is exactly the kind of context that needs to be kept current.
+          misconception_tag: policy_text_is_ground_truth

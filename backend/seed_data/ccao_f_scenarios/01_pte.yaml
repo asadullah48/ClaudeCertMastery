@@ -1,0 +1,92 @@
+scenario:
+  external_id: CCAO-F-PTE-SCN-001
+  domain_code: PTE
+  title: "The Vague Brief"
+  content_version: 1
+  active: true
+  difficulty: 2
+  source_reference: >-
+    Originally authored for ClaudeCertMastery. Grounded in the CCAO-F Prompting & Task
+    Execution domain description (backend/seed_data/ccao_f/01_pte.yaml). Not derived from
+    any certification exam, course, transcript, or third-party teaching material.
+  setup_text: >-
+    An operator is asked to have Claude "clean up" a batch of 500 customer support
+    tickets before they are routed to agents. The instruction given to Claude is a
+    single line: "Clean up these tickets." Claude begins producing wildly inconsistent
+    results -- some tickets are rewritten in full, some only lose stray punctuation,
+    and on a few Claude stops to ask a clarifying question that never gets answered.
+  steps:
+    - position: 1
+      type: mcq
+      prompt: >-
+        What should the operator do about the inconsistent output?
+      hints:
+        - position: 1
+          penalty_bps: 1000
+          text: >-
+            Ask whether the inconsistency looks like randomness across similar
+            requests, or like different reasonable interpretations of one unclear
+            instruction.
+      options:
+        - label: A
+          text: >-
+            Rewrite the instruction to state concrete criteria for what "cleaned up"
+            means (for example: redact personal data, fix typos, standardize the
+            subject line), and give two or three before/after examples.
+          correct: true
+          rationale: >-
+            The inconsistency comes from ambiguity in the task definition itself, not
+            from randomness. Concrete criteria and worked examples close that
+            ambiguity directly, which is why the same instruction produces different
+            "reasonable" results from ticket to ticket.
+        - label: B
+          text: >-
+            Keep the same one-line instruction, but tell Claude more forcefully to
+            "use your best judgment."
+          correct: false
+          rationale: >-
+            "Use your best judgment" is not a specification. It restates the
+            ambiguity instead of resolving it, so Claude has nothing new to be
+            consistent about.
+          misconception_tag: underspecification_tolerance
+        - label: C
+          text: >-
+            Lower the model's temperature setting and re-run the same instruction,
+            assuming randomness in sampling is causing the inconsistency.
+          correct: false
+          rationale: >-
+            Temperature affects sampling variance, not whether a task is well
+            defined. An underspecified instruction produces inconsistent
+            interpretations at any temperature, because the disagreement is about
+            what the task means, not about random word choice.
+          misconception_tag: temperature_as_fix
+    - position: 2
+      type: mcq
+      prompt: >-
+        Three weeks later the criteria are in place and the tickets are consistent.
+        A new class of ticket appears: ones where the customer states two
+        conflicting things in the same message (for example, two different delivery
+        addresses). Claude is decomposing the task correctly but occasionally
+        guesses which statement is authoritative instead of flagging the conflict.
+        What should the operator do?
+      options:
+        - label: A
+          text: >-
+            Add an explicit instruction to flag any internally conflicting
+            information for human review, rather than resolving it automatically.
+          correct: true
+          rationale: >-
+            For genuinely ambiguous input, task decomposition should include a
+            "surface the ambiguity" step. Forcing a guess inside the pipeline hides
+            the conflict instead of resolving it correctly.
+        - label: B
+          text: >-
+            Instruct Claude to always trust the most recent statement in the
+            message, since that is usually what actually happened.
+          correct: false
+          rationale: >-
+            "Most recent statement wins" is a plausible heuristic sometimes, but it
+            silently resolves genuine conflicts instead of surfacing the cases where
+            it is wrong -- the same underspecification problem in a new form,
+            applied automatically instead of by a human.
+          misconception_tag: silent_resolution_preferred
