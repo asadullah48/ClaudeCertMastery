@@ -15,6 +15,7 @@ from app.models.attempt import (
 from app.models.catalog import AnswerOption, Domain, Question, QuestionType, Track
 from app.models.explanation import Explanation
 from app.models.flashcard import Flashcard
+from app.models.readiness import LearnerDomainState, ReadinessState
 from app.models.scenario import (
     Scenario,
     ScenarioAttempt,
@@ -38,8 +39,10 @@ __all__ = [
     "ExamAttempt",
     "Explanation",
     "Flashcard",
+    "LearnerDomainState",
     "Question",
     "QuestionType",
+    "ReadinessState",
     "Scenario",
     "ScenarioAttempt",
     "ScenarioEvent",
