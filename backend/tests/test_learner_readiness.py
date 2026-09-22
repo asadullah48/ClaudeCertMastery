@@ -1,8 +1,10 @@
-"""KSOR Slice 3: evidence aggregation + projection recompute tests.
+"""KSOR Slice 3/4: evidence aggregation, misconception lifecycle, and projection
+recompute tests.
 
-Builds real ExamAttempt/AttemptItem/AttemptDomainScore and ScenarioAttempt rows
-directly against a throwaway SQLite database (same fixture pattern as
-test_readiness_model.py), then proves the Slice 3 service (build_domain_evidence_summary
+Builds real ExamAttempt/AttemptItem/AttemptDomainScore, ScenarioAttempt, and (for
+Slice 4) ScenarioStep/ScenarioStepOption/ScenarioEvent rows directly against a
+throwaway SQLite database (same fixture pattern as test_readiness_model.py), then
+proves the service (build_domain_evidence_summary / derive_unresolved_misconceptions
 / recompute_learner_domain_state) aggregates them correctly, is idempotent and
 replayable, isolates users/tracks/domains, and never mutates the evidence it reads.
 """
@@ -34,21 +36,26 @@ from app.models import (  # noqa: E402
     QuestionType,
     Scenario,
     ScenarioAttempt,
+    ScenarioEvent,
+    ScenarioStep,
+    ScenarioStepOption,
     Track,
     User,
 )
 from app.services.learner_readiness import (
-    INTERIM_UNRESOLVED_MISCONCEPTION_COUNT,
     PROJECTION_VERSION,
     ReadinessComputationError,
     build_domain_evidence_summary,
+    derive_unresolved_misconceptions,
     recompute_learner_domain_state,
 )
 from app.services.readiness_policy import (
     MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY,
     MIN_SCENARIO_ATTEMPTS_FOR_SUFFICIENCY,
+    REPEATED_MISCONCEPTION,
     STALENESS_THRESHOLD_DAYS,
     STATE_APPROACHING_READY,
+    STATE_DEVELOPING,
     STATE_INSUFFICIENT_EVIDENCE,
     STATE_READY,
 )
@@ -417,19 +424,391 @@ class TestMostRecentEvidenceAt:
         assert summary.most_recent_evidence_at != NOW
 
 
-# --- Misconception interim behavior -------------------------------------------------
+# --- Misconception lifecycle (Slice 4) fixture helpers ------------------------------
 
 
-class TestMisconceptionInterimBehavior:
-    def test_always_zero_in_slice_3(self, db_session):
+def make_scenario_step(db, *, scenario, position=1, options):
+    """options: list of dicts with keys label/text/is_correct/misconception_tag
+    (misconception_tag omitted or None on correct options, matching the authoring
+    contract in scenario.py)."""
+    step = ScenarioStep(scenario_id=scenario.id, position=position, prompt_text="p", step_type="mcq")
+    db.add(step)
+    db.flush()
+    for i, opt in enumerate(options, start=1):
+        db.add(
+            ScenarioStepOption(
+                step_id=step.id, label=opt.get("label", chr(64 + i)), text=opt.get("text", "t"),
+                is_correct=opt["is_correct"], position=i, rationale="r",
+                misconception_tag=opt.get("misconception_tag"),
+            )
+        )
+    db.commit()
+    return step
+
+
+def add_step_answered_event(
+    db, *, user, scenario_attempt, step, is_correct, misconception_tags=(), occurred_at=NOW
+):
+    """Mirrors build_scenario_event_payload()'s real shape exactly -- a flat dict
+    with `is_correct` and `misconception_tags`, the only two fields
+    derive_unresolved_misconceptions reads."""
+    event = ScenarioEvent(
+        scenario_attempt_id=scenario_attempt.id, user_id=user.id,
+        event_type="step_answered", step_id=step.id,
+        payload={"is_correct": is_correct, "misconception_tags": sorted(misconception_tags)},
+        occurred_at=occurred_at,
+    )
+    db.add(event)
+    db.commit()
+    return event
+
+
+# --- Misconception lifecycle: occurrence, resolution, recurrence, isolation --------
+
+
+class TestMisconceptionLifecycle:
+    def test_no_misconceptions_is_zero(self, db_session):
         track = make_track(db_session)
         domain = make_domain(db_session, track, "PTE")
         user = make_user(db_session)
-        summary = build_domain_evidence_summary(
+        assert derive_unresolved_misconceptions(db_session, user_id=user.id, domain_id=domain.id) == 0
+
+    def test_single_occurrence_is_one_unresolved(self, db_session):
+        track = make_track(db_session)
+        domain = make_domain(db_session, track, "PTE")
+        user = make_user(db_session)
+        scenario = make_scenario(db_session, domain=domain, external_id="SCN-1")
+        step = make_scenario_step(db_session, scenario=scenario, options=[
+            {"is_correct": True}, {"is_correct": False, "misconception_tag": "tag_a"},
+        ])
+        attempt = add_scenario_attempt_evidence(db_session, user=user, scenario=scenario, submitted_at=NOW)
+        add_step_answered_event(db_session, user=user, scenario_attempt=attempt, step=step,
+                                 is_correct=False, misconception_tags={"tag_a"}, occurred_at=NOW)
+        assert derive_unresolved_misconceptions(db_session, user_id=user.id, domain_id=domain.id) == 1
+
+    def test_wrong_answer_with_no_misconception_tag_fabricates_nothing(self, db_session):
+        track = make_track(db_session)
+        domain = make_domain(db_session, track, "PTE")
+        user = make_user(db_session)
+        scenario = make_scenario(db_session, domain=domain, external_id="SCN-1")
+        step = make_scenario_step(db_session, scenario=scenario, options=[
+            {"is_correct": True}, {"is_correct": False},  # no misconception_tag authored
+        ])
+        attempt = add_scenario_attempt_evidence(db_session, user=user, scenario=scenario, submitted_at=NOW)
+        add_step_answered_event(db_session, user=user, scenario_attempt=attempt, step=step,
+                                 is_correct=False, misconception_tags=(), occurred_at=NOW)
+        assert derive_unresolved_misconceptions(db_session, user_id=user.id, domain_id=domain.id) == 0
+
+    def test_repeated_same_misconception_counts_once(self, db_session):
+        track = make_track(db_session)
+        domain = make_domain(db_session, track, "PTE")
+        user = make_user(db_session)
+        scenario = make_scenario(db_session, domain=domain, external_id="SCN-1")
+        step = make_scenario_step(db_session, scenario=scenario, options=[
+            {"is_correct": True}, {"is_correct": False, "misconception_tag": "tag_a"},
+        ])
+        attempt1 = add_scenario_attempt_evidence(db_session, user=user, scenario=scenario, submitted_at=NOW)
+        add_step_answered_event(db_session, user=user, scenario_attempt=attempt1, step=step,
+                                 is_correct=False, misconception_tags={"tag_a"}, occurred_at=NOW)
+        attempt2 = add_scenario_attempt_evidence(db_session, user=user, scenario=scenario, submitted_at=NOW + timedelta(hours=1))
+        add_step_answered_event(db_session, user=user, scenario_attempt=attempt2, step=step,
+                                 is_correct=False, misconception_tags={"tag_a"}, occurred_at=NOW + timedelta(hours=1))
+        assert derive_unresolved_misconceptions(db_session, user_id=user.id, domain_id=domain.id) == 1
+
+    def test_multiple_distinct_misconceptions_count_two(self, db_session):
+        track = make_track(db_session)
+        domain = make_domain(db_session, track, "PTE")
+        user = make_user(db_session)
+        scenario = make_scenario(db_session, domain=domain, external_id="SCN-1")
+        step_a = make_scenario_step(db_session, scenario=scenario, position=1, options=[
+            {"is_correct": True}, {"is_correct": False, "misconception_tag": "tag_a"},
+        ])
+        step_b = make_scenario_step(db_session, scenario=scenario, position=2, options=[
+            {"is_correct": True}, {"is_correct": False, "misconception_tag": "tag_b"},
+        ])
+        attempt = add_scenario_attempt_evidence(db_session, user=user, scenario=scenario, submitted_at=NOW)
+        add_step_answered_event(db_session, user=user, scenario_attempt=attempt, step=step_a,
+                                 is_correct=False, misconception_tags={"tag_a"}, occurred_at=NOW)
+        add_step_answered_event(db_session, user=user, scenario_attempt=attempt, step=step_b,
+                                 is_correct=False, misconception_tags={"tag_b"}, occurred_at=NOW)
+        assert derive_unresolved_misconceptions(db_session, user_id=user.id, domain_id=domain.id) == 2
+
+    def test_unrelated_success_does_not_resolve(self, db_session):
+        track = make_track(db_session)
+        domain = make_domain(db_session, track, "PTE")
+        user = make_user(db_session)
+        scenario = make_scenario(db_session, domain=domain, external_id="SCN-1")
+        step_a = make_scenario_step(db_session, scenario=scenario, position=1, options=[
+            {"is_correct": True}, {"is_correct": False, "misconception_tag": "tag_a"},
+        ])
+        step_b = make_scenario_step(db_session, scenario=scenario, position=2, options=[
+            {"is_correct": True}, {"is_correct": False, "misconception_tag": "tag_b"},
+        ])
+        attempt = add_scenario_attempt_evidence(db_session, user=user, scenario=scenario, submitted_at=NOW)
+        add_step_answered_event(db_session, user=user, scenario_attempt=attempt, step=step_a,
+                                 is_correct=False, misconception_tags={"tag_a"}, occurred_at=NOW)
+        # Later correct answer on an UNRELATED step (tag_b's step) must not resolve tag_a.
+        add_step_answered_event(db_session, user=user, scenario_attempt=attempt, step=step_b,
+                                 is_correct=True, misconception_tags=(), occurred_at=NOW + timedelta(hours=1))
+        assert derive_unresolved_misconceptions(db_session, user_id=user.id, domain_id=domain.id) == 1
+
+    def test_same_tag_resolution(self, db_session):
+        track = make_track(db_session)
+        domain = make_domain(db_session, track, "PTE")
+        user = make_user(db_session)
+        scenario = make_scenario(db_session, domain=domain, external_id="SCN-1")
+        step = make_scenario_step(db_session, scenario=scenario, options=[
+            {"is_correct": True}, {"is_correct": False, "misconception_tag": "tag_a"},
+        ])
+        attempt1 = add_scenario_attempt_evidence(db_session, user=user, scenario=scenario, submitted_at=NOW)
+        add_step_answered_event(db_session, user=user, scenario_attempt=attempt1, step=step,
+                                 is_correct=False, misconception_tags={"tag_a"}, occurred_at=NOW)
+        attempt2 = add_scenario_attempt_evidence(db_session, user=user, scenario=scenario, submitted_at=NOW + timedelta(hours=1))
+        add_step_answered_event(db_session, user=user, scenario_attempt=attempt2, step=step,
+                                 is_correct=True, misconception_tags=(), occurred_at=NOW + timedelta(hours=1))
+        assert derive_unresolved_misconceptions(db_session, user_id=user.id, domain_id=domain.id) == 0
+
+    def test_recurrence_reopens_after_resolution(self, db_session):
+        track = make_track(db_session)
+        domain = make_domain(db_session, track, "PTE")
+        user = make_user(db_session)
+        scenario = make_scenario(db_session, domain=domain, external_id="SCN-1")
+        step = make_scenario_step(db_session, scenario=scenario, options=[
+            {"is_correct": True}, {"is_correct": False, "misconception_tag": "tag_a"},
+        ])
+        a1 = add_scenario_attempt_evidence(db_session, user=user, scenario=scenario, submitted_at=NOW)
+        add_step_answered_event(db_session, user=user, scenario_attempt=a1, step=step,
+                                 is_correct=False, misconception_tags={"tag_a"}, occurred_at=NOW)
+        a2 = add_scenario_attempt_evidence(db_session, user=user, scenario=scenario, submitted_at=NOW + timedelta(hours=1))
+        add_step_answered_event(db_session, user=user, scenario_attempt=a2, step=step,
+                                 is_correct=True, misconception_tags=(), occurred_at=NOW + timedelta(hours=1))
+        # Resolved after a2.
+        assert derive_unresolved_misconceptions(db_session, user_id=user.id, domain_id=domain.id) == 0
+        a3 = add_scenario_attempt_evidence(db_session, user=user, scenario=scenario, submitted_at=NOW + timedelta(hours=2))
+        add_step_answered_event(db_session, user=user, scenario_attempt=a3, step=step,
+                                 is_correct=False, misconception_tags={"tag_a"}, occurred_at=NOW + timedelta(hours=2))
+        # Reopened after a3.
+        assert derive_unresolved_misconceptions(db_session, user_id=user.id, domain_id=domain.id) == 1
+
+    def test_temporal_ordering_earlier_success_does_not_erase_later_misconception(self, db_session):
+        """Insertion order is deliberately the OPPOSITE of temporal order here --
+        the correct event is written to the DB first, the incorrect one second --
+        to prove the reducer orders by `occurred_at`, not by row/insertion order."""
+        track = make_track(db_session)
+        domain = make_domain(db_session, track, "PTE")
+        user = make_user(db_session)
+        scenario = make_scenario(db_session, domain=domain, external_id="SCN-1")
+        step = make_scenario_step(db_session, scenario=scenario, options=[
+            {"is_correct": True}, {"is_correct": False, "misconception_tag": "tag_a"},
+        ])
+        a1 = add_scenario_attempt_evidence(db_session, user=user, scenario=scenario, submitted_at=NOW)
+        add_step_answered_event(db_session, user=user, scenario_attempt=a1, step=step,
+                                 is_correct=True, misconception_tags=(), occurred_at=NOW)
+        a2 = add_scenario_attempt_evidence(db_session, user=user, scenario=scenario, submitted_at=NOW + timedelta(hours=1))
+        add_step_answered_event(db_session, user=user, scenario_attempt=a2, step=step,
+                                 is_correct=False, misconception_tags={"tag_a"}, occurred_at=NOW + timedelta(hours=1))
+        assert derive_unresolved_misconceptions(db_session, user_id=user.id, domain_id=domain.id) == 1
+
+    def test_tie_break_on_identical_timestamp_is_deterministic(self, db_session):
+        track = make_track(db_session)
+        domain = make_domain(db_session, track, "PTE")
+        user = make_user(db_session)
+        scenario = make_scenario(db_session, domain=domain, external_id="SCN-1")
+        step = make_scenario_step(db_session, scenario=scenario, options=[
+            {"is_correct": True}, {"is_correct": False, "misconception_tag": "tag_a"},
+        ])
+        a1 = add_scenario_attempt_evidence(db_session, user=user, scenario=scenario, submitted_at=NOW)
+        add_step_answered_event(db_session, user=user, scenario_attempt=a1, step=step,
+                                 is_correct=False, misconception_tags={"tag_a"}, occurred_at=NOW)
+        a2 = add_scenario_attempt_evidence(db_session, user=user, scenario=scenario, submitted_at=NOW)
+        # Same occurred_at as the first event -- the event `id` (insertion order)
+        # must be the deterministic tie-break, and repeated calls must agree.
+        add_step_answered_event(db_session, user=user, scenario_attempt=a2, step=step,
+                                 is_correct=True, misconception_tags=(), occurred_at=NOW)
+        first = derive_unresolved_misconceptions(db_session, user_id=user.id, domain_id=domain.id)
+        second = derive_unresolved_misconceptions(db_session, user_id=user.id, domain_id=domain.id)
+        assert first == second == 0  # later-inserted (higher id) event is the correct one
+
+    def test_in_progress_attempt_evidence_is_not_eligible(self, db_session):
+        track = make_track(db_session)
+        domain = make_domain(db_session, track, "PTE")
+        user = make_user(db_session)
+        scenario = make_scenario(db_session, domain=domain, external_id="SCN-1")
+        step = make_scenario_step(db_session, scenario=scenario, options=[
+            {"is_correct": True}, {"is_correct": False, "misconception_tag": "tag_a"},
+        ])
+        attempt = add_scenario_attempt_evidence(db_session, user=user, scenario=scenario, status="in_progress")
+        add_step_answered_event(db_session, user=user, scenario_attempt=attempt, step=step,
+                                 is_correct=False, misconception_tags={"tag_a"}, occurred_at=NOW)
+        assert derive_unresolved_misconceptions(db_session, user_id=user.id, domain_id=domain.id) == 0
+
+    def test_user_isolation(self, db_session):
+        track = make_track(db_session)
+        domain = make_domain(db_session, track, "PTE")
+        user_a = make_user(db_session, email="a@example.com")
+        user_b = make_user(db_session, email="b@example.com")
+        scenario = make_scenario(db_session, domain=domain, external_id="SCN-1")
+        step = make_scenario_step(db_session, scenario=scenario, options=[
+            {"is_correct": True}, {"is_correct": False, "misconception_tag": "tag_a"},
+        ])
+        attempt = add_scenario_attempt_evidence(db_session, user=user_a, scenario=scenario, submitted_at=NOW)
+        add_step_answered_event(db_session, user=user_a, scenario_attempt=attempt, step=step,
+                                 is_correct=False, misconception_tags={"tag_a"}, occurred_at=NOW)
+        assert derive_unresolved_misconceptions(db_session, user_id=user_a.id, domain_id=domain.id) == 1
+        assert derive_unresolved_misconceptions(db_session, user_id=user_b.id, domain_id=domain.id) == 0
+
+    def test_domain_isolation_even_with_reused_tag_string(self, db_session):
+        track = make_track(db_session)
+        pte = make_domain(db_session, track, "PTE", position=1)
+        oev = make_domain(db_session, track, "OEV", position=2)
+        user = make_user(db_session)
+        pte_scenario = make_scenario(db_session, domain=pte, external_id="SCN-PTE")
+        pte_step = make_scenario_step(db_session, scenario=pte_scenario, options=[
+            {"is_correct": True}, {"is_correct": False, "misconception_tag": "shared_tag"},
+        ])
+        oev_scenario = make_scenario(db_session, domain=oev, external_id="SCN-OEV")
+        make_scenario_step(db_session, scenario=oev_scenario, options=[
+            {"is_correct": True}, {"is_correct": False, "misconception_tag": "shared_tag"},
+        ])
+        attempt = add_scenario_attempt_evidence(db_session, user=user, scenario=pte_scenario, submitted_at=NOW)
+        add_step_answered_event(db_session, user=user, scenario_attempt=attempt, step=pte_step,
+                                 is_correct=False, misconception_tags={"shared_tag"}, occurred_at=NOW)
+        assert derive_unresolved_misconceptions(db_session, user_id=user.id, domain_id=pte.id) == 1
+        assert derive_unresolved_misconceptions(db_session, user_id=user.id, domain_id=oev.id) == 0
+
+    def test_track_isolation_even_with_reused_tag_string(self, db_session):
+        track_a = make_track(db_session, code="CCAO-F")
+        track_b = make_track(db_session, code="CCDV-F")
+        domain_a = make_domain(db_session, track_a, "PTE")
+        domain_b = make_domain(db_session, track_b, "PTE")
+        user = make_user(db_session)
+        scenario_a = make_scenario(db_session, domain=domain_a, external_id="SCN-A")
+        step_a = make_scenario_step(db_session, scenario=scenario_a, options=[
+            {"is_correct": True}, {"is_correct": False, "misconception_tag": "shared_tag"},
+        ])
+        scenario_b = make_scenario(db_session, domain=domain_b, external_id="SCN-B")
+        make_scenario_step(db_session, scenario=scenario_b, options=[
+            {"is_correct": True}, {"is_correct": False, "misconception_tag": "shared_tag"},
+        ])
+        attempt = add_scenario_attempt_evidence(db_session, user=user, scenario=scenario_a, submitted_at=NOW)
+        add_step_answered_event(db_session, user=user, scenario_attempt=attempt, step=step_a,
+                                 is_correct=False, misconception_tags={"shared_tag"}, occurred_at=NOW)
+        assert derive_unresolved_misconceptions(db_session, user_id=user.id, domain_id=domain_a.id) == 1
+        assert derive_unresolved_misconceptions(db_session, user_id=user.id, domain_id=domain_b.id) == 0
+
+
+# --- Misconception <-> projection integration ---------------------------------------
+
+
+class TestMisconceptionProjectionIntegration:
+    def test_otherwise_ready_with_unresolved_misconception_is_developing(self, db_session):
+        track = make_track(db_session)
+        domain = make_domain(db_session, track, "PTE")
+        user = make_user(db_session)
+        make_ready_domain(db_session, user=user, track=track, domain=domain, submitted_at=NOW)
+
+        mis_scenario = make_scenario(db_session, domain=domain, external_id="SCN-MISCONCEPTION")
+        step = make_scenario_step(db_session, scenario=mis_scenario, options=[
+            {"is_correct": True}, {"is_correct": False, "misconception_tag": "tag_x"},
+        ])
+        attempt = add_scenario_attempt_evidence(db_session, user=user, scenario=mis_scenario, submitted_at=NOW)
+        add_step_answered_event(db_session, user=user, scenario_attempt=attempt, step=step,
+                                 is_correct=False, misconception_tags={"tag_x"}, occurred_at=NOW)
+
+        row = recompute_learner_domain_state(
             db_session, user_id=user.id, track_id=track.id, domain_id=domain.id, now=NOW
         )
-        assert summary.unresolved_misconception_count == INTERIM_UNRESOLVED_MISCONCEPTION_COUNT
-        assert INTERIM_UNRESOLVED_MISCONCEPTION_COUNT == 0
+        assert row.readiness_state == STATE_DEVELOPING
+        assert REPEATED_MISCONCEPTION in row.reason_codes
+        assert row.unresolved_misconception_count == 1
+
+    def test_resolved_misconception_allows_ready_again(self, db_session):
+        track = make_track(db_session)
+        domain = make_domain(db_session, track, "PTE")
+        user = make_user(db_session)
+        make_ready_domain(db_session, user=user, track=track, domain=domain, submitted_at=NOW)
+
+        mis_scenario = make_scenario(db_session, domain=domain, external_id="SCN-MISCONCEPTION")
+        step = make_scenario_step(db_session, scenario=mis_scenario, options=[
+            {"is_correct": True}, {"is_correct": False, "misconception_tag": "tag_x"},
+        ])
+        a1 = add_scenario_attempt_evidence(db_session, user=user, scenario=mis_scenario, submitted_at=NOW)
+        add_step_answered_event(db_session, user=user, scenario_attempt=a1, step=step,
+                                 is_correct=False, misconception_tags={"tag_x"}, occurred_at=NOW)
+        a2 = add_scenario_attempt_evidence(db_session, user=user, scenario=mis_scenario, submitted_at=NOW + timedelta(hours=1))
+        add_step_answered_event(db_session, user=user, scenario_attempt=a2, step=step,
+                                 is_correct=True, misconception_tags=(), occurred_at=NOW + timedelta(hours=1))
+
+        row = recompute_learner_domain_state(
+            db_session, user_id=user.id, track_id=track.id, domain_id=domain.id,
+            now=NOW + timedelta(hours=1),
+        )
+        assert row.unresolved_misconception_count == 0
+        assert row.readiness_state == STATE_READY
+
+
+class TestMisconceptionReplayability:
+    def test_delete_and_recompute_reproduces_same_misconception_count(self, db_session):
+        track = make_track(db_session)
+        domain = make_domain(db_session, track, "PTE")
+        user = make_user(db_session)
+        make_ready_domain(db_session, user=user, track=track, domain=domain, submitted_at=NOW)
+        scenario = make_scenario(db_session, domain=domain, external_id="SCN-MISCONCEPTION")
+        step = make_scenario_step(db_session, scenario=scenario, options=[
+            {"is_correct": True}, {"is_correct": False, "misconception_tag": "tag_x"},
+        ])
+        attempt = add_scenario_attempt_evidence(db_session, user=user, scenario=scenario, submitted_at=NOW)
+        add_step_answered_event(db_session, user=user, scenario_attempt=attempt, step=step,
+                                 is_correct=False, misconception_tags={"tag_x"}, occurred_at=NOW)
+
+        original = recompute_learner_domain_state(
+            db_session, user_id=user.id, track_id=track.id, domain_id=domain.id, now=NOW
+        )
+        assert original.unresolved_misconception_count == 1
+
+        db_session.delete(original)
+        db_session.commit()
+
+        rebuilt = recompute_learner_domain_state(
+            db_session, user_id=user.id, track_id=track.id, domain_id=domain.id, now=NOW
+        )
+        assert rebuilt.unresolved_misconception_count == 1
+        assert rebuilt.readiness_state == original.readiness_state
+        assert rebuilt.reason_codes == original.reason_codes
+
+
+class TestMisconceptionSourceImmutability:
+    def test_recompute_never_mutates_scenario_event_or_option_tables(self, db_session):
+        track = make_track(db_session)
+        domain = make_domain(db_session, track, "PTE")
+        user = make_user(db_session)
+        scenario = make_scenario(db_session, domain=domain, external_id="SCN-1")
+        step = make_scenario_step(db_session, scenario=scenario, options=[
+            {"is_correct": True}, {"is_correct": False, "misconception_tag": "tag_a"},
+        ])
+        attempt = add_scenario_attempt_evidence(db_session, user=user, scenario=scenario, submitted_at=NOW)
+        add_step_answered_event(db_session, user=user, scenario_attempt=attempt, step=step,
+                                 is_correct=False, misconception_tags={"tag_a"}, occurred_at=NOW)
+
+        db_session.expire_all()
+        before = {
+            model.__name__: snapshot_table(db_session, model)
+            for model in (Scenario, ScenarioStep, ScenarioStepOption, ScenarioAttempt, ScenarioEvent)
+        }
+
+        recompute_learner_domain_state(
+            db_session, user_id=user.id, track_id=track.id, domain_id=domain.id, now=NOW
+        )
+        recompute_learner_domain_state(
+            db_session, user_id=user.id, track_id=track.id, domain_id=domain.id, now=NOW
+        )
+
+        db_session.expire_all()
+        after = {
+            model.__name__: snapshot_table(db_session, model)
+            for model in (Scenario, ScenarioStep, ScenarioStepOption, ScenarioAttempt, ScenarioEvent)
+        }
+        assert after == before
 
 
 # --- Recompute upsert / idempotency / replayability ---------------------------------

@@ -1,20 +1,22 @@
-"""KSOR Slice 3: evidence aggregation + projection recompute.
+"""KSOR Slice 3/4: evidence aggregation + misconception lifecycle + projection
+recompute.
 
-Gate C3, Slice 3. See docs/GATE-C3-KSOR-READINESS-IMPLEMENTATION-PLAN.md Sections 5,
-6, 12, 13 for the approved contract this module implements.
+Gate C3, Slices 3-4. See docs/GATE-C3-KSOR-READINESS-IMPLEMENTATION-PLAN.md
+Sections 5, 6, 10, 12, 13 for the approved contract this module implements.
 
 This is the one place in KSOR that touches the ORM. It reads already-committed,
-immutable evidence (ExamAttempt/AttemptItem/AttemptDomainScore, ScenarioAttempt), never
-writes to any evidence table, and writes only LearnerDomainState -- the disposable,
-fully-rebuildable projection. All classification logic stays in
-app/services/readiness_policy.py (Slice 2); this module never duplicates a readiness
-rule, it only assembles the pure DomainEvidenceSummary that module's classifier
-consumes. Not wired into any live request path yet (Slice 7) -- callable only from
-tests/scripts at this point.
+immutable evidence (ExamAttempt/AttemptItem/AttemptDomainScore, ScenarioAttempt,
+ScenarioEvent, ScenarioStepOption), never writes to any evidence table, and writes
+only LearnerDomainState -- the disposable, fully-rebuildable projection. All
+classification logic stays in app/services/readiness_policy.py (Slice 2); this
+module never duplicates a readiness rule, it only assembles the pure
+DomainEvidenceSummary that module's classifier consumes. Not wired into any live
+request path yet (Slice 7) -- callable only from tests/scripts at this point.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from sqlalchemy import func, select
@@ -29,19 +31,14 @@ from app.models import (
     LearnerDomainState,
     Scenario,
     ScenarioAttempt,
+    ScenarioEvent,
+    ScenarioStep,
+    ScenarioStepOption,
     Track,
     User,
 )
 from app.services.readiness_policy import DomainEvidenceSummary, classify_domain_readiness
 from app.services.scoring import MasteryBand
-
-# Slice 4 will replace this with the real Section 10 misconception-lifecycle query
-# over ScenarioEvent (observed -> active/resolved, per distinct tag). Slice 3 has no
-# truthful basis to compute that yet -- deriving it here would be inventing Slice 4's
-# work, not doing Slice 3's -- so it is fixed at the neutral "none observed" value.
-# Every row this module produces is honestly labeled by this constant's presence, not
-# a guess dressed up as a real count.
-INTERIM_UNRESOLVED_MISCONCEPTION_COUNT = 0
 
 # Mirrors the Slice 1 schema's own default/server_default (readiness.py,
 # cecda87bf72a) -- represents projection *policy/schema* semantics, never git/migration
@@ -61,6 +58,129 @@ def _as_utc(dt: datetime | None) -> datetime | None:
     if dt is None or dt.tzinfo is not None:
         return dt
     return dt.replace(tzinfo=timezone.utc)
+
+
+@dataclass(frozen=True)
+class _MisconceptionEventRecord:
+    """One eligible step_answered event, reduced to only what the lifecycle
+    reducer needs -- decoupled from the ORM row, mirroring
+    readiness_policy.DomainEvidenceSummary's own decoupled-from-the-ORM pattern."""
+
+    step_id: int
+    occurred_at: datetime
+    event_id: int
+    tags_in_event: frozenset[str]
+    is_correct: bool
+
+
+def _reduce_unresolved_tags(
+    tag_to_steps: dict[str, set[int]],
+    events: list[_MisconceptionEventRecord],
+) -> set[str]:
+    """Pure reduction over an explicitly-ordered evidence stream -- no DB, no
+    datetime.now(), deterministic given the same inputs (plan Section 10; gate
+    Section 13's determinism requirement).
+
+    For each candidate tag, walks only the events touching one of that tag's
+    authored steps, in (occurred_at, event_id) order, and keeps the LATEST
+    state-changing outcome:
+
+      - the tag reappearing in that event's selected-incorrect-option tags -> active
+        (an occurrence, whether the first or a recurrence after a prior resolution);
+      - a CORRECT answer on one of the tag's steps -> resolved (successful
+        performance against content explicitly associated with the tag -- gate
+        Section 6's stricter bar, not merely "this tag wasn't reproduced this time").
+
+    An incorrect answer that does NOT reproduce this specific tag (the learner
+    picked a *different* wrong option on a step that authors more than one
+    misconception) is a no-op for this tag's state: it neither confirms nor clears
+    it, since no successful performance against this tag's content was
+    demonstrated. This is what stops an unrelated near-miss from silently forging
+    a resolution.
+    """
+    ordered = sorted(events, key=lambda e: (e.occurred_at, e.event_id))
+    unresolved: set[str] = set()
+    for tag, steps in tag_to_steps.items():
+        state: str | None = None  # None = this tag was authored but never touched
+        for event in ordered:
+            if event.step_id not in steps:
+                continue
+            if tag in event.tags_in_event:
+                state = "active"
+            elif event.is_correct:
+                state = "resolved"
+            # else: wrong via a different option on this step -- no-op, see above.
+        if state == "active":
+            unresolved.add(tag)
+    return unresolved
+
+
+def derive_unresolved_misconceptions(
+    db: Session, *, user_id: int, domain_id: int
+) -> int:
+    """Number of distinct misconception tags whose latest qualifying lifecycle
+    state is unresolved, for this user + domain (plan Section 10; gate Sections
+    4-9). Read-only over ScenarioStepOption/ScenarioEvent/ScenarioAttempt/Scenario
+    -- writes nothing, mutates nothing.
+
+    Identity: the authored `ScenarioStepOption.misconception_tag` string itself --
+    never inferred, merged, or semantically compared (gate Section 4/17).
+
+    Scope: only misconception evidence whose Scenario belongs to `domain_id`
+    (which implies the correct track too, since a domain belongs to exactly one
+    track -- no separate track filter needed, matching build_domain_evidence_summary's
+    own scenario-side scoping) and whose ScenarioEvent.user_id matches `user_id`
+    contributes -- proven isolated across users/domains/tracks in tests.
+
+    Eligibility: only step_answered events belonging to a SUBMITTED ScenarioAttempt
+    count (mirrors Slice 3's own scenario eligibility rule) -- an in_progress
+    attempt's events (which do exist in the DB the moment any step is answered,
+    per scenarios.py's per-step event write) are excluded until/unless that attempt
+    is later submitted.
+    """
+    tag_rows = db.execute(
+        select(ScenarioStepOption.misconception_tag, ScenarioStepOption.step_id)
+        .join(ScenarioStep, ScenarioStepOption.step_id == ScenarioStep.id)
+        .join(Scenario, ScenarioStep.scenario_id == Scenario.id)
+        .where(
+            Scenario.domain_id == domain_id,
+            ScenarioStepOption.misconception_tag.is_not(None),
+        )
+    ).all()
+    tag_to_steps: dict[str, set[int]] = {}
+    for tag, step_id in tag_rows:
+        tag_to_steps.setdefault(tag, set()).add(step_id)
+    if not tag_to_steps:
+        return 0
+
+    event_rows = db.execute(
+        select(
+            ScenarioEvent.step_id,
+            ScenarioEvent.occurred_at,
+            ScenarioEvent.id,
+            ScenarioEvent.payload,
+        )
+        .join(ScenarioAttempt, ScenarioEvent.scenario_attempt_id == ScenarioAttempt.id)
+        .join(Scenario, ScenarioAttempt.scenario_id == Scenario.id)
+        .where(
+            ScenarioEvent.user_id == user_id,
+            ScenarioEvent.event_type == "step_answered",
+            Scenario.domain_id == domain_id,
+            ScenarioAttempt.status == "submitted",
+        )
+    ).all()
+    events = [
+        _MisconceptionEventRecord(
+            step_id=step_id,
+            occurred_at=_as_utc(occurred_at),
+            event_id=event_id,
+            tags_in_event=frozenset(payload.get("misconception_tags") or []),
+            is_correct=bool(payload.get("is_correct")),
+        )
+        for step_id, occurred_at, event_id, payload in event_rows
+    ]
+
+    return len(_reduce_unresolved_tags(tag_to_steps, events))
 
 
 class ReadinessComputationError(Exception):
@@ -186,6 +306,13 @@ def build_domain_evidence_summary(
     candidates = [t for t in (practice_most_recent_at, scenario_most_recent_at) if t is not None]
     most_recent_evidence_at = max(candidates) if candidates else None
 
+    # Slice 4: real evidence-backed derivation (see derive_unresolved_misconceptions'
+    # own docstring for the occurrence/resolution rules) -- no longer the Slice 3
+    # interim placeholder.
+    unresolved_misconception_count = derive_unresolved_misconceptions(
+        db, user_id=user_id, domain_id=domain_id
+    )
+
     return DomainEvidenceSummary(
         practice_evidence_count=practice_evidence_count,
         scenario_evidence_count=scenario_evidence_count,
@@ -193,7 +320,7 @@ def build_domain_evidence_summary(
         recent_practice_mastery_band=recent_practice_mastery_band,
         recent_scenario_mastery_band=recent_scenario_mastery_band,
         most_recent_evidence_at=most_recent_evidence_at,
-        unresolved_misconception_count=INTERIM_UNRESOLVED_MISCONCEPTION_COUNT,
+        unresolved_misconception_count=unresolved_misconception_count,
         now=now,
     )
 
