@@ -13,14 +13,41 @@ recommend among already-permitted activities; it never decides them.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import AttemptDomainScore, AttemptStatus, Domain, ExamAttempt, Track
+from app.models import (
+    AttemptDomainScore,
+    AttemptStatus,
+    Domain,
+    ExamAttempt,
+    LearnerDomainState,
+    Track,
+)
+from app.services.readiness_policy import (
+    INSUFFICIENT_DOMAIN_COVERAGE,
+    MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY,
+    NO_EVIDENCE,
+    STALE_EVIDENCE,
+    STATE_APPROACHING_READY,
+    STATE_INSUFFICIENT_EVIDENCE,
+    STATE_READY,
+)
 
 # The published blueprint's default entry point when a learner has no submitted exam
 # attempt yet to derive a weakest domain from (plan Section 7.4, step 4).
 DEFAULT_FALLBACK_POSITION = 1
+
+# C3 Slice 5 next-action vocabulary (plan Section 11) -- bounded, five values, no
+# synonyms. What to do, not why; `reason_codes` on the result carries the why, reusing
+# readiness_policy's own bounded vocabulary rather than inventing a parallel one.
+ACTION_COLLECT_PRACTICE_EVIDENCE = "COLLECT_PRACTICE_EVIDENCE"
+ACTION_ATTEMPT_SCENARIO = "ATTEMPT_SCENARIO"
+ACTION_REMEDIATE_MISCONCEPTION = "REMEDIATE_MISCONCEPTION"
+ACTION_REASSESS_DOMAIN = "REASSESS_DOMAIN"
+ACTION_PROCEED_TO_READINESS_EVALUATION = "PROCEED_TO_READINESS_EVALUATION"
 
 
 class ScenarioRecommenderError(Exception):
@@ -86,3 +113,203 @@ def recommend_domain_code(db: Session, *, user_id: int, track_code: str) -> str:
             f"Track {track_code} has no domain at position {DEFAULT_FALLBACK_POSITION}."
         )
     return fallback.code
+
+
+# --- C3 Slice 5: evidence-based next-domain recommendation -------------------------
+#
+# Extends this module (plan Section 11: "add one new function... in the same module"
+# -- additive, recommend_domain_code() above is untouched) with a second, richer
+# entry point. Both functions answer the same underlying question this module has
+# always owned -- "what should Scenario Lab point the learner at next" -- just from
+# different evidence: recommend_domain_code() ranks by a single exam attempt's raw
+# percentage; recommend_next_action() ranks by the learner's full KSOR readiness
+# state (Slices 1-4) across every domain in the track. Kept as one module rather
+# than a new one because they are the same responsibility maturing, not two
+# responsibilities being conflated -- "what scenario within a domain" (unchanged,
+# still recommend_domain_code()'s job when called directly) is deliberately left
+# untouched, so a future caller can still compose readiness-driven domain choice
+# with the existing scenario-level picker if that split is ever needed.
+#
+# Readiness classification remains owned exclusively by readiness_policy.py (Slice
+# 2). Nothing below re-derives practice/scenario sufficiency thresholds, staleness,
+# or misconception rules -- it only reads the already-classified `readiness_state`/
+# `reason_codes` a LearnerDomainState row (or, for a domain with no row yet, the
+# same INSUFFICIENT_DOMAIN_COVERAGE synthesis aggregate_track_readiness already
+# defines in Slice 2) already committed to, and ranks across domains.
+
+
+@dataclass(frozen=True)
+class DomainReadinessCandidate:
+    """One domain's readiness, decoupled from the ORM -- mirrors
+    readiness_policy.DomainEvidenceSummary's own decoupled-from-the-ORM pattern, so
+    the ranking algorithm below never needs a database to be tested."""
+
+    domain_code: str
+    domain_position: int
+    readiness_state: str
+    reason_codes: tuple[str, ...]
+    practice_evidence_count: int
+    scenario_evidence_count: int
+    unresolved_misconception_count: int
+
+
+@dataclass(frozen=True)
+class NextActionRecommendation:
+    action: str
+    domain_code: str | None
+    reason_codes: tuple[str, ...] = field(default_factory=tuple)
+
+
+def _has_zero_evidence(c: DomainReadinessCandidate) -> bool:
+    return c.practice_evidence_count == 0 and c.scenario_evidence_count == 0
+
+
+def _has_sufficient_practice_no_scenario(c: DomainReadinessCandidate) -> bool:
+    return (
+        c.practice_evidence_count >= MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY
+        and c.scenario_evidence_count == 0
+    )
+
+
+def _is_stale(c: DomainReadinessCandidate) -> bool:
+    return c.readiness_state == STATE_APPROACHING_READY and STALE_EVIDENCE in c.reason_codes
+
+
+def _fallback_action_for(c: DomainReadinessCandidate) -> str:
+    """Plan Section 11, step 6's literal rule: attack whichever raw count is
+    lower. A tie (including the 0/0 case already claimed by an earlier tier, kept
+    here only for completeness) defaults to practice, matching this module's
+    existing position/lowest-code-wins style of deterministic default."""
+    if c.scenario_evidence_count < c.practice_evidence_count:
+        return ACTION_ATTEMPT_SCENARIO
+    return ACTION_COLLECT_PRACTICE_EVIDENCE
+
+
+def recommend_next_action_from_candidates(
+    candidates: list[DomainReadinessCandidate],
+) -> NextActionRecommendation:
+    """Pure ranking core -- no database, no network, no provider, fully
+    unit-testable on its own (gate Section 15).
+
+    Priority tiers, evaluated in this fixed order (plan Section 11); the first tier
+    with any matching candidate wins; within a tier, the lowest `domain_position`
+    is the deterministic tie-break (the same tie-break recommend_domain_code()
+    already uses -- gate Section 12 forbids inventing a new one):
+
+      1. COLLECT_PRACTICE_EVIDENCE -- truly zero evidence (never started at all).
+      2. REMEDIATE_MISCONCEPTION -- any unresolved misconception (gate Section 7:
+         concrete, actionable evidence outranks a generic evidence-gap nudge).
+      3. ATTEMPT_SCENARIO -- practice sufficient, zero scenario evidence.
+      4. REASSESS_DOMAIN -- approaching_ready via STALE_EVIDENCE (classify_domain_
+         readiness has no other route to approaching_ready, so this tier covers
+         every stale domain by construction).
+      5. Catch-all -- everything not yet claimed (partial insufficient_evidence
+         shapes tiers 1/3 don't cover, e.g. practice=0/scenario=1, and ordinary
+         `developing` domains blocked only by a weak mastery band or non-diverse
+         scenario evidence): action per _fallback_action_for's raw-count comparison.
+      6. If nothing above matched at all, every domain is `ready` (the only state
+         classify_domain_readiness ever leaves unclaimed by tiers 1-5) ->
+         PROCEED_TO_READINESS_EVALUATION, track-level, no specific domain.
+    """
+    ordered = sorted(candidates, key=lambda c: c.domain_position)
+
+    def _pick(matches, action):
+        winner = min(matches, key=lambda c: c.domain_position)
+        return NextActionRecommendation(
+            action=action, domain_code=winner.domain_code, reason_codes=winner.reason_codes
+        )
+
+    zero_evidence = [c for c in ordered if _has_zero_evidence(c)]
+    if zero_evidence:
+        return _pick(zero_evidence, ACTION_COLLECT_PRACTICE_EVIDENCE)
+
+    with_misconception = [c for c in ordered if c.unresolved_misconception_count > 0]
+    if with_misconception:
+        return _pick(with_misconception, ACTION_REMEDIATE_MISCONCEPTION)
+
+    needs_scenario = [c for c in ordered if _has_sufficient_practice_no_scenario(c)]
+    if needs_scenario:
+        return _pick(needs_scenario, ACTION_ATTEMPT_SCENARIO)
+
+    stale = [c for c in ordered if _is_stale(c)]
+    if stale:
+        return _pick(stale, ACTION_REASSESS_DOMAIN)
+
+    remaining = [c for c in ordered if c.readiness_state != STATE_READY]
+    if remaining:
+        winner = min(remaining, key=lambda c: c.domain_position)
+        return NextActionRecommendation(
+            action=_fallback_action_for(winner),
+            domain_code=winner.domain_code,
+            reason_codes=winner.reason_codes,
+        )
+
+    return NextActionRecommendation(
+        action=ACTION_PROCEED_TO_READINESS_EVALUATION, domain_code=None, reason_codes=()
+    )
+
+
+def recommend_next_action(
+    db: Session, *, user_id: int, track_code: str
+) -> NextActionRecommendation:
+    """ORM adapter: loads the track's domains and the learner's existing
+    LearnerDomainState rows, builds the pure candidate list, and delegates all
+    ranking to recommend_next_action_from_candidates(). Read-only -- never writes
+    LearnerDomainState or any other table; a recommendation is not evidence.
+
+    A domain with no materialized projection row is never silently dropped or
+    treated as nonexistent (gate Section 11): it becomes a candidate with zero
+    evidence and the same INSUFFICIENT_DOMAIN_COVERAGE reason code
+    aggregate_track_readiness (Slice 2) already defines for exactly this case --
+    reused verbatim, not re-derived, so this remains "the approved deterministic
+    boundary," never a second readiness rule living in the recommender.
+    """
+    track = db.scalar(select(Track).where(Track.code == track_code))
+    if track is None:
+        raise ScenarioRecommenderError(f"Unknown track: {track_code}")
+
+    domains = db.scalars(
+        select(Domain).where(Domain.track_id == track.id).order_by(Domain.position)
+    ).all()
+    if not domains:
+        raise ScenarioRecommenderError(f"Track {track_code} has no domains.")
+
+    states_by_domain_id = {
+        row.domain_id: row
+        for row in db.scalars(
+            select(LearnerDomainState).where(
+                LearnerDomainState.user_id == user_id,
+                LearnerDomainState.track_id == track.id,
+            )
+        ).all()
+    }
+
+    candidates = []
+    for domain in domains:
+        row = states_by_domain_id.get(domain.id)
+        if row is None:
+            candidates.append(
+                DomainReadinessCandidate(
+                    domain_code=domain.code,
+                    domain_position=domain.position,
+                    readiness_state=STATE_INSUFFICIENT_EVIDENCE,
+                    reason_codes=(NO_EVIDENCE, INSUFFICIENT_DOMAIN_COVERAGE),
+                    practice_evidence_count=0,
+                    scenario_evidence_count=0,
+                    unresolved_misconception_count=0,
+                )
+            )
+        else:
+            candidates.append(
+                DomainReadinessCandidate(
+                    domain_code=domain.code,
+                    domain_position=domain.position,
+                    readiness_state=row.readiness_state,
+                    reason_codes=tuple(row.reason_codes),
+                    practice_evidence_count=row.practice_evidence_count,
+                    scenario_evidence_count=row.scenario_evidence_count,
+                    unresolved_misconception_count=row.unresolved_misconception_count,
+                )
+            )
+
+    return recommend_next_action_from_candidates(candidates)

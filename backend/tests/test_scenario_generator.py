@@ -25,12 +25,36 @@ from app.models import (  # noqa: E402
     AttemptStatus,
     Domain,
     ExamAttempt,
+    LearnerDomainState,
     Track,
     User,
 )
+from app.services.readiness_policy import (  # noqa: E402
+    DOMAIN_BELOW_THRESHOLD,
+    INSUFFICIENT_DOMAIN_COVERAGE,
+    INSUFFICIENT_PRACTICE_EVIDENCE,
+    MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY,
+    NO_APPLIED_SCENARIO_EVIDENCE,
+    NO_EVIDENCE,
+    REPEATED_MISCONCEPTION,
+    REPEATED_SCENARIO_NOT_DIVERSE_EVIDENCE,
+    STALE_EVIDENCE,
+    STATE_APPROACHING_READY,
+    STATE_DEVELOPING,
+    STATE_INSUFFICIENT_EVIDENCE,
+    STATE_READY,
+)
 from app.services.scenario_recommender import (  # noqa: E402
+    ACTION_ATTEMPT_SCENARIO,
+    ACTION_COLLECT_PRACTICE_EVIDENCE,
+    ACTION_PROCEED_TO_READINESS_EVALUATION,
+    ACTION_REASSESS_DOMAIN,
+    ACTION_REMEDIATE_MISCONCEPTION,
+    DomainReadinessCandidate,
     ScenarioRecommenderError,
     recommend_domain_code,
+    recommend_next_action,
+    recommend_next_action_from_candidates,
 )
 
 
@@ -139,3 +163,207 @@ class TestNoModelCallAnywhere:
         source = inspect.getsource(scenario_recommender)
         for forbidden in ("anthropic", "mcp", "zia_client"):
             assert forbidden not in source.lower()
+
+
+# --- C3 Slice 5: recommend_next_action() -- pure ranking core -----------------------
+#
+# candidate() builds a DomainReadinessCandidate directly (no DB) so the priority-tier
+# logic itself is tested without touching SQLAlchemy at all, matching
+# test_readiness_policy.py's own pure-function style.
+
+
+def candidate(
+    code, position, *, state=STATE_READY, reasons=(), practice=10, scenario=5, misconceptions=0
+):
+    return DomainReadinessCandidate(
+        domain_code=code, domain_position=position, readiness_state=state,
+        reason_codes=tuple(reasons), practice_evidence_count=practice,
+        scenario_evidence_count=scenario, unresolved_misconception_count=misconceptions,
+    )
+
+
+class TestRecommendNextActionCore:
+    def test_no_evidence_recommends_collect_practice(self):
+        c = candidate("PTE", 1, state=STATE_INSUFFICIENT_EVIDENCE, reasons=[NO_EVIDENCE],
+                       practice=0, scenario=0)
+        result = recommend_next_action_from_candidates([c])
+        assert result.action == ACTION_COLLECT_PRACTICE_EVIDENCE
+        assert result.domain_code == "PTE"
+
+    def test_one_domain_insufficient_others_stronger_prioritizes_insufficient(self):
+        ready = candidate("PTE", 1, state=STATE_READY)
+        insufficient = candidate("OEV", 2, state=STATE_INSUFFICIENT_EVIDENCE,
+                                  reasons=[NO_EVIDENCE], practice=0, scenario=0)
+        developing = candidate("WISD", 3, state=STATE_DEVELOPING, reasons=[DOMAIN_BELOW_THRESHOLD])
+        result = recommend_next_action_from_candidates([ready, insufficient, developing])
+        assert result.domain_code == "OEV"
+        assert result.action == ACTION_COLLECT_PRACTICE_EVIDENCE
+
+    def test_missing_practice_reason_reflects_evidence_gap(self):
+        c = candidate("PTE", 1, state=STATE_INSUFFICIENT_EVIDENCE,
+                       reasons=[INSUFFICIENT_PRACTICE_EVIDENCE], practice=2, scenario=3)
+        result = recommend_next_action_from_candidates([c])
+        assert INSUFFICIENT_PRACTICE_EVIDENCE in result.reason_codes
+        assert DOMAIN_BELOW_THRESHOLD not in result.reason_codes
+
+    def test_missing_applied_scenario_recommends_attempt_scenario(self):
+        c = candidate("PTE", 1, state=STATE_INSUFFICIENT_EVIDENCE,
+                       reasons=[NO_APPLIED_SCENARIO_EVIDENCE],
+                       practice=MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY, scenario=0)
+        result = recommend_next_action_from_candidates([c])
+        assert result.action == ACTION_ATTEMPT_SCENARIO
+        assert NO_APPLIED_SCENARIO_EVIDENCE in result.reason_codes
+
+    def test_repeated_non_diverse_scenario_preserves_evidence_quality_distinction(self):
+        c = candidate("PTE", 1, state=STATE_DEVELOPING,
+                       reasons=[REPEATED_SCENARIO_NOT_DIVERSE_EVIDENCE], practice=10, scenario=3)
+        result = recommend_next_action_from_candidates([c])
+        assert result.action == ACTION_ATTEMPT_SCENARIO
+        assert REPEATED_SCENARIO_NOT_DIVERSE_EVIDENCE in result.reason_codes
+
+    def test_unresolved_misconception_outranks_plain_developing(self):
+        plain = candidate("PTE", 1, state=STATE_DEVELOPING, reasons=[DOMAIN_BELOW_THRESHOLD])
+        flagged = candidate("OEV", 2, state=STATE_DEVELOPING, reasons=[REPEATED_MISCONCEPTION],
+                             misconceptions=1)
+        result = recommend_next_action_from_candidates([plain, flagged])
+        assert result.domain_code == "OEV"
+        assert result.action == ACTION_REMEDIATE_MISCONCEPTION
+
+    def test_weak_mastery_represented_as_weakness_not_missing_evidence(self):
+        c = candidate("PTE", 1, state=STATE_DEVELOPING, reasons=[DOMAIN_BELOW_THRESHOLD])
+        result = recommend_next_action_from_candidates([c])
+        assert result.reason_codes == (DOMAIN_BELOW_THRESHOLD,)
+        assert NO_EVIDENCE not in result.reason_codes
+
+    def test_stale_evidence_recommends_reassessment(self):
+        stale = candidate("PTE", 1, state=STATE_APPROACHING_READY, reasons=[STALE_EVIDENCE])
+        result = recommend_next_action_from_candidates([stale])
+        assert result.action == ACTION_REASSESS_DOMAIN
+        assert result.domain_code == "PTE"
+
+    def test_ready_domain_does_not_outrank_genuine_gap(self):
+        ready = candidate("PTE", 1, state=STATE_READY)
+        gap = candidate("OEV", 2, state=STATE_INSUFFICIENT_EVIDENCE, reasons=[NO_EVIDENCE],
+                         practice=0, scenario=0)
+        result = recommend_next_action_from_candidates([ready, gap])
+        assert result.domain_code == "OEV"
+
+    def test_all_ready_proceeds_to_readiness_evaluation(self):
+        result = recommend_next_action_from_candidates([
+            candidate("PTE", 1, state=STATE_READY),
+            candidate("OEV", 2, state=STATE_READY),
+            candidate("WISD", 3, state=STATE_READY),
+        ])
+        assert result.action == ACTION_PROCEED_TO_READINESS_EVALUATION
+        assert result.domain_code is None
+
+    def test_stable_tie_break_by_domain_position(self):
+        a = candidate("OEV", 2, state=STATE_INSUFFICIENT_EVIDENCE, reasons=[NO_EVIDENCE],
+                       practice=0, scenario=0)
+        b = candidate("WISD", 3, state=STATE_INSUFFICIENT_EVIDENCE, reasons=[NO_EVIDENCE],
+                       practice=0, scenario=0)
+        r1 = recommend_next_action_from_candidates([a, b])
+        r2 = recommend_next_action_from_candidates([b, a])
+        assert r1 == r2
+        assert r1.domain_code == "OEV"
+
+    def test_deterministic_repeatability(self):
+        candidates = [
+            candidate("PTE", 1, state=STATE_READY),
+            candidate("OEV", 2, state=STATE_DEVELOPING, reasons=[DOMAIN_BELOW_THRESHOLD]),
+        ]
+        first = recommend_next_action_from_candidates(candidates)
+        for _ in range(5):
+            assert recommend_next_action_from_candidates(candidates) == first
+
+
+# --- C3 Slice 5: recommend_next_action() -- ORM adapter ------------------------------
+
+
+def _state_row(
+    db, user, track, domain, *, state, reasons=(), practice=0, scenario=0, distinct=0,
+    misconceptions=0,
+):
+    row = LearnerDomainState(
+        user_id=user.id, track_id=track.id, domain_id=domain.id,
+        practice_evidence_count=practice, scenario_evidence_count=scenario,
+        distinct_scenario_content_versions=distinct,
+        unresolved_misconception_count=misconceptions,
+        readiness_state=state, reason_codes=list(reasons),
+    )
+    db.add(row)
+    db.commit()
+    return row
+
+
+class TestRecommendNextActionAdapter:
+    def test_missing_projection_regression(self, db_session, track_with_domains):
+        """PTE has a materialized row; OEV/WISD have none at all -- the missing rows
+        must not be silently dropped from the candidate set."""
+        track, domains, user = track_with_domains
+        _state_row(
+            db_session, user, track, domains["PTE"], state=STATE_READY,
+            practice=MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY, scenario=5, distinct=5,
+        )
+        result = recommend_next_action(db_session, user_id=user.id, track_code="CCAO-F")
+        assert result.action == ACTION_COLLECT_PRACTICE_EVIDENCE
+        assert result.domain_code == "OEV"  # position 2 -- the first missing-row domain
+        assert INSUFFICIENT_DOMAIN_COVERAGE in result.reason_codes
+
+    def test_production_shaped_regression(self, db_session, track_with_domains):
+        """Mirrors the real production shape: PTE has one strong scenario and zero
+        practice (insufficient_evidence); OEV/WISD have no projection at all."""
+        track, domains, user = track_with_domains
+        _state_row(
+            db_session, user, track, domains["PTE"], state=STATE_INSUFFICIENT_EVIDENCE,
+            reasons=[INSUFFICIENT_PRACTICE_EVIDENCE, NO_APPLIED_SCENARIO_EVIDENCE],
+            practice=0, scenario=1, distinct=1,
+        )
+        result = recommend_next_action(db_session, user_id=user.id, track_code="CCAO-F")
+        assert result.action == ACTION_COLLECT_PRACTICE_EVIDENCE
+        # Must never claim demonstrated weakness for an evidence gap.
+        assert DOMAIN_BELOW_THRESHOLD not in result.reason_codes
+
+    def test_user_isolation(self, db_session, track_with_domains):
+        track, domains, user = track_with_domains
+        other = User(email="other@example.com", display_name="Other")
+        db_session.add(other)
+        db_session.commit()
+        for code in ("PTE", "OEV", "WISD"):
+            _state_row(
+                db_session, user, track, domains[code], state=STATE_READY,
+                practice=MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY, scenario=5, distinct=5,
+            )
+        result = recommend_next_action(db_session, user_id=other.id, track_code="CCAO-F")
+        assert result.action == ACTION_COLLECT_PRACTICE_EVIDENCE
+
+    def test_track_isolation(self, db_session, track_with_domains):
+        track, domains, user = track_with_domains
+        other_track = Track(code="CCDV-F", name="Other Track")
+        db_session.add(other_track)
+        db_session.flush()
+        other_domain = Domain(
+            track_id=other_track.id, code="PTE", name="Prompting", weight_bps=1000, position=1
+        )
+        db_session.add(other_domain)
+        db_session.commit()
+        _state_row(
+            db_session, user, other_track, other_domain, state=STATE_DEVELOPING,
+            reasons=[DOMAIN_BELOW_THRESHOLD], practice=10, scenario=5,
+        )
+        result = recommend_next_action(db_session, user_id=user.id, track_code="CCAO-F")
+        assert result.action == ACTION_COLLECT_PRACTICE_EVIDENCE
+
+    def test_unknown_track_raises(self, db_session, track_with_domains):
+        with pytest.raises(ScenarioRecommenderError):
+            recommend_next_action(db_session, user_id=1, track_code="NOPE")
+
+    def test_does_not_mutate_learner_domain_state(self, db_session, track_with_domains):
+        track, domains, user = track_with_domains
+        row = _state_row(db_session, user, track, domains["PTE"], state=STATE_READY)
+        before = (row.readiness_state, list(row.reason_codes), row.practice_evidence_count)
+        recommend_next_action(db_session, user_id=user.id, track_code="CCAO-F")
+        db_session.expire_all()
+        reloaded = db_session.get(LearnerDomainState, row.id)
+        after = (reloaded.readiness_state, list(reloaded.reason_codes), reloaded.practice_evidence_count)
+        assert after == before
