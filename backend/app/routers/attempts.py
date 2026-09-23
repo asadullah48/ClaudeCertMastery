@@ -25,6 +25,7 @@ from app.schemas import (
     SubmitRequest,
     SubmitResponse,
 )
+from app.services.readiness_integration import best_effort_recompute_learner_domain_state
 from app.services.scoring import QuestionType, grade_item, score_attempt
 
 router = APIRouter(prefix="/attempts", tags=["attempts"])
@@ -157,6 +158,20 @@ def submit(
         )
 
     db.commit()
+
+    # KSOR Slice 7: recompute every domain this attempt contributed evidence to,
+    # strictly AFTER the evidence commit above has already succeeded -- never
+    # sharing that transaction (gate Section 2/5). Deterministic order (Domain.position,
+    # matching the response's own ordering below) so recompute order is never
+    # accidental set/dict iteration (gate Section 29). Each domain is attempted
+    # independently: one projection failure must not skip the rest (gate Section
+    # 13), and no failure here can change this endpoint's success response (gate
+    # Section 7) -- best_effort_recompute_learner_domain_state never raises.
+    for ds in sorted(score.domain_scores, key=lambda ds: code_to_domain[ds.domain_code].position):
+        domain = code_to_domain[ds.domain_code]
+        best_effort_recompute_learner_domain_state(
+            db, user_id=attempt.user_id, track_id=track.id, domain_id=domain.id
+        )
 
     domain_rows.sort(key=lambda d: code_to_domain[d.domain_code].position)
 

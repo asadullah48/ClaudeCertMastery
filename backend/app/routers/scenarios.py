@@ -32,6 +32,7 @@ from app.schemas import (
     ScenarioStepOut,
     SelectedOptionFeedback,
 )
+from app.services.readiness_integration import best_effort_recompute_learner_domain_state
 from app.services.scenario_scoring import (
     RevealedHint,
     ScenarioScoringError,
@@ -336,10 +337,12 @@ def answer_step(
         for h in hints if h.id in row.hints_revealed
     ]
 
+    domain = db.get(Domain, scenario.domain_id)
+
     try:
         evaluation = evaluate_step_decision(
             step_id=step.id,
-            domain_code=db.get(Domain, scenario.domain_id).code,
+            domain_code=domain.code,
             step_type=step.step_type,
             options=options,
             selected_option_ids=payload.selected_option_ids,
@@ -389,6 +392,15 @@ def answer_step(
         result = ScenarioResultOut(score_pct=score_pct, mastery_band=band.value)
 
     db.commit()
+
+    # KSOR Slice 7: recompute only on the completing answer (gate Section 6) --
+    # strictly AFTER the evidence commit above, never sharing that transaction.
+    # A failure here must never change this endpoint's success response (gate
+    # Section 7) -- best_effort_recompute_learner_domain_state never raises.
+    if is_last_step:
+        best_effort_recompute_learner_domain_state(
+            db, user_id=user.id, track_id=domain.track_id, domain_id=domain.id
+        )
 
     return _build_answer_response(step, evaluation, attempt.status, steps, result=result)
 
