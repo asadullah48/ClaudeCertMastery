@@ -47,15 +47,22 @@ from app.schemas.scenario import (
     SelectedOptionFeedback,
 )
 
+from app.schemas.readiness import (
+    DomainReadinessOut,
+    NextActionOut,
+    TrackReadinessOut,
+)
+
 __all__ = [
     "AnswerOptionOut", "AttemptOut", "BlueprintDomainOut", "BlueprintOut",
-    "DomainOut", "DomainScoreOut", "ExamGenerateRequest", "ExamGenerateResponse",
+    "DomainOut", "DomainReadinessOut", "DomainScoreOut", "ExamGenerateRequest",
+    "ExamGenerateResponse",
     "ExplanationOut", "ExplanationRequest", "ExplanationResponse",
-    "ItemResultOut", "QuestionOut",
+    "ItemResultOut", "NextActionOut", "QuestionOut",
     "ScenarioAttemptOut", "ScenarioHintRequest", "ScenarioHintResponse",
     "ScenarioListItemOut", "ScenarioResultOut", "ScenarioStartResponse",
     "ScenarioStepAnswerRequest", "ScenarioStepAnswerResponse",
     "ScenarioStepOptionOut", "ScenarioStepOut", "SelectedOptionFeedback",
     "SubmitAnswer", "SubmitRequest",
-    "SubmitResponse", "TrackOut",
+    "SubmitResponse", "TrackOut", "TrackReadinessOut",
 ]
