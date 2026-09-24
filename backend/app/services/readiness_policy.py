@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from fractions import Fraction
 
 from app.services.scoring import MasteryBand
 
@@ -27,9 +28,23 @@ from app.services.scoring import MasteryBand
 # not in an environment variable, not in a migration, not in a frontend constant --
 # specifically so future outcome data can calibrate them without touching anything
 # else that currently depends on their values.
-MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY = 5
+# Policy v2 (Gate C3-B2): raised from 5 to PRACTICE_BAND_MIN_ITEMS so a practice band
+# that can block readiness always rests on at least a full mastery window of items.
+MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY = 20
 MIN_SCENARIO_ATTEMPTS_FOR_SUFFICIENCY = 2
 STALENESS_THRESHOLD_DAYS = 90
+
+# --- v2 practice-evidence policy (Gate C3-B2) ----------------------------------------
+# A submitted exam attempt only qualifies as readiness evidence when at least this
+# share of ALL its items (whole exam, every domain -- never per domain) was answered.
+# Guards against near-blank/test submissions counting as practice evidence or
+# refreshing practice freshness. Compared exactly (see attempt_qualifies_for_practice),
+# so 0.80 itself qualifies.
+MIN_ATTEMPT_COMPLETION_RATIO = 0.80
+# The practice mastery window grows by whole attempts, newest first, until it holds
+# at least this many domain items -- so a 1-2 item domain slice of the latest exam can
+# never decide the band on its own.
+PRACTICE_BAND_MIN_ITEMS = 20
 
 # --- readiness state vocabulary -----------------------------------------------------
 # Plain string constants, not an import of app.models.readiness.ReadinessState --
@@ -98,6 +113,70 @@ class ReadinessAssessment:
     state: str
     evidence_sufficient: bool
     reason_codes: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class PracticeAttemptGroup:
+    """One qualifying submitted exam attempt's items for ONE domain, already reduced
+    to counts -- the unit the v2 mastery window is built from. Decoupled from the ORM
+    (same pattern as DomainEvidenceSummary) so window/band rules are testable pure.
+
+    `item_count` includes every domain item of the attempt, answered or not: once the
+    whole attempt qualifies, an unanswered item stays in the denominator as incorrect
+    (a learner must not raise a band by skipping hard questions).
+    """
+
+    attempt_id: int
+    submitted_at: datetime
+    item_count: int
+    correct_count: int
+
+
+def attempt_qualifies_for_practice(answered_item_count: int, total_item_count: int) -> bool:
+    """Whole-exam completion rule (policy v2). Callers pass counts across ALL of the
+    attempt's items (every domain), never a per-domain slice. Exact rational
+    comparison, not float division, so a ratio of exactly MIN_ATTEMPT_COMPLETION_RATIO
+    (e.g. 48/60 or 12/15) qualifies regardless of binary floating-point rounding.
+    An attempt with no items never qualifies."""
+    if total_item_count <= 0:
+        return False
+    return Fraction(answered_item_count, total_item_count) >= Fraction(
+        str(MIN_ATTEMPT_COMPLETION_RATIO)
+    )
+
+
+def select_practice_window(groups: list[PracticeAttemptGroup]) -> list[PracticeAttemptGroup]:
+    """The v2 practice mastery window: qualifying attempts newest first
+    (submitted_at DESC, attempt_id DESC -- the same ordering the v1 rule used), each
+    added WHOLE, until the accumulated domain item count reaches
+    PRACTICE_BAND_MIN_ITEMS or attempts run out. An attempt is never split to land on
+    exactly the minimum, so the window may exceed it. Empty groups are ignored."""
+    ordered = sorted(
+        (g for g in groups if g.item_count > 0),
+        key=lambda g: (g.submitted_at, g.attempt_id),
+        reverse=True,
+    )
+    window: list[PracticeAttemptGroup] = []
+    accumulated = 0
+    for group in ordered:
+        if accumulated >= PRACTICE_BAND_MIN_ITEMS:
+            break
+        window.append(group)
+        accumulated += group.item_count
+    return window
+
+
+def practice_band_for_window(window: list[PracticeAttemptGroup]) -> MasteryBand | None:
+    """Band over the pooled window using the one existing threshold table
+    (MasteryBand.from_percentage) -- no second scoring system. Descriptive even when
+    the window is below PRACTICE_BAND_MIN_ITEMS (sparse history); sufficiency is
+    decided separately by MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY in the classifier.
+    None only when there is no qualifying practice evidence at all."""
+    total = sum(g.item_count for g in window)
+    if total == 0:
+        return None
+    correct = sum(g.correct_count for g in window)
+    return MasteryBand.from_percentage(correct / total * 100)
 
 
 def _is_stale(summary: DomainEvidenceSummary) -> bool:

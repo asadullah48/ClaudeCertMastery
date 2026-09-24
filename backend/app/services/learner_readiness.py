@@ -5,8 +5,8 @@ Gate C3, Slices 3-4. See docs/GATE-C3-KSOR-READINESS-IMPLEMENTATION-PLAN.md
 Sections 5, 6, 10, 12, 13 for the approved contract this module implements.
 
 This is the one place in KSOR that touches the ORM. It reads already-committed,
-immutable evidence (ExamAttempt/AttemptItem/AttemptDomainScore, ScenarioAttempt,
-ScenarioEvent, ScenarioStepOption), never writes to any evidence table, and writes
+immutable evidence (ExamAttempt/AttemptItem, ScenarioAttempt, ScenarioEvent,
+ScenarioStepOption), never writes to any evidence table, and writes
 only LearnerDomainState -- the disposable, fully-rebuildable projection. All
 classification logic stays in app/services/readiness_policy.py (Slice 2); this
 module never duplicates a readiness rule, it only assembles the pure
@@ -19,11 +19,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import (
-    AttemptDomainScore,
     AttemptItem,
     AttemptStatus,
     Domain,
@@ -37,15 +36,23 @@ from app.models import (
     Track,
     User,
 )
-from app.services.readiness_policy import DomainEvidenceSummary, classify_domain_readiness
+from app.services.readiness_policy import (
+    DomainEvidenceSummary,
+    PracticeAttemptGroup,
+    attempt_qualifies_for_practice,
+    classify_domain_readiness,
+    practice_band_for_window,
+    select_practice_window,
+)
 from app.services.scoring import MasteryBand
 
-# Mirrors the Slice 1 schema's own default/server_default (readiness.py,
-# cecda87bf72a) -- represents projection *policy/schema* semantics, never git/migration
-# state. Set explicitly on every upsert (not left to the ORM column default) so an
-# UPDATE path is just as deterministic as an INSERT path. A future policy-version bump
-# changes this one constant, never migration revisions.
-PROJECTION_VERSION = 1
+# Represents projection *policy* semantics, never git/migration state. Set explicitly on
+# every upsert (not left to the ORM column default, which stays 1) so an UPDATE path is
+# just as deterministic as an INSERT path, and a v1 row recomputed in place becomes v2.
+#   v1: practice band = newest submitted attempt's AttemptDomainScore band.
+#   v2 (Gate C3-B2): only whole-exam >=80%-complete attempts qualify; band pooled over
+#       whole attempts newest-first until >= PRACTICE_BAND_MIN_ITEMS domain items.
+PROJECTION_VERSION = 2
 
 
 def _as_utc(dt: datetime | None) -> datetime | None:
@@ -207,6 +214,70 @@ def _validate_identity(db: Session, *, user_id: int, track_id: int, domain_id: i
         )
 
 
+def _is_answered(selected_option_ids: list[int] | None) -> bool:
+    """An AttemptItem is answered iff its persisted selection is non-empty -- the
+    representation routers/attempts.py::submit writes for every item
+    (`sorted(selected)`, `[]` when unanswered); same `or []` reading as
+    routers/explanations.py."""
+    return bool(selected_option_ids or [])
+
+
+def load_qualifying_practice_groups(
+    db: Session, *, user_id: int, track_id: int, domain_id: int
+) -> list[PracticeAttemptGroup]:
+    """Policy v2 practice eligibility, one SELECT, no per-attempt query (no N+1).
+
+    Reads every item of this learner's SUBMITTED attempts in this track (all domains:
+    whole-exam completion cannot be judged from one domain's slice), then in memory:
+      1. per attempt, answered/total across ALL its items ->
+         attempt_qualifies_for_practice() (>= MIN_ATTEMPT_COMPLETION_RATIO);
+      2. for each qualifying attempt containing `domain_id`, one PracticeAttemptGroup of
+         that domain's items -- every one of them, answered or not (an unanswered item
+         inside a qualifying attempt stays in the denominator, is_correct falsy).
+    In-progress/abandoned attempts are excluded by the status filter before any ratio
+    is computed, so they never qualify regardless of how much was answered.
+    """
+    rows = db.execute(
+        select(
+            AttemptItem.attempt_id,
+            ExamAttempt.submitted_at,
+            AttemptItem.domain_id,
+            AttemptItem.is_correct,
+            AttemptItem.selected_option_ids,
+        )
+        .join(ExamAttempt, AttemptItem.attempt_id == ExamAttempt.id)
+        .where(
+            ExamAttempt.user_id == user_id,
+            ExamAttempt.track_id == track_id,
+            ExamAttempt.status == AttemptStatus.SUBMITTED,
+        )
+    ).all()
+
+    totals: dict[int, list[int]] = {}  # attempt_id -> [answered, total]
+    domain_counts: dict[int, list[int]] = {}  # attempt_id -> [domain items, domain correct]
+    submitted_at_by_attempt: dict[int, datetime] = {}
+    for attempt_id, submitted_at, item_domain_id, is_correct, selected in rows:
+        tally = totals.setdefault(attempt_id, [0, 0])
+        tally[0] += _is_answered(selected)
+        tally[1] += 1
+        submitted_at_by_attempt[attempt_id] = submitted_at
+        if item_domain_id == domain_id:
+            counts = domain_counts.setdefault(attempt_id, [0, 0])
+            counts[0] += 1
+            counts[1] += bool(is_correct)
+
+    return [
+        PracticeAttemptGroup(
+            attempt_id=attempt_id,
+            submitted_at=_as_utc(submitted_at_by_attempt[attempt_id]),
+            item_count=item_count,
+            correct_count=correct_count,
+        )
+        for attempt_id, (item_count, correct_count) in domain_counts.items()
+        if attempt_qualifies_for_practice(*totals[attempt_id])
+    ]
+
+
 def build_domain_evidence_summary(
     db: Session,
     *,
@@ -219,13 +290,17 @@ def build_domain_evidence_summary(
     (user, track, domain). Every query below is a SELECT; nothing in this function
     ever writes to ExamAttempt/AttemptItem/AttemptDomainScore/ScenarioAttempt.
 
-    Practice eligibility (plan Section 5): only AttemptItem rows belonging to a
-    SUBMITTED ExamAttempt for this exact user+track, denormalized to this domain --
-    an in_progress/abandoned attempt contributes nothing. `practice_evidence_count`
-    counts every eligible AttemptItem with no cap and no distinct-question dedup
-    (plan Section 6: exam evidence gets no special anti-inflation handling in v1 --
-    a learner re-answering the same question across sittings is ordinary practice,
-    not evidence farming).
+    Practice eligibility (policy v2, Gate C3-B2): only AttemptItem rows of this domain
+    belonging to a QUALIFYING attempt -- SUBMITTED, this exact user+track, and at least
+    MIN_ATTEMPT_COMPLETION_RATIO of the WHOLE exam's items answered (see
+    load_qualifying_practice_groups). In-progress/abandoned and near-blank submitted
+    attempts contribute nothing: not to the count, the band, or practice freshness.
+    `practice_evidence_count` counts every domain item of every qualifying attempt
+    (answered or not), with no cap and no distinct-question dedup (plan Section 6 --
+    re-answering the same question across sittings is ordinary practice).
+    `recent_practice_mastery_band` pools whole qualifying attempts newest-first until
+    >= PRACTICE_BAND_MIN_ITEMS domain items (select_practice_window), rather than v1's
+    single newest attempt; it no longer reads AttemptDomainScore.
 
     Scenario eligibility (plan Section 5): only ScenarioAttempt rows with
     status == "submitted" whose Scenario belongs to this domain, for this user --
@@ -239,39 +314,17 @@ def build_domain_evidence_summary(
     """
     now = now or datetime.now(timezone.utc)
 
-    practice_evidence_count = (
-        db.scalar(
-            select(func.count(AttemptItem.id))
-            .join(ExamAttempt, AttemptItem.attempt_id == ExamAttempt.id)
-            .where(
-                ExamAttempt.user_id == user_id,
-                ExamAttempt.track_id == track_id,
-                ExamAttempt.status == AttemptStatus.SUBMITTED,
-                AttemptItem.domain_id == domain_id,
-            )
-        )
-        or 0
+    # Policy v2: count, band, and practice freshness all derive from the SAME set of
+    # qualifying attempt groups -- never independently-queried facts that could drift.
+    practice_groups = load_qualifying_practice_groups(
+        db, user_id=user_id, track_id=track_id, domain_id=domain_id
     )
-
-    # Recent practice mastery band + its own evidence timestamp come from the SAME
-    # row (the most recent submitted attempt's per-domain rollup) -- never two
-    # independently-queried facts that could drift against each other.
-    latest_practice = db.execute(
-        select(AttemptDomainScore.mastery_band, ExamAttempt.submitted_at)
-        .join(ExamAttempt, AttemptDomainScore.attempt_id == ExamAttempt.id)
-        .where(
-            ExamAttempt.user_id == user_id,
-            ExamAttempt.track_id == track_id,
-            ExamAttempt.status == AttemptStatus.SUBMITTED,
-            AttemptDomainScore.domain_id == domain_id,
-        )
-        .order_by(ExamAttempt.submitted_at.desc(), ExamAttempt.id.desc())
-        .limit(1)
-    ).first()
-    recent_practice_mastery_band = (
-        MasteryBand(latest_practice[0]) if latest_practice is not None else None
-    )
-    practice_most_recent_at = _as_utc(latest_practice[1]) if latest_practice is not None else None
+    practice_evidence_count = sum(g.item_count for g in practice_groups)
+    practice_window = select_practice_window(practice_groups)
+    recent_practice_mastery_band = practice_band_for_window(practice_window)
+    # Newest QUALIFYING attempt containing this domain -- an incomplete newer
+    # submission never refreshes freshness.
+    practice_most_recent_at = practice_window[0].submitted_at if practice_window else None
 
     scenario_attempts = db.scalars(
         select(ScenarioAttempt)

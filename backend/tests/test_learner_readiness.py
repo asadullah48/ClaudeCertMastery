@@ -123,11 +123,21 @@ def make_scenario(db, *, domain, external_id, content_version=1):
 def add_exam_attempt_evidence(
     db, *, user, track, domain, item_count, correct_count,
     mastery_band=None, submitted_at=NOW, status=AttemptStatus.SUBMITTED,
+    answered_count=None,
 ):
     """Directly persists an ExamAttempt + its AttemptItems (+ AttemptDomainScore if
     submitted) -- bypasses the scoring engine and the router entirely, since this
     file tests evidence AGGREGATION, not grading (already covered by
-    test_scoring.py/test_grading.py)."""
+    test_scoring.py/test_grading.py).
+
+    Items persist the way routers/attempts.py::submit does: the first `correct_count`
+    select the right option, the rest up to `answered_count` (default: every item)
+    select a WRONG option, and any beyond that are blank (`[]`). Wrong answers are
+    real selections, not blanks -- policy v2 judges attempt completion from
+    selected_option_ids, so conflating "wrong" with "unanswered" would silently
+    disqualify every fixture attempt below the completion ratio."""
+    answered_count = item_count if answered_count is None else answered_count
+    assert correct_count <= answered_count <= item_count
     attempt = ExamAttempt(
         user_id=user.id, track_id=track.id, mode=AttemptMode.PRACTICE,
         status=status, seed=1,
@@ -144,13 +154,20 @@ def add_exam_attempt_evidence(
         db.add(q)
         db.flush()
         opt = AnswerOption(question_id=q.id, label="A", text="t", is_correct=True, position=1)
-        db.add(opt)
+        wrong = AnswerOption(question_id=q.id, label="B", text="w", is_correct=False, position=2)
+        db.add_all([opt, wrong])
         db.flush()
         is_correct = i < correct_count
+        if is_correct:
+            selected = [opt.id]
+        elif i < answered_count:
+            selected = [wrong.id]
+        else:
+            selected = []
         db.add(
             AttemptItem(
                 attempt_id=attempt.id, question_id=q.id, domain_id=domain.id,
-                position=i + 1, selected_option_ids=[opt.id] if is_correct else [],
+                position=i + 1, selected_option_ids=selected,
                 is_correct=is_correct,
             )
         )
@@ -185,8 +202,9 @@ def add_scenario_attempt_evidence(
 
 
 def make_ready_domain(db, *, user, track, domain, submitted_at=NOW):
-    """Full sufficiency: 5 strong practice items, 2 distinct strong scenarios, all
-    recent -- the smallest evidence set that should legitimately reach `ready`."""
+    """Full sufficiency: MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY strong practice items in
+    one fully-answered attempt, 2 distinct strong scenarios, all recent -- the
+    smallest evidence set that should legitimately reach `ready`."""
     add_exam_attempt_evidence(
         db, user=user, track=track, domain=domain,
         item_count=MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY,
@@ -254,7 +272,11 @@ class TestPracticeEvidenceAggregation:
         )
         assert summary.practice_evidence_count == 0
 
-    def test_recent_practice_mastery_band_is_most_recent_submitted_attempt(self, db_session):
+    def test_recent_practice_mastery_band_pools_the_qualifying_window(self, db_session):
+        """Policy v2 (replaces v1's "newest submitted attempt's band"): the newest
+        attempt's 5 items are below PRACTICE_BAND_MIN_ITEMS, so the older attempt is
+        pooled in too -- 1/5 + 5/5 = 6/10 = 60% -> developing, not the newest
+        attempt's strong."""
         track = make_track(db_session)
         domain = make_domain(db_session, track, "PTE")
         user = make_user(db_session)
@@ -269,7 +291,7 @@ class TestPracticeEvidenceAggregation:
         summary = build_domain_evidence_summary(
             db_session, user_id=user.id, track_id=track.id, domain_id=domain.id, now=NOW
         )
-        assert summary.recent_practice_mastery_band == MasteryBand.STRONG
+        assert summary.recent_practice_mastery_band == MasteryBand.DEVELOPING
 
 
 # --- Scenario evidence aggregation ------------------------------------------------
@@ -876,7 +898,7 @@ class TestRecomputeUpsert:
         row = recompute_learner_domain_state(
             db_session, user_id=user.id, track_id=track.id, domain_id=domain.id, now=NOW
         )
-        assert row.projection_version == PROJECTION_VERSION == 1
+        assert row.projection_version == PROJECTION_VERSION == 2
 
     def test_calculated_at_differs_from_most_recent_evidence_at(self, db_session):
         track = make_track(db_session)
