@@ -19,7 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from app.models import (
@@ -39,8 +39,9 @@ from app.models import (
 from app.services.readiness_policy import (
     DomainEvidenceSummary,
     PracticeAttemptGroup,
-    ScenarioObservation,
+    ScenarioAttemptExposure,
     aggregate_scenario_mastery,
+    select_fresh_scenario_observations,
     attempt_qualifies_for_practice,
     classify_domain_readiness,
     practice_band_for_window,
@@ -60,7 +61,10 @@ from app.services.scoring import MasteryBand
 #       and scenario sufficiency is judged on that distinct count, not raw attempts.
 #   v4 (Gate C3-C5): scenario mastery band = weakest band across each independent
 #       scenario's latest submitted attempt (was: latest submitted attempt overall).
-PROJECTION_VERSION = 4
+#   v5 (retake validity): only each scenario's FIRST-EXPOSURE attempt is mastery
+#       evidence (answers are revealed after every step); a weak fresh result is
+#       cleared by a later proficient/strong fresh result on a different scenario.
+PROJECTION_VERSION = 5
 
 
 def _as_utc(dt: datetime | None) -> datetime | None:
@@ -286,6 +290,57 @@ def load_qualifying_practice_groups(
     ]
 
 
+def load_scenario_exposures(
+    db: Session, *, user_id: int, domain_id: int | None = None, track_id: int | None = None
+) -> list[ScenarioAttemptExposure]:
+    """Every scenario attempt (ANY status) this learner has in the domain -- or in the
+    whole track -- with the time answers were first revealed in it (its earliest
+    step_answered event). One grouped SELECT; never writes. Feeds the retake-validity
+    rule (readiness_policy.select_fresh_scenario_observations) and recommendations
+    (readiness_policy.exposed_scenario_ids)."""
+    query = (
+        select(
+            ScenarioAttempt.id,
+            ScenarioAttempt.scenario_id,
+            ScenarioAttempt.status,
+            ScenarioAttempt.submitted_at,
+            ScenarioAttempt.mastery_band,
+            func.min(ScenarioEvent.occurred_at),
+        )
+        .join(Scenario, ScenarioAttempt.scenario_id == Scenario.id)
+        .outerjoin(
+            ScenarioEvent,
+            and_(
+                ScenarioEvent.scenario_attempt_id == ScenarioAttempt.id,
+                ScenarioEvent.event_type == "step_answered",
+            ),
+        )
+        .where(ScenarioAttempt.user_id == user_id)
+        .group_by(
+            ScenarioAttempt.id,
+            ScenarioAttempt.scenario_id,
+            ScenarioAttempt.status,
+            ScenarioAttempt.submitted_at,
+            ScenarioAttempt.mastery_band,
+        )
+    )
+    if domain_id is not None:
+        query = query.where(Scenario.domain_id == domain_id)
+    if track_id is not None:
+        query = query.join(Domain, Scenario.domain_id == Domain.id).where(Domain.track_id == track_id)
+    return [
+        ScenarioAttemptExposure(
+            scenario_id=scenario_id,
+            attempt_id=attempt_id,
+            submitted=status == "submitted",
+            submitted_at=_as_utc(submitted_at),
+            first_answer_at=_as_utc(first_answer_at),
+            mastery_band=MasteryBand(band) if band else None,
+        )
+        for attempt_id, scenario_id, status, submitted_at, band, first_answer_at in db.execute(query)
+    ]
+
+
 def build_domain_evidence_summary(
     db: Session,
     *,
@@ -350,17 +405,13 @@ def build_domain_evidence_summary(
     # assessment, not a second observation (Gate C3-C1/C3-C2). The field keeps its
     # legacy name for schema/API compatibility only; see LearnerDomainState.
     distinct_scenario_content_versions = len({sa.scenario_id for sa in scenario_attempts})
-    # v4 mastery: latest submitted attempt per independent scenario_id, then the
-    # weakest band across those -- grouped in Python over the rows already loaded
-    # above, so no extra query. Legacy field name; see LearnerDomainState.
+    # v5 mastery: each scenario's first-exposure (fresh) attempt only -- retakes after
+    # answers were revealed never set mastery -- then the weakest non-cleared band.
+    # Legacy field name; see LearnerDomainState.
     recent_scenario_mastery_band = aggregate_scenario_mastery(
-        ScenarioObservation(
-            scenario_id=sa.scenario_id,
-            attempt_id=sa.id,
-            submitted_at=_as_utc(sa.submitted_at),
-            mastery_band=MasteryBand(sa.mastery_band) if sa.mastery_band else None,
+        select_fresh_scenario_observations(
+            load_scenario_exposures(db, user_id=user_id, domain_id=domain_id)
         )
-        for sa in scenario_attempts
     )
     # Freshness stays separate from mastery (Gate C3-C4): the newest submitted
     # scenario attempt overall, whichever scenario it belongs to -- unchanged from v3.

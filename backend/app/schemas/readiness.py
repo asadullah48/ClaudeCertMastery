@@ -33,8 +33,8 @@ class DomainReadinessOut(BaseModel):
     # scenario IDs (independent scenario evidence units), not content versions.
     distinct_scenario_content_versions: int
     recent_practice_mastery_band: str | None = None
-    # Legacy name kept for API compatibility. Projection v4: the limiting (weakest)
-    # band across each independent scenario's latest submitted attempt.
+    # Legacy name kept for API compatibility. Projection v5: the limiting (weakest,
+    # non-cleared) band across each scenario's first-exposure (fresh) attempt.
     recent_scenario_mastery_band: str | None = None
     most_recent_evidence_at: datetime | None = None
     unresolved_misconception_count: int

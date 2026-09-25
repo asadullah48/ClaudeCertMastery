@@ -587,143 +587,140 @@ class TestScenarioSufficiencyIsDistinctScenarios:
             assert REPEATED_SCENARIO_NOT_DIVERSE_EVIDENCE not in r.reason_codes
 
 
-# --- Projection v4: scenario mastery aggregation (Gate C3-C5) ------------------------
-
-import itertools  # noqa: E402
+# --- Projection v5: retake validity + fresh scenario mastery -------------------------
 
 from app.services.readiness_policy import (  # noqa: E402
     ReadinessPolicyError,
+    ScenarioAttemptExposure,
     ScenarioObservation,
     aggregate_scenario_mastery,
+    exposed_scenario_ids,
+    select_fresh_scenario_observations,
 )
 
 _S, _P, _D, _C = (MasteryBand.STRONG, MasteryBand.PROFICIENT,
                   MasteryBand.DEVELOPING, MasteryBand.CRITICAL)
 
 
-def _history(*attempts):
-    """attempts: (scenario_id, band) oldest first -> observations with strictly
-    increasing submitted_at and attempt ids."""
+def _fresh(*results):
+    """results: (scenario_id, band) in submission order -> one fresh observation each."""
     return [
         ScenarioObservation(scenario_id=sid, attempt_id=i + 1,
                             submitted_at=NOW + timedelta(minutes=i), mastery_band=band)
-        for i, (sid, band) in enumerate(attempts)
+        for i, (sid, band) in enumerate(results)
     ]
 
 
-def _latest_overall(observations):
-    """The retired v1-v3 rule, kept only to prove the invariance test detects it."""
-    return max(observations, key=lambda o: (o.submitted_at, o.attempt_id)).mastery_band
+def _exp(sid, aid, *, minute, band=None, submitted=True, answered=True):
+    at = NOW + timedelta(minutes=minute)
+    return ScenarioAttemptExposure(
+        scenario_id=sid, attempt_id=aid, submitted=submitted,
+        submitted_at=at if submitted else None,
+        first_answer_at=at if answered else None, mastery_band=band if submitted else None,
+    )
 
 
-def _interleavings(attempts):
-    """Every re-timing of the attempts that preserves each scenario's own order (so
-    each scenario's latest attempt is unchanged) -- only cross-scenario order moves."""
-    seen = set()
-    for perm in itertools.permutations(range(len(attempts))):
-        ok = all(
-            [i for i in perm if attempts[i][0] == sid]
-            == [i for i in range(len(attempts)) if attempts[i][0] == sid]
-            for sid in {a[0] for a in attempts}
-        )
-        order = tuple(attempts[i] for i in perm)
-        if ok and order not in seen:
-            seen.add(order)
-            yield _history(*order)
+class TestFreshScenarioSelection:
+    def test_first_exposure_is_the_only_fresh_attempt(self):
+        fresh = select_fresh_scenario_observations([
+            _exp(1, 10, minute=0, band=_C), _exp(1, 11, minute=5, band=_S), _exp(1, 12, minute=9, band=_S),
+        ])
+        assert [(o.attempt_id, o.mastery_band) for o in fresh] == [(10, _C)]
+
+    def test_retake_cannot_lower_a_fresh_result_either(self):
+        fresh = select_fresh_scenario_observations([_exp(1, 10, minute=0, band=_S), _exp(1, 11, minute=5, band=_C)])
+        assert [o.mastery_band for o in fresh] == [_S]
+
+    def test_answers_revealed_in_an_abandoned_attempt_leave_no_fresh_result(self):
+        fresh = select_fresh_scenario_observations([
+            _exp(1, 10, minute=0, submitted=False, answered=True),
+            _exp(1, 11, minute=5, band=_S),
+        ])
+        assert fresh == []
+
+    def test_unanswered_in_progress_attempt_does_not_expose(self):
+        fresh = select_fresh_scenario_observations([
+            _exp(1, 10, minute=0, submitted=False, answered=False),
+            _exp(1, 11, minute=5, band=_S),
+        ])
+        assert [o.attempt_id for o in fresh] == [11]
+
+    def test_exposure_tie_is_broken_by_lower_attempt_id(self):
+        fresh = select_fresh_scenario_observations([_exp(1, 21, minute=0, band=_S), _exp(1, 20, minute=0, band=_C)])
+        assert [o.attempt_id for o in fresh] == [20]
+
+    def test_submitted_attempt_without_answer_event_uses_submission_time(self):
+        legacy = ScenarioAttemptExposure(scenario_id=1, attempt_id=1, submitted=True,
+                                         submitted_at=NOW, first_answer_at=None, mastery_band=_S)
+        assert [o.attempt_id for o in select_fresh_scenario_observations([legacy])] == [1]
+
+    def test_submitted_attempt_without_submitted_at_raises(self):
+        broken = ScenarioAttemptExposure(scenario_id=1, attempt_id=1, submitted=True,
+                                         submitted_at=None, first_answer_at=None, mastery_band=_S)
+        with pytest.raises(ReadinessPolicyError):
+            select_fresh_scenario_observations([broken])
+
+    def test_one_fresh_result_per_scenario_ordered_by_submission(self):
+        fresh = select_fresh_scenario_observations([
+            _exp(2, 30, minute=3, band=_S), _exp(1, 31, minute=1, band=_D), _exp(2, 32, minute=8, band=_C),
+        ])
+        assert [(o.scenario_id, o.attempt_id) for o in fresh] == [(1, 31), (2, 30)]
+
+    def test_exposed_scenarios(self):
+        assert exposed_scenario_ids([
+            _exp(1, 1, minute=0, band=_S),
+            _exp(2, 2, minute=0, submitted=False, answered=True),
+            _exp(3, 3, minute=0, submitted=False, answered=False),
+        ]) == {1, 2}
 
 
-class TestScenarioMasteryAggregation:
+class TestFreshScenarioMastery:
     def test_no_scenarios_is_none(self):
         assert aggregate_scenario_mastery([]) is None
 
-    def test_one_strong_scenario_is_strong(self):
-        assert aggregate_scenario_mastery(_history((1, _S))) == _S
+    def test_one_scenario_is_its_fresh_band(self):
+        assert aggregate_scenario_mastery(_fresh((1, _S))) == _S
+        assert aggregate_scenario_mastery(_fresh((1, _C))) == _C
 
     @pytest.mark.parametrize(
-        "a,b,expected",
+        "first,second,expected",
         [
             (_S, _S, _S),
             (_S, _P, _P),
-            (_S, _D, _D),
+            (_S, _D, _D),   # failure AFTER success: regression limits
             (_S, _C, _C),
             (_P, _D, _D),
-            (_D, _C, _C),
+            (_D, _S, _S),   # success on unseen material AFTER failure: remediation
+            (_C, _S, _S),
+            (_C, _P, _P),
+            (_D, _C, _C),   # a weak result never clears another weak result
+            (_C, _D, _C),
         ],
     )
-    def test_two_scenarios_take_the_weakest_band_in_either_order(self, a, b, expected):
-        assert aggregate_scenario_mastery(_history((1, a), (2, b))) == expected
-        assert aggregate_scenario_mastery(_history((2, b), (1, a))) == expected
+    def test_two_fresh_scenarios(self, first, second, expected):
+        assert aggregate_scenario_mastery(_fresh((1, first), (2, second))) == expected
 
-    def test_same_scenario_remediation_and_regression(self):
-        assert aggregate_scenario_mastery(_history((1, _C), (1, _S))) == _S
-        assert aggregate_scenario_mastery(_history((1, _S), (1, _C))) == _C
-        assert aggregate_scenario_mastery(_history((1, _C), (1, _C), (1, _S))) == _S
+    def test_three_scenarios(self):
+        assert aggregate_scenario_mastery(_fresh((1, _S), (2, _S), (3, _C))) == _C
+        assert aggregate_scenario_mastery(_fresh((3, _C), (1, _S), (2, _S))) == _S
+        assert aggregate_scenario_mastery(_fresh((1, _C), (2, _D), (3, _P))) == _P
 
-    def test_independent_scenario_remediation(self):
-        assert aggregate_scenario_mastery(_history((1, _C), (1, _S), (2, _S))) == _S
-        assert aggregate_scenario_mastery(_history((1, _S), (2, _C), (2, _S))) == _S
-        assert aggregate_scenario_mastery(_history((1, _C), (1, _S), (2, _D))) == _D
+    def test_rejects_more_than_one_result_per_scenario(self):
+        with pytest.raises(ReadinessPolicyError):
+            aggregate_scenario_mastery(_fresh((1, _C), (1, _S)))
 
-    def test_repeated_strong_scenario_cannot_hide_independent_developing(self):
-        assert aggregate_scenario_mastery(_history(*[(1, _S)] * 5, (2, _D))) == _D
-        assert aggregate_scenario_mastery(_history((2, _D), *[(1, _S)] * 5)) == _D
-
-    def test_three_scenarios_use_weakest_latest_state(self):
-        assert aggregate_scenario_mastery(_history((1, _S), (2, _S), (3, _C))) == _C
-        assert aggregate_scenario_mastery(_history((1, _S), (2, _S), (3, _C), (3, _S))) == _S
-
-    @pytest.mark.parametrize(
-        "attempts",
-        [
-            [(1, _S), (2, _C)],
-            [(1, _C), (1, _S), (2, _S)],
-            [(1, _S), (1, _C), (2, _S)],
-            [(1, _S), (2, _C), (2, _S)],
-            [(1, _S), (1, _S), (1, _S), (2, _D)],
-            [(1, _S), (2, _S), (3, _C)],
-            [(1, _C), (2, _P), (3, _S), (3, _D)],
-        ],
-    )
-    def test_cross_scenario_attempt_order_never_changes_the_result(self, attempts):
-        results = {aggregate_scenario_mastery(h) for h in _interleavings(attempts)}
-        assert len(results) == 1
-
-    def test_invariance_check_detects_the_retired_latest_overall_rule(self):
-        """Guards the test above against being vacuous: on the same interleavings the
-        v1-v3 latest-overall rule really does change with attempt order."""
-        attempts = [(1, _S), (2, _C)]
-        assert len({_latest_overall(h) for h in _interleavings(attempts)}) == 2
-        assert len({aggregate_scenario_mastery(h) for h in _interleavings(attempts)}) == 1
-
-    def test_same_timestamp_same_scenario_higher_attempt_id_is_latest(self):
-        older_id = ScenarioObservation(scenario_id=1, attempt_id=10, submitted_at=NOW, mastery_band=_C)
-        newer_id = ScenarioObservation(scenario_id=1, attempt_id=11, submitted_at=NOW, mastery_band=_S)
-        assert aggregate_scenario_mastery([older_id, newer_id]) == _S
-        assert aggregate_scenario_mastery([newer_id, older_id]) == _S  # input order irrelevant
-
-    def test_tie_break_is_per_scenario_not_across_scenarios(self):
-        """Another scenario's attempt with the same timestamp and a higher id must not
-        displace scenario 1's own latest attempt -- it is its own unit."""
-        s1 = ScenarioObservation(scenario_id=1, attempt_id=10, submitted_at=NOW, mastery_band=_S)
-        s2 = ScenarioObservation(scenario_id=2, attempt_id=99, submitted_at=NOW, mastery_band=_P)
-        assert aggregate_scenario_mastery([s1, s2]) == _P  # both units count
-        assert aggregate_scenario_mastery([s2, s1]) == _P
-
-    def test_latest_attempt_without_a_band_yields_none(self):
-        obs = _history((1, _S), (2, _S))
-        obs.append(ScenarioObservation(scenario_id=2, attempt_id=99,
+    def test_retained_result_without_band_yields_none(self):
+        obs = _fresh((1, _S))
+        obs.append(ScenarioObservation(scenario_id=2, attempt_id=9,
                                        submitted_at=NOW + timedelta(hours=1), mastery_band=None))
         assert aggregate_scenario_mastery(obs) is None
 
-    def test_submitted_observation_without_timestamp_raises(self):
-        broken = ScenarioObservation(scenario_id=1, attempt_id=1, submitted_at=None, mastery_band=_S)
-        with pytest.raises(ReadinessPolicyError):
-            aggregate_scenario_mastery([broken])
+    def test_input_order_is_irrelevant_only_submission_order_matters(self):
+        obs = _fresh((1, _C), (2, _S))
+        assert aggregate_scenario_mastery(obs) == aggregate_scenario_mastery(list(reversed(obs))) == _S
 
     def test_weak_aggregate_still_reads_domain_below_threshold(self):
-        """No new reason code: a weak aggregated band flows through the existing
-        classifier rule unchanged."""
-        band = aggregate_scenario_mastery(_history((1, _S), (2, _D)))
+        band = aggregate_scenario_mastery(_fresh((1, _S), (2, _D)))
         r = classify_domain_readiness(make_summary(recent_scenario_mastery_band=band))
         assert r.state == STATE_DEVELOPING
         assert r.reason_codes == [DOMAIN_BELOW_THRESHOLD]

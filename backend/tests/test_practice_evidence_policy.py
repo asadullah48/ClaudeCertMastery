@@ -81,8 +81,9 @@ def test_v2_policy_constants_are_the_approved_values():
     assert MIN_SCENARIO_ATTEMPTS_FOR_SUFFICIENCY == 2  # unchanged by B2
     assert STALENESS_THRESHOLD_DAYS == 90  # unchanged by B2
     # Bumped to 3 by Gate C3-C2 (scenario diversity) and 4 by Gate C3-C5 (scenario
-    # mastery aggregation); the practice policy these tests pin is unchanged since v2.
-    assert PROJECTION_VERSION == 4
+    # mastery aggregation) and 5 by retake validity; the practice policy these tests pin
+    # is unchanged since v2.
+    assert PROJECTION_VERSION == 5
 
 
 # =====================================================================================

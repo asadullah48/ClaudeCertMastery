@@ -99,8 +99,8 @@ class DomainEvidenceSummary:
     # not the raw count -- is what scenario sufficiency is judged on.
     distinct_scenario_content_versions: int
     recent_practice_mastery_band: MasteryBand | None
-    # Legacy name; projection v4 meaning: the limiting (weakest) band across each
-    # independent scenario's latest submitted attempt (aggregate_scenario_mastery).
+    # Legacy name; projection v5 meaning: the limiting (weakest, non-cleared) band
+    # across each scenario's first-exposure attempt (aggregate_scenario_mastery).
     recent_scenario_mastery_band: MasteryBand | None
     most_recent_evidence_at: datetime | None
     unresolved_misconception_count: int
@@ -193,11 +193,24 @@ _BAND_WEAKEST_FIRST = (
 
 
 @dataclass(frozen=True)
+class ScenarioAttemptExposure:
+    """One scenario attempt (any status), reduced to what the retake-validity rule
+    needs. `first_answer_at` is the attempt's earliest step_answered event -- the
+    moment answers for that scenario were first revealed to this learner (the answer
+    endpoint returns correct_option_ids after every step)."""
+
+    scenario_id: int
+    attempt_id: int
+    submitted: bool
+    submitted_at: datetime | None
+    first_answer_at: datetime | None
+    mastery_band: MasteryBand | None
+
+
+@dataclass(frozen=True)
 class ScenarioObservation:
-    """One submitted scenario attempt, reduced to what scenario-mastery aggregation
-    needs -- decoupled from the ORM like PracticeAttemptGroup. `submitted_at` must be
-    tz-aware and non-null (every submitted attempt has one; see
-    aggregate_scenario_mastery)."""
+    """A FRESH submitted scenario result -- at most one per scenario_id (see
+    select_fresh_scenario_observations). `submitted_at` is tz-aware and non-null."""
 
     scenario_id: int
     attempt_id: int
@@ -205,38 +218,86 @@ class ScenarioObservation:
     mastery_band: MasteryBand | None
 
 
-def aggregate_scenario_mastery(observations) -> MasteryBand | None:
-    """Projection v4 scenario mastery (Gate C3-C4/C3-C5).
-
-    1. Each scenario_id is one independent assessment unit: keep only its latest
-       submitted attempt, by (submitted_at, attempt_id) -- i.e. submitted_at DESC,
-       id DESC. Content-version revisions and repeats of the same scenario never
-       add weight; a later attempt replaces an earlier one (remediation AND
-       regression are both represented).
-    2. Project the WEAKEST band across those latest-per-scenario observations. No
-       averaging, no scenario or attempt weighting.
-
-    Cross-scenario attempt order cannot change the result. None when there is no
-    observation, or when any scenario's latest attempt carries no band (it cannot
-    demonstrate mastery, so nothing is ranked -- the classifier treats None as weak).
-    A submitted observation without submitted_at is a broken invariant, not
-    something to order by guesswork, so it raises.
-    """
-    latest: dict[int, ScenarioObservation] = {}
-    for obs in observations:
-        if obs.submitted_at is None:
+def _exposed_at(exposure: ScenarioAttemptExposure) -> datetime | None:
+    """When this attempt revealed answers: its first answered step, or -- for a
+    submitted attempt with no recorded answer event (legacy/synthetic rows) -- its
+    submission, since submitting always follows answering. None = never exposed."""
+    if exposure.first_answer_at is not None:
+        return exposure.first_answer_at
+    if exposure.submitted:
+        if exposure.submitted_at is None:
             raise ReadinessPolicyError(
-                f"Submitted scenario attempt {obs.attempt_id} has no submitted_at."
+                f"Submitted scenario attempt {exposure.attempt_id} has no submitted_at."
             )
-        current = latest.get(obs.scenario_id)
-        if current is None or (obs.submitted_at, obs.attempt_id) > (
-            current.submitted_at,
-            current.attempt_id,
-        ):
-            latest[obs.scenario_id] = obs
-    if not latest:
+        return exposure.submitted_at
+    return None
+
+
+def select_fresh_scenario_observations(exposures) -> list[ScenarioObservation]:
+    """Projection v5 retake validity (accelerated Scenario Lab delivery).
+
+    Answers are revealed after every step, so only a learner's FIRST exposure to a
+    scenario can be independent evidence. Per scenario_id, the fresh attempt is the
+    one that exposed answers earliest (ties: lower attempt id). It yields an
+    observation only if that attempt was submitted -- answers revealed in an
+    abandoned/in-progress attempt make every later attempt a retake. Retakes stay
+    immutable history (and raw scenario_evidence_count) but never set mastery.
+    Returned oldest-submitted first."""
+    first: dict[int, tuple[datetime, int, ScenarioAttemptExposure]] = {}
+    for exp in exposures:
+        at = _exposed_at(exp)
+        if at is None:
+            continue
+        current = first.get(exp.scenario_id)
+        if current is None or (at, exp.attempt_id) < (current[0], current[1]):
+            first[exp.scenario_id] = (at, exp.attempt_id, exp)
+    fresh = [
+        ScenarioObservation(
+            scenario_id=exp.scenario_id,
+            attempt_id=exp.attempt_id,
+            submitted_at=exp.submitted_at,
+            mastery_band=exp.mastery_band,
+        )
+        for _, _, exp in first.values()
+        if exp.submitted
+    ]
+    return sorted(fresh, key=lambda o: (o.submitted_at, o.attempt_id))
+
+
+def exposed_scenario_ids(exposures) -> set[int]:
+    """Scenarios whose answers this learner has already seen -- they can no longer
+    produce fresh evidence, so recommendations prefer any other scenario."""
+    return {exp.scenario_id for exp in exposures if _exposed_at(exp) is not None}
+
+
+def aggregate_scenario_mastery(observations) -> MasteryBand | None:
+    """Projection v5 scenario mastery, over FRESH observations only (one per
+    scenario_id -- pass select_fresh_scenario_observations' output).
+
+    Weakest band across the fresh results, except that a weak (critical/developing)
+    fresh result stops limiting the domain once the learner later produces a
+    proficient/strong fresh result on a DIFFERENT scenario: improvement must be shown
+    on unseen material, and success after failure is learning while failure after
+    success is regression -- so cross-scenario order is deliberately meaningful here.
+    None when there is no observation, or when a retained result carries no band.
+    """
+    ordered = sorted(observations, key=lambda o: (o.submitted_at, o.attempt_id))
+    if len({o.scenario_id for o in ordered}) != len(ordered):
+        raise ReadinessPolicyError("aggregate_scenario_mastery expects one fresh result per scenario.")
+    retained = []
+    for i, obs in enumerate(ordered):
+        weak = obs.mastery_band is None or obs.mastery_band in _WEAK_BANDS
+        cleared = weak and any(
+            later.scenario_id != obs.scenario_id
+            and later.mastery_band is not None
+            and later.mastery_band not in _WEAK_BANDS
+            for later in ordered[i + 1:]
+        )
+        if not cleared:
+            retained.append(obs)
+    if not retained:
         return None
-    bands = [obs.mastery_band for obs in latest.values()]
+    bands = [o.mastery_band for o in retained]
     if any(band is None for band in bands):
         return None
     return min(bands, key=_BAND_WEAKEST_FIRST.index)

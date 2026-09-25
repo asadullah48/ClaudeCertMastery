@@ -338,9 +338,9 @@ class TestScenarioEvidenceAggregation:
         )
         assert summary.scenario_evidence_count == 1
 
-    def test_single_scenario_band_is_its_latest_attempt(self, db_session):
-        """Projection v4: with one independent scenario, the band is that
-        scenario's latest submitted attempt (critical -> strong reads strong)."""
+    def test_single_scenario_band_is_its_fresh_first_attempt(self, db_session):
+        """Projection v5: the later strong attempt is a retake after answers were
+        revealed, so the fresh (first) critical result is what counts."""
         track = make_track(db_session)
         domain = make_domain(db_session, track, "PTE")
         user = make_user(db_session)
@@ -356,7 +356,7 @@ class TestScenarioEvidenceAggregation:
         summary = build_domain_evidence_summary(
             db_session, user_id=user.id, track_id=track.id, domain_id=domain.id, now=NOW
         )
-        assert summary.recent_scenario_mastery_band == MasteryBand.STRONG
+        assert summary.recent_scenario_mastery_band == MasteryBand.CRITICAL
 
 
 class TestDistinctScenarioContentVersions:
@@ -1024,7 +1024,7 @@ class TestRecomputeUpsert:
         row = recompute_learner_domain_state(
             db_session, user_id=user.id, track_id=track.id, domain_id=domain.id, now=NOW
         )
-        assert row.projection_version == PROJECTION_VERSION == 4
+        assert row.projection_version == PROJECTION_VERSION == 5
 
     def test_calculated_at_differs_from_most_recent_evidence_at(self, db_session):
         track = make_track(db_session)
@@ -1424,12 +1424,13 @@ class TestV2ToV3InPlaceRecompute:
         }
 
 
-# --- Projection v4: scenario mastery aggregation through the service (Gate C3-C5) ----
+# --- Projection v5: retake validity through the service ------------------------------
 
 from app.models import ScenarioStepAttempt  # noqa: E402
+from app.services.learner_readiness import load_scenario_exposures  # noqa: E402
 
 
-def _v4_world(db):
+def _v5_world(db):
     """Practice sufficient + strong, so scenario evidence alone moves the outcome."""
     track = make_track(db)
     domain = make_domain(db, track, "OEV")
@@ -1443,14 +1444,17 @@ def _v4_world(db):
     return track, domain, user
 
 
+_SCORE = {MasteryBand.STRONG: 100.0, MasteryBand.PROFICIENT: 75.0,
+          MasteryBand.DEVELOPING: 50.0, MasteryBand.CRITICAL: 0.0}
+
+
 def _attempts(db, user, history, *, base=NOW - timedelta(days=10)):
-    """history: (scenario, band) oldest first, one minute apart."""
+    """history: (scenario, band) oldest first, one minute apart. These synthetic
+    attempts carry no step events, so each one's exposure time is its submission."""
     return [
         add_scenario_attempt_evidence(
             db, user=user, scenario=scenario, mastery_band=band,
-            submitted_at=base + timedelta(minutes=i),
-            score_pct={MasteryBand.STRONG: 100.0, MasteryBand.PROFICIENT: 75.0,
-                       MasteryBand.DEVELOPING: 50.0, MasteryBand.CRITICAL: 0.0}[band],
+            submitted_at=base + timedelta(minutes=i), score_pct=_SCORE[band],
         )
         for i, (scenario, band) in enumerate(history)
     ]
@@ -1462,185 +1466,180 @@ def _summary(db, track, domain, user):
     )
 
 
-class TestScenarioMasteryAggregationService:
+def _recompute(db, track, domain, user):
+    return recompute_learner_domain_state(
+        db, user_id=user.id, track_id=track.id, domain_id=domain.id, now=NOW
+    )
+
+
+class TestRetakeValidityService:
     S, P, D, C = (MasteryBand.STRONG, MasteryBand.PROFICIENT,
                   MasteryBand.DEVELOPING, MasteryBand.CRITICAL)
 
+    def _two(self, db):
+        track, domain, user = _v5_world(db)
+        a = make_scenario(db, domain=domain, external_id="SCN-A")
+        b = make_scenario(db, domain=domain, external_id="SCN-B")
+        return track, domain, user, a, b
+
     def test_no_scenarios_is_none(self, db_session):
-        track, domain, user = _v4_world(db_session)
+        track, domain, user = _v5_world(db_session)
         assert _summary(db_session, track, domain, user).recent_scenario_mastery_band is None
 
-    @pytest.mark.parametrize("reverse", [False, True])
-    def test_strong_then_critical_is_critical_in_either_order(self, db_session, reverse):
-        track, domain, user = _v4_world(db_session)
-        a = make_scenario(db_session, domain=domain, external_id="SCN-A")
-        b = make_scenario(db_session, domain=domain, external_id="SCN-B")
-        history = [(a, self.S), (b, self.C)]
-        _attempts(db_session, user, history[::-1] if reverse else history)
-        assert _summary(db_session, track, domain, user).recent_scenario_mastery_band == self.C
-
-    def test_same_scenario_remediation_and_regression(self, db_session):
-        track, domain, user = _v4_world(db_session)
-        a = make_scenario(db_session, domain=domain, external_id="SCN-A")
-        _attempts(db_session, user, [(a, self.C), (a, self.S)])
-        assert _summary(db_session, track, domain, user).recent_scenario_mastery_band == self.S
-        _attempts(db_session, user, [(a, self.C)], base=NOW - timedelta(days=1))
-        assert _summary(db_session, track, domain, user).recent_scenario_mastery_band == self.C
-
-    def test_independent_scenario_remediation(self, db_session):
-        track, domain, user = _v4_world(db_session)
-        a = make_scenario(db_session, domain=domain, external_id="SCN-A")
-        b = make_scenario(db_session, domain=domain, external_id="SCN-B")
-        _attempts(db_session, user, [(a, self.C), (a, self.S), (b, self.D)])
-        assert _summary(db_session, track, domain, user).recent_scenario_mastery_band == self.D
-        _attempts(db_session, user, [(b, self.S)], base=NOW - timedelta(days=1))
-        assert _summary(db_session, track, domain, user).recent_scenario_mastery_band == self.S
-
-    def test_repeated_strong_scenario_cannot_hide_independent_developing(self, db_session):
-        track, domain, user = _v4_world(db_session)
-        a = make_scenario(db_session, domain=domain, external_id="SCN-A")
-        b = make_scenario(db_session, domain=domain, external_id="SCN-B")
-        _attempts(db_session, user, [(b, self.D)] + [(a, self.S)] * 5)
+    def test_retake_after_revealed_answers_cannot_raise_mastery(self, db_session):
+        track, domain, user, a, _ = self._two(db_session)
+        _attempts(db_session, user, [(a, self.C), (a, self.S), (a, self.S)])
         s = _summary(db_session, track, domain, user)
-        assert (s.scenario_evidence_count, s.distinct_scenario_content_versions) == (6, 2)
-        assert s.recent_scenario_mastery_band == self.D
+        assert s.recent_scenario_mastery_band == self.C
+        assert (s.scenario_evidence_count, s.distinct_scenario_content_versions) == (3, 1)
 
-    def test_three_scenarios_then_the_limiting_one_is_remediated(self, db_session):
-        track, domain, user = _v4_world(db_session)
-        a, b, c = (make_scenario(db_session, domain=domain, external_id=f"SCN-{x}") for x in "ABC")
-        _attempts(db_session, user, [(a, self.S), (b, self.S), (c, self.C)])
-        assert _summary(db_session, track, domain, user).recent_scenario_mastery_band == self.C
-        _attempts(db_session, user, [(c, self.S)], base=NOW - timedelta(days=1))
+    def test_retake_cannot_lower_mastery_either(self, db_session):
+        track, domain, user, a, _ = self._two(db_session)
+        _attempts(db_session, user, [(a, self.S), (a, self.C)])
         assert _summary(db_session, track, domain, user).recent_scenario_mastery_band == self.S
 
-    @pytest.mark.parametrize("first,second", [("C", "S"), ("S", "C")])
-    def test_content_version_change_stays_one_unit(self, db_session, first, second):
-        track, domain, user = _v4_world(db_session)
-        a = make_scenario(db_session, domain=domain, external_id="SCN-A", content_version=1)
-        _attempts(db_session, user, [(a, getattr(self, first))])
-        a.content_version = 2
-        db_session.commit()
-        _attempts(db_session, user, [(a, getattr(self, second))], base=NOW - timedelta(days=1))
-        s = _summary(db_session, track, domain, user)
-        assert (s.scenario_evidence_count, s.distinct_scenario_content_versions) == (2, 1)
-        assert s.recent_scenario_mastery_band == getattr(self, second)
-
-    def test_timestamp_tie_on_one_scenario_resolved_by_attempt_id(self, db_session):
-        track, domain, user = _v4_world(db_session)
-        a = make_scenario(db_session, domain=domain, external_id="SCN-A")
-        at = NOW - timedelta(days=2)
-        first = add_scenario_attempt_evidence(db_session, user=user, scenario=a,
-                                              mastery_band=self.C, submitted_at=at, score_pct=0.0)
-        second = add_scenario_attempt_evidence(db_session, user=user, scenario=a,
-                                               mastery_band=self.S, submitted_at=at, score_pct=100.0)
-        assert second.id > first.id
-        assert _summary(db_session, track, domain, user).recent_scenario_mastery_band == self.S
-
-    def test_shared_misconception_tag_counterexample_stays_below_threshold(self, db_session):
-        """Gate C3-C4 counterexample. A (latest: critical) and B (latest: strong) each
-        author a wrong option tagged `shared_x`. A's wrong answer activates the tag;
-        B's LATER correct answer on its own shared_x step resolves it. The retired
-        latest-overall rule saw only B (strong) and reached `ready`; v4 keeps A's
-        critical latest state in view."""
-        track, domain, user = _v4_world(db_session)
-        steps = {}
-        scenarios = {}
-        for x in "AB":
-            scenarios[x] = make_scenario(db_session, domain=domain, external_id=f"SCN-{x}")
-            steps[x] = make_scenario_step(db_session, scenario=scenarios[x], options=[
-                {"is_correct": True}, {"is_correct": False, "misconception_tag": "shared_x"}])
-        a_at, b_at = NOW - timedelta(days=3), NOW - timedelta(days=2)
-        a_att = add_scenario_attempt_evidence(db_session, user=user, scenario=scenarios["A"],
-                                              mastery_band=self.C, submitted_at=a_at, score_pct=0.0)
-        add_step_answered_event(db_session, user=user, scenario_attempt=a_att, step=steps["A"],
-                                is_correct=False, misconception_tags=["shared_x"], occurred_at=a_at)
-        b_att = add_scenario_attempt_evidence(db_session, user=user, scenario=scenarios["B"],
-                                              mastery_band=self.S, submitted_at=b_at, score_pct=100.0)
-        add_step_answered_event(db_session, user=user, scenario_attempt=b_att, step=steps["B"],
-                                is_correct=True, occurred_at=b_at)
-
-        row = recompute_learner_domain_state(
-            db_session, user_id=user.id, track_id=track.id, domain_id=domain.id, now=NOW
-        )
-        assert row.unresolved_misconception_count == 0  # the tag really was cleared via B
-        assert row.distinct_scenario_content_versions == 2  # sufficiency is met
-        assert b_att.mastery_band == "strong"  # the newest attempt overall is B's strong
+    def test_recall_retakes_never_reach_ready(self, db_session):
+        """B passed fresh, then A failed fresh, then A 'passed' twice on recall: the
+        recall passes are not evidence, so A's fresh failure still limits."""
+        track, domain, user, a, b = self._two(db_session)
+        _attempts(db_session, user, [(b, self.S), (a, self.C), (a, self.S), (a, self.S)])
+        row = _recompute(db_session, track, domain, user)
         assert row.recent_scenario_mastery_band == "critical"
         assert row.readiness_state == STATE_DEVELOPING
         assert row.reason_codes == [DOMAIN_BELOW_THRESHOLD]
 
-    @pytest.mark.parametrize("limiting_is_newest", [False, True])
-    def test_freshness_is_newest_attempt_overall_not_the_limiting_scenario(
-        self, db_session, limiting_is_newest
-    ):
-        track, domain, user = _v4_world(db_session)
-        a = make_scenario(db_session, domain=domain, external_id="SCN-A")
-        b = make_scenario(db_session, domain=domain, external_id="SCN-B")
-        history = [(b, self.S), (a, self.C)] if limiting_is_newest else [(a, self.C), (b, self.S)]
-        attempts = _attempts(db_session, user, history)
+    def test_remediation_on_an_unseen_scenario_clears_an_earlier_failure(self, db_session):
+        track, domain, user, a, b = self._two(db_session)
+        _attempts(db_session, user, [(a, self.C), (b, self.S)])
+        row = _recompute(db_session, track, domain, user)
+        assert row.recent_scenario_mastery_band == "strong"
+        assert row.readiness_state == STATE_READY
+
+    def test_failure_after_success_is_regression_and_limits(self, db_session):
+        track, domain, user, a, b = self._two(db_session)
+        _attempts(db_session, user, [(b, self.S), (a, self.C)])
+        assert _summary(db_session, track, domain, user).recent_scenario_mastery_band == self.C
+
+    def test_repeats_of_one_scenario_carry_no_extra_weight(self, db_session):
+        track, domain, user, a, b = self._two(db_session)
+        _attempts(db_session, user, [(a, self.S)] * 5 + [(b, self.D)])
         s = _summary(db_session, track, domain, user)
-        assert s.recent_scenario_mastery_band == self.C  # A limits either way
-        assert s.most_recent_evidence_at == attempts[-1].submitted_at  # newest overall
+        assert (s.scenario_evidence_count, s.distinct_scenario_content_versions) == (6, 2)
+        assert s.recent_scenario_mastery_band == self.D
 
-    def test_raw_and_distinct_counts_are_unchanged_by_v4(self, db_session):
-        track, domain, user = _v4_world(db_session)
-        a = make_scenario(db_session, domain=domain, external_id="SCN-A")
-        b = make_scenario(db_session, domain=domain, external_id="SCN-B")
-        _attempts(db_session, user, [(a, self.C), (a, self.S), (a, self.S), (b, self.D)])
+    def test_content_version_bump_does_not_make_a_retake_fresh(self, db_session):
+        track, domain, user = _v5_world(db_session)
+        a = make_scenario(db_session, domain=domain, external_id="SCN-A", content_version=1)
+        _attempts(db_session, user, [(a, self.C)])
+        a.content_version = 2
+        db_session.commit()
+        _attempts(db_session, user, [(a, self.S)], base=NOW - timedelta(days=1))
         s = _summary(db_session, track, domain, user)
-        assert (s.scenario_evidence_count, s.distinct_scenario_content_versions) == (4, 2)
+        assert (s.scenario_evidence_count, s.distinct_scenario_content_versions) == (2, 1)
+        assert s.recent_scenario_mastery_band == self.C
 
-
-class TestV3ToV4InPlaceRecompute:
-    def test_v3_row_is_upgraded_in_place_to_v4_without_touching_evidence(self, db_session):
-        """A row stamped v3 with the retired latest-overall band (strong: B was taken
-        last) is recomputed in place: same row and identity, version 4, band now the
-        weakest latest-per-scenario state (critical), evidence tables untouched."""
-        track, domain, user = _v4_world(db_session)
+    def test_answers_revealed_in_an_abandoned_attempt_make_later_attempts_retakes(self, db_session):
+        track, domain, user = _v5_world(db_session)
         a = make_scenario(db_session, domain=domain, external_id="SCN-A")
-        b = make_scenario(db_session, domain=domain, external_id="SCN-B")
         step = make_scenario_step(db_session, scenario=a, options=[
             {"is_correct": True}, {"is_correct": False, "misconception_tag": "tag_a"}])
-        a_att, _ = _attempts(db_session, user, [(a, MasteryBand.CRITICAL), (b, MasteryBand.STRONG)])
-        db_session.add(ScenarioStepAttempt(scenario_attempt_id=a_att.id, step_id=step.id, position=1,
+        abandoned = add_scenario_attempt_evidence(db_session, user=user, scenario=a, status="in_progress")
+        add_step_answered_event(db_session, user=user, scenario_attempt=abandoned, step=step,
+                                is_correct=True, occurred_at=NOW - timedelta(days=5))
+        _attempts(db_session, user, [(a, self.S)], base=NOW - timedelta(days=4))
+        s = _summary(db_session, track, domain, user)
+        assert s.scenario_evidence_count == 1
+        assert s.recent_scenario_mastery_band is None  # no fresh submitted result exists
+
+    def test_unanswered_abandoned_attempt_does_not_spoil_freshness(self, db_session):
+        track, domain, user = _v5_world(db_session)
+        a = make_scenario(db_session, domain=domain, external_id="SCN-A")
+        add_scenario_attempt_evidence(db_session, user=user, scenario=a, status="in_progress")
+        _attempts(db_session, user, [(a, self.S)])
+        assert _summary(db_session, track, domain, user).recent_scenario_mastery_band == self.S
+
+    @pytest.mark.parametrize("order,expected_state", [("AB", STATE_READY), ("BA", STATE_DEVELOPING)])
+    def test_shared_tag_history_is_judged_by_fresh_evidence_order(self, db_session, order, expected_state):
+        """The C3-C4 shared-tag history re-judged under retake validity. A failed fresh
+        (tag X) THEN B -- never seen -- passed fresh, answering its own X step
+        correctly: independent evidence of learning, so the domain may reach ready.
+        Reversed (B passed, then A failed fresh) is regression and stays developing."""
+        track, domain, user = _v5_world(db_session)
+        steps, scenarios = {}, {}
+        for x in "AB":
+            scenarios[x] = make_scenario(db_session, domain=domain, external_id=f"SCN-{x}")
+            steps[x] = make_scenario_step(db_session, scenario=scenarios[x], options=[
+                {"is_correct": True}, {"is_correct": False, "misconception_tag": "shared_x"}])
+        for i, x in enumerate(order):
+            at = NOW - timedelta(days=3 - i)
+            ok = x == "B"
+            att = add_scenario_attempt_evidence(
+                db_session, user=user, scenario=scenarios[x], submitted_at=at,
+                mastery_band=self.S if ok else self.C, score_pct=100.0 if ok else 0.0)
+            add_step_answered_event(db_session, user=user, scenario_attempt=att, step=steps[x],
+                                    is_correct=ok, misconception_tags=[] if ok else ["shared_x"],
+                                    occurred_at=at)
+        row = _recompute(db_session, track, domain, user)
+        assert row.readiness_state == expected_state
+
+    def test_freshness_still_counts_retakes_as_recent_evidence(self, db_session):
+        track, domain, user, a, _ = self._two(db_session)
+        attempts = _attempts(db_session, user, [(a, self.C), (a, self.S)])
+        s = _summary(db_session, track, domain, user)
+        assert s.most_recent_evidence_at == attempts[-1].submitted_at
+
+    def test_exposure_loader_includes_every_status_and_scopes_by_domain_or_track(self, db_session):
+        track, domain, user, a, b = self._two(db_session)
+        other = make_domain(db_session, track, "PMS", position=2)
+        c = make_scenario(db_session, domain=other, external_id="SCN-C")
+        _attempts(db_session, user, [(a, self.S), (c, self.S)])
+        add_scenario_attempt_evidence(db_session, user=user, scenario=b, status="in_progress")
+        in_domain = load_scenario_exposures(db_session, user_id=user.id, domain_id=domain.id)
+        assert sorted((e.scenario_id, e.submitted) for e in in_domain) == [(a.id, True), (b.id, False)]
+        assert len(load_scenario_exposures(db_session, user_id=user.id, track_id=track.id)) == 3
+
+
+class TestV4ToV5InPlaceRecompute:
+    def test_v4_row_is_upgraded_in_place_to_v5_without_touching_evidence(self, db_session):
+        """A v4 row whose band came from a same-scenario recall retake (A: critical,
+        then strong) is recomputed in place: same row, version 5, band now A's fresh
+        critical result; every evidence table byte-identical."""
+        track, domain, user = _v5_world(db_session)
+        a = make_scenario(db_session, domain=domain, external_id="SCN-A")
+        step = make_scenario_step(db_session, scenario=a, options=[
+            {"is_correct": True}, {"is_correct": False, "misconception_tag": "tag_a"}])
+        first, _ = _attempts(db_session, user, [(a, MasteryBand.CRITICAL), (a, MasteryBand.STRONG)])
+        db_session.add(ScenarioStepAttempt(scenario_attempt_id=first.id, step_id=step.id, position=1,
                                            selected_option_ids=[], is_correct=False, step_credit=0.0))
         db_session.commit()
-        add_step_answered_event(db_session, user=user, scenario_attempt=a_att, step=step,
+        add_step_answered_event(db_session, user=user, scenario_attempt=first, step=step,
                                 is_correct=False, misconception_tags=["tag_a"],
-                                occurred_at=a_att.submitted_at)
-
+                                occurred_at=first.submitted_at)
         legacy = LearnerDomainState(
             user_id=user.id, track_id=track.id, domain_id=domain.id,
             practice_evidence_count=MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY,
-            scenario_evidence_count=2, distinct_scenario_content_versions=2,
+            scenario_evidence_count=2, distinct_scenario_content_versions=1,
             recent_practice_mastery_band="strong", recent_scenario_mastery_band="strong",
             most_recent_evidence_at=NOW, unresolved_misconception_count=1,
-            readiness_state=STATE_DEVELOPING, reason_codes=["REPEATED_MISCONCEPTION"],
-            calculated_at=NOW - timedelta(days=1), projection_version=3,
+            readiness_state=STATE_INSUFFICIENT_EVIDENCE, reason_codes=["NO_APPLIED_SCENARIO_EVIDENCE"],
+            calculated_at=NOW - timedelta(days=1), projection_version=4,
         )
         db_session.add(legacy)
         db_session.commit()
         legacy_id = legacy.id
-
         models = (ExamAttempt, AttemptItem, AttemptDomainScore, ScenarioAttempt,
                   ScenarioStepAttempt, ScenarioEvent)
         db_session.expire_all()
         before = {m.__name__: snapshot_table(db_session, m) for m in models}
-        assert all(before[m.__name__] for m in models)  # every evidence table populated
+        assert all(before.values())
 
-        row = recompute_learner_domain_state(
-            db_session, user_id=user.id, track_id=track.id, domain_id=domain.id, now=NOW
-        )
+        row = _recompute(db_session, track, domain, user)
 
         assert row.id == legacy_id
         assert (row.user_id, row.track_id, row.domain_id) == (user.id, track.id, domain.id)
-        assert row.projection_version == PROJECTION_VERSION == 4
+        assert row.projection_version == PROJECTION_VERSION == 5
         assert row.recent_scenario_mastery_band == "critical"
-        assert (row.scenario_evidence_count, row.distinct_scenario_content_versions) == (2, 2)
-        assert row.readiness_state == STATE_DEVELOPING
-        assert row.reason_codes == [DOMAIN_BELOW_THRESHOLD, REPEATED_MISCONCEPTION]
+        assert (row.scenario_evidence_count, row.distinct_scenario_content_versions) == (2, 1)
         assert len(db_session.scalars(select(LearnerDomainState)).all()) == 1
-
         db_session.expire_all()
-        after = {m.__name__: snapshot_table(db_session, m) for m in models}
-        assert after == before
+        assert {m.__name__: snapshot_table(db_session, m) for m in models} == before
