@@ -1,0 +1,142 @@
+scenario:
+  external_id: CCAO-F-PMS-SCN-002
+  domain_code: PMS
+  title: "The Overnight Backlog"
+  content_version: 1
+  active: true
+  difficulty: 2
+  source_reference: >-
+    Originally authored for ClaudeCertMastery. Grounded in the CCAO-F Product & Model
+    Selection domain description (backend/seed_data/ccao_f/03_pms.yaml) and the Gate
+    C3-C1 Scenario 002 design brief; tests a competency dimension Scenario 001 does not.
+    Not derived from any certification exam, course, transcript, or third-party teaching
+    material.
+  setup_text: >-
+    A team has to classify 50,000 archived support documents into categories for a
+    migration. Nobody is waiting on any single result; the job must finish within a week
+    and the budget is tight. The plan is to send every document, one request at a time,
+    through the same real-time integration their live chat uses, on the largest tier "to
+    be safe."
+  steps:
+    - position: 1
+      type: mcq
+      prompt: >-
+        What should drive the product and tier choice for this job?
+      hints:
+        - position: 1
+          penalty_bps: 1000
+          text: >-
+            Ask what "fast" means when no one is waiting for any individual answer.
+      options:
+        - label: A
+          text: >-
+            Response latency: pick the fastest, smallest tier.
+          correct: false
+          rationale: >-
+            Latency matters when a person is waiting. Here nobody is, so optimizing
+            per-request speed targets the wrong constraint.
+          misconception_tag: latency_as_universal_criterion
+        - label: B
+          text: >-
+            Capability: use the largest tier for everything, since more capability can
+            only improve accuracy.
+          correct: false
+          rationale: >-
+            The largest tier costs the most per document at a volume where cost
+            dominates, and nothing yet shows the extra capability is needed.
+          misconception_tag: capability_always_wins
+        - label: C
+          text: >-
+            Familiarity: reuse the live-chat integration as it is, because it already
+            works.
+          correct: false
+          rationale: >-
+            An interactive, one-at-a-time path is built for conversations, not for a
+            large unattended batch; it fits the team's habits, not the workload.
+          misconception_tag: familiar_path_over_fit
+        - label: D
+          text: >-
+            The workload: treat it as a non-interactive bulk job, choose an approach
+            suited to large asynchronous volumes, and use the lowest-cost tier that
+            meets the accuracy the migration needs, confirmed on a sample.
+          correct: true
+          rationale: >-
+            Matching the product and tier to the workload's real constraints (volume,
+            deadline, budget, required accuracy) is the selection principle; the sample
+            shows whether the cheaper choice is good enough.
+    - position: 2
+      type: mr
+      prompt: >-
+        Before committing all 50,000 documents, what should the team do? Select all that
+        apply.
+      hints:
+        - position: 1
+          penalty_bps: 1000
+          text: >-
+            Ask what evidence would show a cheaper tier is good enough for these
+            particular documents.
+      options:
+        - label: A
+          text: >-
+            Run a pilot on a few hundred representative documents and measure accuracy
+            against a hand-checked set.
+          correct: true
+          rationale: >-
+            A representative pilot gives real evidence of fitness for this data before
+            the whole budget is spent.
+        - label: B
+          text: >-
+            Skip the pilot, since a capable tier will be accurate anyway.
+          correct: false
+          rationale: >-
+            Assumed accuracy is not measured accuracy, and a full wrong run at this
+            volume is expensive to discover afterwards.
+          misconception_tag: pilot_skipped_on_assumption
+        - label: C
+          text: >-
+            Estimate the total cost and time of the full run from the pilot before
+            choosing the tier.
+          correct: true
+          rationale: >-
+            Projecting cost and time from real measurements tests the choice against the
+            week-long deadline and the budget.
+        - label: D
+          text: >-
+            Choose the tier with the best published benchmark score, whatever these
+            documents look like.
+          correct: false
+          rationale: >-
+            General benchmarks do not show how a tier performs on this particular
+            classification task and category set.
+          misconception_tag: benchmark_over_workload
+    - position: 3
+      type: mcq
+      prompt: >-
+        The pilot shows the smaller tier is accurate on most categories but often
+        misclassifies legal-hold documents, which are rare but important. What should
+        the team do?
+      options:
+        - label: A
+          text: >-
+            Move the entire job to the largest tier.
+          correct: false
+          rationale: >-
+            Paying the largest tier's cost on every document to fix one rare category
+            ignores that the smaller tier is fine for the rest.
+          misconception_tag: capability_always_wins
+        - label: B
+          text: >-
+            Accept the errors, because overall accuracy is high.
+          correct: false
+          rationale: >-
+            A high overall rate hides the category where mistakes matter most.
+          misconception_tag: average_accuracy_sufficient
+        - label: C
+          text: >-
+            Keep the smaller tier for the bulk, and send documents that look like legal
+            holds, or that the classifier is unsure about, to a more capable tier or to
+            a person.
+          correct: true
+          rationale: >-
+            Routing only the high-stakes slice to more capability keeps cost low while
+            protecting the category that must be right.

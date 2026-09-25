@@ -272,13 +272,18 @@ class TestRealProductionScenarioContent:
     """The 7 authored production scenarios (Gate C1-CONTENT), loaded through the
     real seed pipeline exactly as production would run it."""
 
-    def test_all_seven_domains_get_one_scenario_each(self, seed_db, monkeypatch):
+    def test_every_domain_gets_scenario_001_and_002(self, seed_db, monkeypatch):
         run_seed(monkeypatch)
         with seed_db() as db:
             scenarios = db.scalars(select(Scenario)).all()
-            assert len(scenarios) == 7
-            domains = {db.get(Domain, s.domain_id).code for s in scenarios}
-            assert domains == {"PTE", "OEV", "PMS", "WISD", "CKM", "GRR", "TRO"}
+            assert len(scenarios) == 14
+            by_domain = {}
+            for s in scenarios:
+                by_domain.setdefault(db.get(Domain, s.domain_id).code, set()).add(s.external_id)
+            assert by_domain == {
+                code: {f"CCAO-F-{code}-SCN-001", f"CCAO-F-{code}-SCN-002"}
+                for code in ("PTE", "OEV", "PMS", "WISD", "CKM", "GRR", "TRO")
+            }
 
     def test_reseeding_the_real_content_is_fully_idempotent(self, seed_db, monkeypatch):
         run_seed(monkeypatch)
@@ -315,7 +320,7 @@ class TestRealProductionScenarioContent:
         domain_codes = {"PTE", "OEV", "PMS", "WISD", "CKM", "GRR", "TRO"}
         scenario_dir = ROOT / "seed_data" / "ccao_f_scenarios"
         files = sorted(scenario_dir.glob("*.yaml"))
-        assert len(files) == 7
+        assert len(files) == 14
         for path in files:
             spec = yaml.safe_load(path.read_text(encoding="utf-8"))["scenario"]
             seed.validate_scenario_spec(spec, domain_codes)  # raises on any violation
@@ -430,7 +435,7 @@ class TestScenariosOnlyMode:
 
         with seed_db() as db:
             after = snapshot_history(db)
-            assert len(db.scalars(select(Scenario)).all()) == 7
+            assert len(db.scalars(select(Scenario)).all()) == 14
 
         for name, rows in before.items():
             assert after[name] == rows, f"{name} rows changed by --scenarios-only"
@@ -451,7 +456,7 @@ class TestScenariosOnlyMode:
                 model = next(m for m in HISTORY_MODELS if m.__name__ == name)
                 assert snapshot_table(db, model) == rows
 
-    def test_loads_all_seven_real_scenarios(self, seed_db, monkeypatch):
+    def test_loads_all_fourteen_real_scenarios(self, seed_db, monkeypatch):
         with seed_db() as db:
             make_full_ccao_f(db)
 
@@ -460,7 +465,7 @@ class TestScenariosOnlyMode:
 
         with seed_db() as db:
             scenarios = db.scalars(select(Scenario)).all()
-            assert len(scenarios) == 7
+            assert len(scenarios) == 14
             domains = {db.get(Domain, s.domain_id).code for s in scenarios}
             assert domains == set(ALL_CCAO_F_DOMAIN_CODES)
 
@@ -480,7 +485,7 @@ class TestScenariosOnlyMode:
         run_seed(monkeypatch, "--scenarios-only")
         with seed_db() as db:
             scenarios = db.scalars(select(Scenario)).all()
-            assert len(scenarios) == 7  # no duplicates
+            assert len(scenarios) == 14  # no duplicates
             option_ids_second = sorted(
                 o.id for s in scenarios for step in s.steps for o in step.options
             )
@@ -738,13 +743,13 @@ def _correct_labels(spec: dict) -> list[str]:
 class TestScenario001AnswerPositionRepair:
     def test_all_seven_scenario_001_files_load_and_validate(self):
         specs = _authored_specs()
-        assert set(specs) == set(EXPECTED_CORRECT_LABELS)
+        assert {k for k in specs if k.endswith("-SCN-001")} == set(EXPECTED_CORRECT_LABELS)
         for spec in specs.values():
             seed.validate_scenario_spec(spec, {"PTE", "OEV", "PMS", "WISD", "CKM", "GRR", "TRO"})
 
     def test_correct_positions_match_the_intended_distribution(self):
         specs = _authored_specs()
-        assert {k: _correct_labels(s) for k, s in specs.items()} == EXPECTED_CORRECT_LABELS
+        assert {k: _correct_labels(specs[k]) for k in EXPECTED_CORRECT_LABELS} == EXPECTED_CORRECT_LABELS
 
     def test_repaired_scenarios_are_not_positionally_predictable(self):
         specs = _authored_specs()
@@ -874,3 +879,83 @@ class TestScenario001RepairSeeding:
         with seed_db() as db:
             assert _option_snapshot(db) == before
             assert {s.content_version for s in db.scalars(select(Scenario)).all()} == {1}
+
+
+# --- Scenario 002 content (accelerated Scenario Lab delivery) ------------------------
+
+DOMAIN_CODES = ("PTE", "OEV", "PMS", "WISD", "CKM", "GRR", "TRO")
+
+
+class TestScenario002Content:
+    def _pairs(self):
+        specs = _authored_specs()
+        return {code: (specs[f"CCAO-F-{code}-SCN-001"], specs[f"CCAO-F-{code}-SCN-002"])
+                for code in DOMAIN_CODES}
+
+    def test_every_domain_has_exactly_one_scenario_002(self):
+        specs = _authored_specs()
+        assert sorted(k for k in specs if k.endswith("-SCN-002")) == sorted(
+            f"CCAO-F-{c}-SCN-002" for c in DOMAIN_CODES)
+        for code, (_, s2) in self._pairs().items():
+            assert s2["domain_code"] == code
+            assert s2["content_version"] == 1
+
+    def test_scenario_002_is_structurally_different_from_001(self):
+        """Finer evidence resolution than 001's two MCQ steps: three steps including a
+        multiple-response step, so partial credit (and `proficient`) is reachable."""
+        for code, (s1, s2) in self._pairs().items():
+            assert len(s2["steps"]) == 3, code
+            assert "mr" in [st["type"] for st in s2["steps"]], code
+            assert s2["title"] != s1["title"] and s2["setup_text"] != s1["setup_text"], code
+
+    def test_scenario_002_correct_answers_are_not_positionally_predictable(self):
+        labels = [
+            "".join(o["label"] for o in st["options"] if o.get("correct"))
+            for _, s2 in self._pairs().values()
+            for st in s2["steps"]
+        ]
+        firsts = {lab[0] for lab in labels}
+        assert firsts >= {"A", "B", "C"}
+        for _, s2 in self._pairs().values():
+            per_step = ["".join(o["label"] for o in st["options"] if o.get("correct")) for st in s2["steps"]]
+            assert len(set(per_step)) > 1  # never the same slot on every step
+
+    def test_scenario_002_shares_a_misconception_with_001_for_remediation(self):
+        """Remediation on unseen material: each 002 authors at least one misconception
+        tag its domain's 001 also authors, so a 001 failure can be shown resolved."""
+        tags = lambda spec: {o["misconception_tag"] for st in spec["steps"] for o in st["options"]
+                             if not o.get("correct")}
+        for code, (s1, s2) in self._pairs().items():
+            assert tags(s1) & tags(s2), code
+
+    def test_scenarios_only_adds_002_without_touching_attempted_001_content(self, seed_db, monkeypatch):
+        """Production-shaped activation: all 001s present (PTE-001 with a learner
+        attempt), no 002 yet. --scenarios-only must create the seven 002s and leave
+        every 001 -- including its step/option rows -- exactly as it was."""
+        run_seed(monkeypatch)
+        with seed_db() as db:
+            for scenario in db.scalars(select(Scenario)).all():
+                if scenario.external_id.endswith("-SCN-002"):
+                    db.delete(scenario)
+            db.commit()
+            user = User(email="founder@example.com", display_name="Founder")
+            db.add(user)
+            db.flush()
+            pte = db.scalar(select(Scenario).where(Scenario.external_id == "CCAO-F-PTE-SCN-001"))
+            db.add(ScenarioAttempt(user_id=user.id, scenario_id=pte.id, status="submitted",
+                                   scenario_content_version=1))
+            db.commit()
+            before = _option_snapshot(db)
+            ids_before = {s.external_id: s.id for s in db.scalars(select(Scenario)).all()}
+
+        with seed_db() as db:
+            _, actions = seed.seed_ccao_f_scenarios(db)
+            db.commit()
+            assert {k: v for k, v in actions.items() if k.endswith("-SCN-001")} == {
+                f"CCAO-F-{c}-SCN-001": "unchanged" for c in DOMAIN_CODES}
+            assert {k: v for k, v in actions.items() if k.endswith("-SCN-002")} == {
+                f"CCAO-F-{c}-SCN-002": "created" for c in DOMAIN_CODES}
+            after = _option_snapshot(db)
+            assert [r for r in after if r[0].endswith("-SCN-001")] == before
+            assert {k: v for k, v in ((s.external_id, s.id) for s in db.scalars(select(Scenario)).all())
+                    if k in ids_before} == ids_before

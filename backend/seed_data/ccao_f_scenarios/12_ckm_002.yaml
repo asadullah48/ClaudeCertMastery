@@ -1,0 +1,142 @@
+scenario:
+  external_id: CCAO-F-CKM-SCN-002
+  domain_code: CKM
+  title: "The Shared Folder"
+  content_version: 1
+  active: true
+  difficulty: 2
+  source_reference: >-
+    Originally authored for ClaudeCertMastery. Grounded in the CCAO-F Configuration &
+    Knowledge Management domain description (backend/seed_data/ccao_f/05_ckm.yaml) and
+    the Gate C3-C1 Scenario 002 design brief; tests a competency dimension Scenario 001
+    does not. Not derived from any certification exam, course, transcript, or
+    third-party teaching material.
+  setup_text: >-
+    To save effort, a company points every Claude configuration at one shared folder of
+    documents: the support assistant for Product X, the one for Product Y, and an
+    internal sales assistant. Soon the Product X support assistant starts answering some
+    customer questions from Product Y's setup guides, which describe similarly named
+    features that work differently.
+  steps:
+    - position: 1
+      type: mcq
+      prompt: >-
+        What should the operator do?
+      hints:
+        - position: 1
+          penalty_bps: 1000
+          text: >-
+            Ask whether the Product Y guides are wrong, or whether they are in the wrong
+            place.
+      options:
+        - label: A
+          text: >-
+            Add to the Product X assistant's instructions: "Do not use Product Y
+            documents."
+          correct: false
+          rationale: >-
+            An instruction layered over an unchanged, over-broad source can still be
+            missed or misapplied; the knowledge scope itself is what is wrong.
+          misconception_tag: instruction_patch_without_source_update
+        - label: B
+          text: >-
+            Delete the Product Y guides from the folder, since they are causing wrong
+            answers.
+          correct: false
+          rationale: >-
+            The Product Y guides are correct for Product Y. Deleting them breaks the
+            Product Y assistant to fix a scoping problem.
+          misconception_tag: content_fix_for_scope_problem
+        - label: C
+          text: >-
+            Give each configuration its own scoped set of knowledge sources that matches
+            its purpose, so the Product X assistant only draws on Product X material.
+          correct: true
+          rationale: >-
+            Scoping sources per configuration fixes the cause: each assistant sees the
+            knowledge that fits its job and nothing that can be confused with it.
+        - label: D
+          text: >-
+            Ask customers to say which product they use at the start of each chat.
+          correct: false
+          rationale: >-
+            This pushes a configuration problem onto customers and still leaves the
+            wrong material available to the assistant.
+          misconception_tag: user_burden_for_config_gap
+    - position: 2
+      type: mr
+      prompt: >-
+        Within the Product X sources, an old FAQ and the current policy page give
+        different answers about data-export limits. Which steps are sound? Select all
+        that apply.
+      hints:
+        - position: 1
+          penalty_bps: 1000
+          text: >-
+            Ask what Claude has to go on when two sources it is given disagree.
+      options:
+        - label: A
+          text: >-
+            Decide which document is authoritative for that topic and assign an owner to
+            keep it current.
+          correct: true
+          rationale: >-
+            A named authoritative source with an owner resolves the conflict and keeps
+            it from recurring.
+        - label: B
+          text: >-
+            Retire or correct the superseded FAQ entry so the two sources no longer
+            disagree.
+          correct: true
+          rationale: >-
+            Removing the contradiction from the knowledge itself means Claude is never
+            asked to choose between them.
+        - label: C
+          text: >-
+            Let Claude pick whichever document has the more recent date.
+          correct: false
+          rationale: >-
+            A newer date does not make a document authoritative; a recently touched FAQ
+            can still carry the outdated answer.
+          misconception_tag: recency_as_authority
+        - label: D
+          text: >-
+            Keep both, since more material gives Claude more to work with.
+          correct: false
+          rationale: >-
+            Contradictory material does not add knowledge; it makes answers
+            inconsistent.
+          misconception_tag: more_sources_always_better
+    - position: 3
+      type: mcq
+      prompt: >-
+        An internal engineering team wants the Product X support assistant to also
+        answer their questions from internal design documents. What is the best
+        configuration?
+      options:
+        - label: A
+          text: >-
+            Set up a separate configuration for the internal use, with its own sources
+            and instructions, instead of widening the customer-facing assistant's scope.
+          correct: true
+          rationale: >-
+            Different audiences and purposes get separately scoped configurations, so
+            neither one's knowledge leaks into the other's answers.
+        - label: B
+          text: >-
+            Add the design documents to the support assistant's sources so one assistant
+            serves both audiences.
+          correct: false
+          rationale: >-
+            Mixing audiences in one scope recreates the shared-folder problem: customers
+            could receive answers drawn from internal design material.
+          misconception_tag: one_config_for_all_purposes
+        - label: C
+          text: >-
+            Add the design documents and instruct the assistant to use them only for
+            internal staff.
+          correct: false
+          rationale: >-
+            An instruction cannot reliably fence off material that sits in the same
+            scope; the knowledge layer is still wrong.
+          misconception_tag: instruction_patch_without_source_update

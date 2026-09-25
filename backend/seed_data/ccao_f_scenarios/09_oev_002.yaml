@@ -1,0 +1,142 @@
+scenario:
+  external_id: CCAO-F-OEV-SCN-002
+  domain_code: OEV
+  title: "The Missing Caveat"
+  content_version: 1
+  active: true
+  difficulty: 2
+  source_reference: >-
+    Originally authored for ClaudeCertMastery. Grounded in the CCAO-F Output Evaluation
+    & Validation domain description (backend/seed_data/ccao_f/02_oev.yaml) and the Gate
+    C3-C1 Scenario 002 design brief; tests a competency dimension Scenario 001 does not.
+    Not derived from any certification exam, course, transcript, or third-party teaching
+    material.
+  setup_text: >-
+    Claude writes one-page summaries of vendor contracts for a procurement team. A
+    reviewer spot-checks several: every sentence is accurate and can be traced to the
+    contract. Months later a dispute shows that one summary never mentioned a liability
+    cap that limited the vendor's responsibility, a clause procurement always needs to
+    know about.
+  steps:
+    - position: 1
+      type: mcq
+      prompt: >-
+        What should the team change first about how summaries are checked?
+      hints:
+        - position: 1
+          penalty_bps: 1000
+          text: >-
+            Ask whether any of the checks so far could ever notice something that is
+            absent.
+      options:
+        - label: A
+          text: >-
+            Keep checking that every sentence is traceable to the source, since accuracy
+            is what matters.
+          correct: false
+          rationale: >-
+            Every sentence was accurate. The failure was an omission, which a
+            sentence-by-sentence accuracy check cannot find.
+          misconception_tag: accuracy_implies_completeness
+        - label: B
+          text: >-
+            Define the elements every summary must cover (for example liability caps,
+            termination terms and renewal dates) and check each summary against that
+            list as well as against the source.
+          correct: true
+          rationale: >-
+            Completeness needs its own check: a list of required elements makes an
+            absence visible in a way that checking what is present never can.
+        - label: C
+          text: >-
+            Accept the summaries, since they read clearly and professionally.
+          correct: false
+          rationale: >-
+            Clear, confident writing is a property of the prose, not evidence that
+            nothing important was left out.
+          misconception_tag: fluency_as_evidence
+        - label: D
+          text: >-
+            Have Claude add "this summary may not be complete" to each one.
+          correct: false
+          rationale: >-
+            A disclaimer shifts responsibility on paper but does not make the summary
+            complete; readers will still rely on what it says.
+          misconception_tag: hedge_language_sufficient
+    - position: 2
+      type: mr
+      prompt: >-
+        Volume grows to 2,000 summaries a month and full human review is no longer
+        possible. Which review designs are sound? Select all that apply.
+      hints:
+        - position: 1
+          penalty_bps: 1000
+          text: >-
+            Ask which checks keep working after the first month, and which rely on the
+            model grading itself.
+      options:
+        - label: A
+          text: >-
+            Review the first 50 summaries closely; if they are all good, stop reviewing.
+          correct: false
+          rationale: >-
+            An early clean sample says little about later inputs. New contract types and
+            drift would go unobserved.
+          misconception_tag: early_sample_generalizes
+        - label: B
+          text: >-
+            Run an automated check for the required elements on every summary and route
+            any summary missing one to a person.
+          correct: true
+          rationale: >-
+            A structural check scales to every output and sends exactly the risky cases
+            to human review.
+        - label: C
+          text: >-
+            Keep human review of a regular random sample and track the error rate over
+            time, so a rise is noticed.
+          correct: true
+          rationale: >-
+            Ongoing sampling with a tracked rate catches problems the automated check
+            was not designed for, and shows when quality changes.
+        - label: D
+          text: >-
+            Ask Claude to rate its own confidence and send only low-confidence summaries
+            to a person.
+          correct: false
+          rationale: >-
+            Self-rated confidence is not independent validation; an omission the model
+            did not notice will not lower its confidence.
+          misconception_tag: self_assessment_as_validation
+    - position: 3
+      type: mcq
+      prompt: >-
+        Sampling shows that summaries of one contract type, software licences, miss
+        required elements far more often than the rest. What should happen?
+      options:
+        - label: A
+          text: >-
+            Increase review coverage for software licences and investigate why they
+            fail, while keeping sampling in place for everything else.
+          correct: true
+          rationale: >-
+            Evidence of a concentrated failure calls for more scrutiny exactly there,
+            without dropping the baseline checks elsewhere.
+        - label: B
+          text: >-
+            Stop sampling software licences, since the problem is known, and focus
+            reviewers elsewhere.
+          correct: false
+          rationale: >-
+            This removes review from the one place where it has just been shown to
+            matter most.
+          misconception_tag: skip_known_failure
+        - label: C
+          text: >-
+            Keep the current sampling rate, because the error rate averaged across all
+            contract types still looks acceptable.
+          correct: false
+          rationale: >-
+            An overall average can hide a subgroup that fails badly; the licence
+            summaries would keep going out incomplete.
+          misconception_tag: average_hides_subgroup

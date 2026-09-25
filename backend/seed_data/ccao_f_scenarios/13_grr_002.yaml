@@ -1,0 +1,142 @@
+scenario:
+  external_id: CCAO-F-GRR-SCN-002
+  domain_code: GRR
+  title: "The Shortlist"
+  content_version: 1
+  active: true
+  difficulty: 3
+  source_reference: >-
+    Originally authored for ClaudeCertMastery. Grounded in the CCAO-F Governance, Risk &
+    Responsible Use domain description (backend/seed_data/ccao_f/06_grr.yaml) and the
+    Gate C3-C1 Scenario 002 design brief; tests a competency dimension Scenario 001 does
+    not. Not derived from any certification exam, course, transcript, or third-party
+    teaching material.
+  setup_text: >-
+    An HR team uses Claude to read 400 internal job applications and produce a ranked
+    shortlist for hiring managers. It saves days of work. A manager then notices that
+    applicants from one regional office are consistently ranked lower, even though their
+    records look comparable.
+  steps:
+    - position: 1
+      type: mcq
+      prompt: >-
+        What should the HR team do first?
+      hints:
+        - position: 1
+          penalty_bps: 1000
+          text: >-
+            Ask whether removing one field guarantees that nothing else in an
+            application still signals the office.
+      options:
+        - label: A
+          text: >-
+            Carry on: Claude does not know about offices, so it cannot be biased.
+          correct: false
+          rationale: >-
+            A model can produce skewed outcomes from signals correlated with a group
+            without being told the group. The observed pattern is the evidence that
+            matters.
+          misconception_tag: model_neutrality_assumption
+        - label: B
+          text: >-
+            Pause using the ranking for decisions and investigate whether outcomes
+            differ systematically by office, with a named person responsible for the
+            review.
+          correct: true
+          rationale: >-
+            A credible sign of unfair outcomes in a consequential decision warrants
+            stopping reliance on the tool until it is understood, with clear ownership
+            of that review.
+        - label: C
+          text: >-
+            Remove the office field from the applications and rerun the ranking straight
+            away.
+          correct: false
+          rationale: >-
+            Other details (location, phrasing, references) can still act as proxies.
+            Removing one field does not show the skew is gone.
+          misconception_tag: proxy_removal_sufficient
+        - label: D
+          text: >-
+            Keep using the ranking, but tell managers to adjust that office's scores by
+            hand.
+          correct: false
+          rationale: >-
+            Ad-hoc manual correction hides the problem inside individual judgment and
+            leaves its cause uninvestigated.
+          misconception_tag: adhoc_correction_over_review
+    - position: 2
+      type: mr
+      prompt: >-
+        The investigation confirms a skew linked to a writing style common in that
+        office. Which safeguards are appropriate before the ranking is used again?
+        Select all that apply.
+      hints:
+        - position: 1
+          penalty_bps: 1000
+          text: >-
+            Ask whether one clean check today tells you anything about next quarter's
+            applications.
+      options:
+        - label: A
+          text: >-
+            Rely on Claude's own explanation of each ranking as proof that it is fair.
+          correct: false
+          rationale: >-
+            A model's explanation of its output is not an independent audit of outcomes
+            across groups.
+          misconception_tag: self_explanation_as_audit
+        - label: B
+          text: >-
+            Run the check once now and treat the process as cleared from then on.
+          correct: false
+          rationale: >-
+            Clearance for one round of applications does not carry over to future rounds
+            with different applicants; each use needs its own check.
+          misconception_tag: one_time_approval_covers_all_uses
+        - label: C
+          text: >-
+            Test outcomes by group on each new round before the ranking is used, and
+            record the results.
+          correct: true
+          rationale: >-
+            Recurring outcome checks catch a skew each time it could arise and leave a
+            record of the checks.
+        - label: D
+          text: >-
+            Make Claude's output one input to a human decision, with the reasons for
+            each final decision recorded by the person making it.
+          correct: true
+          rationale: >-
+            Keeping a person accountable for the decision, with recorded reasons, places
+            Claude inside an appropriate-use boundary for hiring.
+    - position: 3
+      type: mcq
+      prompt: >-
+        An applicant who was not shortlisted asks who made the decision and why. Who is
+        accountable?
+      options:
+        - label: A
+          text: >-
+            The model provider, since the ranking came from their model.
+          correct: false
+          rationale: >-
+            The organization chose to use the tool and made the decision; accountability
+            does not transfer to whoever supplied the tool.
+          misconception_tag: accountability_transfers_to_tool
+        - label: B
+          text: >-
+            The HR team member who made the decision, who must be able to explain it,
+            with Claude's ranking recorded as one input.
+          correct: true
+          rationale: >-
+            A named human owns the decision and its explanation; the tool's role is
+            recorded, not substituted for accountability.
+        - label: C
+          text: >-
+            No one specifically, since the decision came from an automated process.
+          correct: false
+          rationale: >-
+            Automated steps do not dissolve responsibility. Someone must own and be able
+            to explain each decision.
+          misconception_tag: diffuse_accountability

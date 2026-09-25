@@ -1,0 +1,134 @@
+scenario:
+  external_id: CCAO-F-TRO-SCN-002
+  domain_code: TRO
+  title: "The Cheaper Prompt"
+  content_version: 1
+  active: true
+  difficulty: 2
+  source_reference: >-
+    Originally authored for ClaudeCertMastery. Grounded in the CCAO-F Troubleshooting &
+    Optimization domain description (backend/seed_data/ccao_f/07_tro.yaml) and the Gate
+    C3-C1 Scenario 002 design brief; tests a competency dimension Scenario 001 does not.
+    Not derived from any certification exam, course, transcript, or third-party teaching
+    material.
+  setup_text: >-
+    To cut costs, a team made two changes in the same week: they shortened their system
+    prompt by removing several examples, and moved their support-reply assistant to a
+    smaller tier. A week later, complaints rise that replies about refunds are often
+    wrong. Other reply types seem fine, and both latency and cost improved.
+  steps:
+    - position: 1
+      type: mcq
+      prompt: >-
+        What should the team do first?
+      hints:
+        - position: 1
+          penalty_bps: 1000
+          text: >-
+            Two things changed at once. Ask how you would tell which one mattered.
+      options:
+        - label: A
+          text: >-
+            Revert both changes at once, since something in them broke refunds.
+          correct: false
+          rationale: >-
+            Reverting both may stop the complaints but gives up the savings and never
+            shows which change caused the problem.
+          misconception_tag: revert_without_isolation
+        - label: B
+          text: >-
+            Measure per-call latency to see where the time goes.
+          correct: false
+          rationale: >-
+            The symptom is wrong answers, not slowness. Latency data cannot explain a
+            quality regression.
+          misconception_tag: wrong_metric_for_symptom
+        - label: C
+          text: >-
+            Assume the model provider made the model worse this week, since the
+            complaints started recently.
+          correct: false
+          rationale: >-
+            The timing matches two known changes on the team's own side. Blaming an
+            assumed external change is correlation, not diagnosis.
+          misconception_tag: symptom_matches_cause
+        - label: D
+          text: >-
+            Test each change separately against a fixed set of refund questions with
+            known good answers, to find which change caused the errors.
+          correct: true
+          rationale: >-
+            Isolating one variable at a time against a stable test set turns two
+            overlapping suspects into a measurable answer.
+    - position: 2
+      type: mr
+      prompt: >-
+        Testing shows the smaller tier handles refunds well with the original prompt;
+        the removed examples were the refund examples. Which fixes are sound? Select all
+        that apply.
+      hints:
+        - position: 1
+          penalty_bps: 1000
+          text: >-
+            Ask which piece of the evidence points at the prompt rather than the tier.
+      options:
+        - label: A
+          text: >-
+            Restore the refund examples while keeping the smaller tier, and confirm on
+            the test set.
+          correct: true
+          rationale: >-
+            The evidence points at the removed examples, so restoring them fixes the
+            cause and keeps the tier savings.
+        - label: B
+          text: >-
+            Move back to the larger tier to be safe.
+          correct: false
+          rationale: >-
+            The tests show the tier was not the cause; this gives up savings without
+            fixing the missing examples.
+          misconception_tag: capability_as_default_fix
+        - label: C
+          text: >-
+            Keep the savings from the other removed examples if the test set shows no
+            drop for those reply types.
+          correct: true
+          rationale: >-
+            Optimizing without degrading reliability means keeping only the changes the
+            evidence shows are safe.
+        - label: D
+          text: >-
+            Add "be extra careful with refunds" to the prompt instead of restoring the
+            examples.
+          correct: false
+          rationale: >-
+            An exhortation does not replace the concrete guidance the examples provided.
+          misconception_tag: emphasis_over_evidence
+    - position: 3
+      type: mcq
+      prompt: >-
+        What should the team put in place before the next cost optimization?
+      options:
+        - label: A
+          text: >-
+            A regression check: run the fixed test set, covering every reply type, on
+            each prompt or tier change before it goes live.
+          correct: true
+          rationale: >-
+            A standing regression suite catches a quality drop before customers do and
+            makes future optimizations safe to try.
+        - label: B
+          text: >-
+            Rely on customer complaints to show whether a change caused problems.
+          correct: false
+          rationale: >-
+            Complaints arrive late and incomplete; many affected users never report.
+          misconception_tag: users_as_monitoring
+        - label: C
+          text: >-
+            Make only one change per month so problems are easier to spot.
+          correct: false
+          rationale: >-
+            Spacing changes out still leaves detection to chance and to users; it slows
+            improvement without testing anything.
+          misconception_tag: slower_change_as_testing

@@ -1,0 +1,141 @@
+scenario:
+  external_id: CCAO-F-WISD-SCN-002
+  domain_code: WISD
+  title: "The Silent Handoff"
+  content_version: 1
+  active: true
+  difficulty: 2
+  source_reference: >-
+    Originally authored for ClaudeCertMastery. Grounded in the CCAO-F Workflow
+    Integration & Solution Design domain description
+    (backend/seed_data/ccao_f/04_wisd.yaml) and the Gate C3-C1 Scenario 002 design
+    brief; tests a competency dimension Scenario 001 does not. Not derived from any
+    certification exam, course, transcript, or third-party teaching material.
+  setup_text: >-
+    Claude extracts fields from supplier invoices and the results are written straight
+    into the finance system. When Claude cannot find a due date it outputs "N/A"; the
+    finance system accepts that value and quietly defaults the due date to the invoice
+    date. Several invoices were paid early before anyone noticed.
+  steps:
+    - position: 1
+      type: mcq
+      prompt: >-
+        What should the operator change first?
+      hints:
+        - position: 1
+          penalty_bps: 1000
+          text: >-
+            Ask where in the flow a bad value should have been stopped, and who owns
+            that check.
+      options:
+        - label: A
+          text: >-
+            Define a strict output format that is validated before anything is written
+            to the finance system, and send any invoice that fails validation or has a
+            missing field to an exception queue for a person.
+          correct: true
+          rationale: >-
+            The integration boundary is where a bad value must be caught. A validated
+            contract plus an explicit failure path means missing data stops and becomes
+            visible instead of flowing on as a plausible value.
+        - label: B
+          text: >-
+            Improve the prompt so Claude always finds the due date.
+          correct: false
+          rationale: >-
+            Some invoices genuinely lack a clear due date, and no prompt guarantees
+            perfect extraction. The downstream system still needs a defined way to
+            reject bad values.
+          misconception_tag: prompt_fix_for_integration_contract
+        - label: C
+          text: >-
+            Have a person review every invoice before it is written, since automation
+            caused this.
+          correct: false
+          rationale: >-
+            Swinging from full automation to full manual review discards what works.
+            Only the cases that fail validation need a person.
+          misconception_tag: automation_binary
+        - label: D
+          text: >-
+            Configure the finance system to treat "N/A" as blank.
+          correct: false
+          rationale: >-
+            This patches one string. The next unexpected value ("unknown", a malformed
+            date) would slip through the same way.
+          misconception_tag: patch_one_symptom
+    - position: 2
+      type: mr
+      prompt: >-
+        During month-end peaks some requests to Claude time out. Which handling choices
+        are sound? Select all that apply.
+      hints:
+        - position: 1
+          penalty_bps: 1000
+          text: >-
+            Ask what happens to an invoice if a retry succeeds after the first request
+            had also, silently, gone through.
+      options:
+        - label: A
+          text: >-
+            Retry immediately and repeatedly until the request succeeds.
+          correct: false
+          rationale: >-
+            Immediate repeated retries add load at the worst moment and, without
+            safeguards, can post the same invoice twice.
+          misconception_tag: retry_is_harmless
+        - label: B
+          text: >-
+            Retry with backoff, and make writes idempotent (for example keyed on the
+            invoice number) so a retried invoice cannot be posted twice.
+          correct: true
+          rationale: >-
+            Backoff respects the peak, and idempotent writes make a retry safe even if
+            the earlier attempt partly succeeded.
+        - label: C
+          text: >-
+            Skip invoices that time out and process the rest, since most will succeed.
+          correct: false
+          rationale: >-
+            Silently dropped invoices go unpaid or late with nobody aware of them.
+          misconception_tag: silent_drop_acceptable
+        - label: D
+          text: >-
+            After a set number of failures, move the invoice to the exception queue so a
+            person sees it instead of it disappearing.
+          correct: true
+          rationale: >-
+            A defined end state for repeated failure keeps every invoice accounted for
+            and hands persistent problems to a human.
+    - position: 3
+      type: mcq
+      prompt: >-
+        The exception queue now receives 5% of invoices, mostly from two suppliers with
+        unusual layouts. The finance lead asks whether the queue can be removed to save
+        staff time. What should the operator recommend?
+      options:
+        - label: A
+          text: >-
+            Remove the queue and let Claude's best guess be written for those suppliers.
+          correct: false
+          rationale: >-
+            This removes the safeguard exactly where failures concentrate, bringing back
+            the original silent-error problem.
+          misconception_tag: remove_safeguard_for_throughput
+        - label: B
+          text: >-
+            Send every invoice from every supplier through the queue, to be safe.
+          correct: false
+          rationale: >-
+            Making everything manual throws away the 95% that works; the problem is
+            specific to two suppliers.
+          misconception_tag: automation_binary
+        - label: C
+          text: >-
+            Keep the queue, and reduce its volume by handling the two suppliers' layouts
+            specifically (for example supplier-specific instructions or templates), then
+            watch whether the rate falls.
+          correct: true
+          rationale: >-
+            The queue is doing its job. The design improvement targets the cause of the
+            volume while the safeguard stays in place.
