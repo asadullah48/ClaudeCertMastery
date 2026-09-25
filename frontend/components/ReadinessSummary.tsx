@@ -70,8 +70,10 @@ function NextActionCard({ trackCode, next }: { trackCode: string; next: NextActi
       break;
     case "REMEDIATE_MISCONCEPTION":
       text = `Review the misconception flagged${domain}, then show it resolved in a scenario you have not seen.`;
-      href = `/tracks/${trackCode}/scenarios`;
-      cta = "Browse scenarios";
+      href = next.scenario_external_id
+        ? `/tracks/${trackCode}/scenarios/${next.scenario_external_id}`
+        : `/tracks/${trackCode}/scenarios`;
+      cta = next.scenario_external_id ? `Start ${next.scenario_external_id}` : "Browse scenarios";
       break;
     case "REASSESS_DOMAIN":
       text = `Your evidence${domain} is getting old. Refresh it with new practice.`;

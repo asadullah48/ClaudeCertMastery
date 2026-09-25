@@ -165,7 +165,8 @@ class NextActionRecommendation:
     action: str
     domain_code: str | None
     reason_codes: tuple[str, ...] = field(default_factory=tuple)
-    # Set with ATTEMPT_SCENARIO when a specific unseen scenario is known.
+    # Set with ATTEMPT_SCENARIO / REMEDIATE_MISCONCEPTION when a specific unseen
+    # scenario is known.
     scenario_external_id: str | None = None
 
 
@@ -236,7 +237,12 @@ def recommend_next_action_from_candidates(
         winner = min(matches, key=lambda c: c.domain_position)
         return NextActionRecommendation(
             action=action, domain_code=winner.domain_code, reason_codes=winner.reason_codes,
-            scenario_external_id=_next_scenario(winner) if action == ACTION_ATTEMPT_SCENARIO else None,
+            # Remediation is also shown on unseen material, so it names the same scenario.
+            scenario_external_id=(
+                _next_scenario(winner)
+                if action in (ACTION_ATTEMPT_SCENARIO, ACTION_REMEDIATE_MISCONCEPTION)
+                else None
+            ),
         )
 
     zero_evidence = [c for c in ordered if _has_zero_evidence(c)]

@@ -439,6 +439,15 @@ class TestScenarioLevelRecommendation:
         result = recommend_next_action_from_candidates([seen, open_])
         assert (result.domain_code, result.scenario_external_id) == ("OEV", "CCAO-F-OEV-SCN-001")
 
+    def test_remediation_names_the_unseen_scenario_too(self):
+        c = _with_unseen(
+            candidate("PTE", 1, state=STATE_DEVELOPING, reasons=[REPEATED_MISCONCEPTION],
+                      practice=67, scenario=1, misconceptions=2),
+            "CCAO-F-PTE-SCN-002")
+        result = recommend_next_action_from_candidates([c])
+        assert (result.action, result.scenario_external_id) == (
+            ACTION_REMEDIATE_MISCONCEPTION, "CCAO-F-PTE-SCN-002")
+
     def test_unsupplied_scenario_list_keeps_domain_level_behaviour(self):
         c = candidate("OEV", 2, state=STATE_INSUFFICIENT_EVIDENCE, reasons=[NO_APPLIED_SCENARIO_EVIDENCE],
                       practice=MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY, scenario=0)

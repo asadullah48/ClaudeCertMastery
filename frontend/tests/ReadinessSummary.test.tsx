@@ -94,6 +94,27 @@ describe("ReadinessSummary", () => {
   });
 });
 
+describe("ReadinessSummary remediation", () => {
+  it("points remediation at the unseen scenario", () => {
+    render(
+      <ReadinessSummary
+        readiness={readiness({
+          next_action: {
+            action: "REMEDIATE_MISCONCEPTION",
+            domain_code: "PTE",
+            reason_codes: ["REPEATED_MISCONCEPTION"],
+            scenario_external_id: "CCAO-F-PTE-SCN-002",
+          },
+        })}
+      />,
+    );
+    expect(screen.getByRole("link", { name: "Start CCAO-F-PTE-SCN-002" })).toHaveAttribute(
+      "href",
+      "/tracks/CCAO-F/scenarios/CCAO-F-PTE-SCN-002",
+    );
+  });
+});
+
 describe("ScenarioIntro retake notice", () => {
   it("warns that a seen scenario is practice only", () => {
     render(
