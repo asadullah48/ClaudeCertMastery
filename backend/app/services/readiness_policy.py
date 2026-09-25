@@ -99,6 +99,8 @@ class DomainEvidenceSummary:
     # not the raw count -- is what scenario sufficiency is judged on.
     distinct_scenario_content_versions: int
     recent_practice_mastery_band: MasteryBand | None
+    # Legacy name; projection v4 meaning: the limiting (weakest) band across each
+    # independent scenario's latest submitted attempt (aggregate_scenario_mastery).
     recent_scenario_mastery_band: MasteryBand | None
     most_recent_evidence_at: datetime | None
     unresolved_misconception_count: int
@@ -179,6 +181,65 @@ def practice_band_for_window(window: list[PracticeAttemptGroup]) -> MasteryBand 
         return None
     correct = sum(g.correct_count for g in window)
     return MasteryBand.from_percentage(correct / total * 100)
+
+
+# Weakest-first, the same ordinal meaning MasteryBand.from_percentage's thresholds give.
+_BAND_WEAKEST_FIRST = (
+    MasteryBand.CRITICAL,
+    MasteryBand.DEVELOPING,
+    MasteryBand.PROFICIENT,
+    MasteryBand.STRONG,
+)
+
+
+@dataclass(frozen=True)
+class ScenarioObservation:
+    """One submitted scenario attempt, reduced to what scenario-mastery aggregation
+    needs -- decoupled from the ORM like PracticeAttemptGroup. `submitted_at` must be
+    tz-aware and non-null (every submitted attempt has one; see
+    aggregate_scenario_mastery)."""
+
+    scenario_id: int
+    attempt_id: int
+    submitted_at: datetime
+    mastery_band: MasteryBand | None
+
+
+def aggregate_scenario_mastery(observations) -> MasteryBand | None:
+    """Projection v4 scenario mastery (Gate C3-C4/C3-C5).
+
+    1. Each scenario_id is one independent assessment unit: keep only its latest
+       submitted attempt, by (submitted_at, attempt_id) -- i.e. submitted_at DESC,
+       id DESC. Content-version revisions and repeats of the same scenario never
+       add weight; a later attempt replaces an earlier one (remediation AND
+       regression are both represented).
+    2. Project the WEAKEST band across those latest-per-scenario observations. No
+       averaging, no scenario or attempt weighting.
+
+    Cross-scenario attempt order cannot change the result. None when there is no
+    observation, or when any scenario's latest attempt carries no band (it cannot
+    demonstrate mastery, so nothing is ranked -- the classifier treats None as weak).
+    A submitted observation without submitted_at is a broken invariant, not
+    something to order by guesswork, so it raises.
+    """
+    latest: dict[int, ScenarioObservation] = {}
+    for obs in observations:
+        if obs.submitted_at is None:
+            raise ReadinessPolicyError(
+                f"Submitted scenario attempt {obs.attempt_id} has no submitted_at."
+            )
+        current = latest.get(obs.scenario_id)
+        if current is None or (obs.submitted_at, obs.attempt_id) > (
+            current.submitted_at,
+            current.attempt_id,
+        ):
+            latest[obs.scenario_id] = obs
+    if not latest:
+        return None
+    bands = [obs.mastery_band for obs in latest.values()]
+    if any(band is None for band in bands):
+        return None
+    return min(bands, key=_BAND_WEAKEST_FIRST.index)
 
 
 def _is_stale(summary: DomainEvidenceSummary) -> bool:

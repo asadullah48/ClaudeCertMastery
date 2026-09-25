@@ -85,6 +85,10 @@ class LearnerDomainState(Base):
     recent_practice_mastery_band: Mapped[str | None] = mapped_column(
         String(16), nullable=True
     )
+    # LEGACY NAME. Projection v1-v3 stored the latest submitted scenario attempt's
+    # band; projection v4 (Gate C3-C5) stores the limiting/weakest band across each
+    # independent scenario's latest submitted attempt. Not renamed (would need a
+    # migration); the value is an aggregate, not literally "recent".
     recent_scenario_mastery_band: Mapped[str | None] = mapped_column(
         String(16), nullable=True
     )

@@ -39,6 +39,8 @@ from app.models import (
 from app.services.readiness_policy import (
     DomainEvidenceSummary,
     PracticeAttemptGroup,
+    ScenarioObservation,
+    aggregate_scenario_mastery,
     attempt_qualifies_for_practice,
     classify_domain_readiness,
     practice_band_for_window,
@@ -56,7 +58,9 @@ from app.services.scoring import MasteryBand
 #   v3 (Gate C3-C2): scenario diversity = distinct submitted scenario_id (a content
 #       version bump of the same scenario is never a new independent evidence unit),
 #       and scenario sufficiency is judged on that distinct count, not raw attempts.
-PROJECTION_VERSION = 3
+#   v4 (Gate C3-C5): scenario mastery band = weakest band across each independent
+#       scenario's latest submitted attempt (was: latest submitted attempt overall).
+PROJECTION_VERSION = 4
 
 
 def _as_utc(dt: datetime | None) -> datetime | None:
@@ -346,15 +350,24 @@ def build_domain_evidence_summary(
     # assessment, not a second observation (Gate C3-C1/C3-C2). The field keeps its
     # legacy name for schema/API compatibility only; see LearnerDomainState.
     distinct_scenario_content_versions = len({sa.scenario_id for sa in scenario_attempts})
+    # v4 mastery: latest submitted attempt per independent scenario_id, then the
+    # weakest band across those -- grouped in Python over the rows already loaded
+    # above, so no extra query. Legacy field name; see LearnerDomainState.
+    recent_scenario_mastery_band = aggregate_scenario_mastery(
+        ScenarioObservation(
+            scenario_id=sa.scenario_id,
+            attempt_id=sa.id,
+            submitted_at=_as_utc(sa.submitted_at),
+            mastery_band=MasteryBand(sa.mastery_band) if sa.mastery_band else None,
+        )
+        for sa in scenario_attempts
+    )
+    # Freshness stays separate from mastery (Gate C3-C4): the newest submitted
+    # scenario attempt overall, whichever scenario it belongs to -- unchanged from v3.
     latest_scenario = max(
         scenario_attempts,
         key=lambda sa: (_as_utc(sa.submitted_at) or datetime.min.replace(tzinfo=timezone.utc), sa.id),
         default=None,
-    )
-    recent_scenario_mastery_band = (
-        MasteryBand(latest_scenario.mastery_band)
-        if latest_scenario is not None and latest_scenario.mastery_band
-        else None
     )
     scenario_most_recent_at = (
         _as_utc(latest_scenario.submitted_at) if latest_scenario is not None else None

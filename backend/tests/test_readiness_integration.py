@@ -549,10 +549,16 @@ class TestProductionShapedSyntheticRegression:
         client, TestingSession, ids = scenario_env
         from app.models import ScenarioAttempt
 
+        from datetime import datetime, timezone
+
         with TestingSession() as db:
+            # submitted_at mirrors production attempt #1 too: every submitted attempt
+            # carries one (routers/scenarios.py sets both together), and projection
+            # v4's per-scenario ordering refuses a submitted attempt without it.
             preexisting = ScenarioAttempt(
                 user_id=ids["user_id"], scenario_id=1, status="submitted",
                 scenario_content_version=1, score_pct=100.0, mastery_band="strong",
+                submitted_at=datetime(2026, 9, 21, 10, 1, 58, 885186, tzinfo=timezone.utc),
             )
             # scenario_id=1 is the only scenario created by this fixture.
             db.add(preexisting)
