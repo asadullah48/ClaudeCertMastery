@@ -386,3 +386,105 @@ class TestRecommendNextActionAdapter:
         reloaded = db_session.get(LearnerDomainState, row.id)
         after = (reloaded.readiness_state, list(reloaded.reason_codes), reloaded.practice_evidence_count)
         assert after == before
+
+
+# --- Scenario-level recommendation (retake validity) --------------------------------
+
+from dataclasses import replace as _replace  # noqa: E402
+
+from app.models import Scenario, ScenarioAttempt  # noqa: E402
+from app.services.scenario_recommender import unexposed_scenarios_by_domain  # noqa: E402
+
+
+def _with_unseen(c, *scenarios):
+    return _replace(c, unexposed_scenarios=tuple(scenarios))
+
+
+class TestScenarioLevelRecommendation:
+    def test_attempt_scenario_names_the_first_unseen_scenario(self):
+        c = _with_unseen(
+            candidate("OEV", 2, state=STATE_INSUFFICIENT_EVIDENCE, reasons=[NO_APPLIED_SCENARIO_EVIDENCE],
+                      practice=MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY, scenario=0),
+            "CCAO-F-OEV-SCN-001", "CCAO-F-OEV-SCN-002")
+        result = recommend_next_action_from_candidates([c])
+        assert (result.action, result.domain_code, result.scenario_external_id) == (
+            ACTION_ATTEMPT_SCENARIO, "OEV", "CCAO-F-OEV-SCN-001")
+
+    def test_second_independent_scenario_is_recommended_after_the_first(self):
+        """PTE has one fresh result (001 seen); v3 sufficiency needs a second distinct
+        scenario, so the recommendation is the unseen 002 -- never a 001 repeat."""
+        c = _with_unseen(
+            candidate("PTE", 1, state=STATE_INSUFFICIENT_EVIDENCE, reasons=[NO_APPLIED_SCENARIO_EVIDENCE],
+                      practice=67, scenario=1),
+            "CCAO-F-PTE-SCN-002")
+        result = recommend_next_action_from_candidates([c])
+        assert (result.action, result.scenario_external_id) == (ACTION_ATTEMPT_SCENARIO, "CCAO-F-PTE-SCN-002")
+
+    def test_domain_whose_scenarios_are_all_seen_falls_back_to_practice(self):
+        c = _with_unseen(
+            candidate("PTE", 1, state=STATE_DEVELOPING, reasons=[DOMAIN_BELOW_THRESHOLD],
+                      practice=67, scenario=2))
+        result = recommend_next_action_from_candidates([c])
+        assert (result.action, result.domain_code, result.scenario_external_id) == (
+            ACTION_COLLECT_PRACTICE_EVIDENCE, "PTE", None)
+
+    def test_scenario_tier_skips_a_domain_with_nothing_unseen(self):
+        seen = _with_unseen(candidate("PTE", 1, state=STATE_INSUFFICIENT_EVIDENCE,
+                                      reasons=[NO_APPLIED_SCENARIO_EVIDENCE],
+                                      practice=MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY, scenario=0))
+        open_ = _with_unseen(candidate("OEV", 2, state=STATE_INSUFFICIENT_EVIDENCE,
+                                       reasons=[NO_APPLIED_SCENARIO_EVIDENCE],
+                                       practice=MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY, scenario=0),
+                             "CCAO-F-OEV-SCN-001")
+        result = recommend_next_action_from_candidates([seen, open_])
+        assert (result.domain_code, result.scenario_external_id) == ("OEV", "CCAO-F-OEV-SCN-001")
+
+    def test_unsupplied_scenario_list_keeps_domain_level_behaviour(self):
+        c = candidate("OEV", 2, state=STATE_INSUFFICIENT_EVIDENCE, reasons=[NO_APPLIED_SCENARIO_EVIDENCE],
+                      practice=MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY, scenario=0)
+        result = recommend_next_action_from_candidates([c])
+        assert (result.action, result.scenario_external_id) == (ACTION_ATTEMPT_SCENARIO, None)
+
+
+def _scenario(db, domain, external_id, active=True):
+    s = Scenario(domain_id=domain.id, external_id=external_id, title=external_id,
+                 setup_text="s", difficulty=2, is_active=active, content_version=1)
+    db.add(s)
+    db.commit()
+    return s
+
+
+class TestUnexposedScenarioLookup:
+    def test_seen_and_inactive_scenarios_are_excluded(self, db_session, track_with_domains):
+        track, domains, user = track_with_domains
+        pte1 = _scenario(db_session, domains["PTE"], "CCAO-F-PTE-SCN-001")
+        _scenario(db_session, domains["PTE"], "CCAO-F-PTE-SCN-002")
+        _scenario(db_session, domains["OEV"], "CCAO-F-OEV-SCN-001")
+        _scenario(db_session, domains["WISD"], "CCAO-F-WISD-SCN-001", active=False)
+        db_session.add(ScenarioAttempt(user_id=user.id, scenario_id=pte1.id, status="submitted",
+                                       scenario_content_version=1, submitted_at=datetime.now(timezone.utc),
+                                       score_pct=100.0, mastery_band="strong"))
+        db_session.commit()
+        by_domain = unexposed_scenarios_by_domain(db_session, user_id=user.id, track_id=track.id)
+        assert by_domain == {
+            domains["PTE"].id: ("CCAO-F-PTE-SCN-002",),
+            domains["OEV"].id: ("CCAO-F-OEV-SCN-001",),
+        }
+
+    def test_adapter_recommends_a_specific_unseen_scenario(self, db_session, track_with_domains):
+        track, domains, user = track_with_domains
+        for code in ("PTE", "OEV", "WISD"):
+            _scenario(db_session, domains[code], f"CCAO-F-{code}-SCN-001")
+        pte = db_session.query(Scenario).filter_by(external_id="CCAO-F-PTE-SCN-001").one()
+        db_session.add(ScenarioAttempt(user_id=user.id, scenario_id=pte.id, status="submitted",
+                                       scenario_content_version=1, submitted_at=datetime.now(timezone.utc),
+                                       score_pct=100.0, mastery_band="strong"))
+        db_session.commit()
+        _state_row(db_session, user, track, domains["PTE"], state=STATE_INSUFFICIENT_EVIDENCE,
+                   reasons=[NO_APPLIED_SCENARIO_EVIDENCE], practice=30, scenario=1, distinct=1)
+        for code in ("OEV", "WISD"):
+            _state_row(db_session, user, track, domains[code], state=STATE_INSUFFICIENT_EVIDENCE,
+                       reasons=[NO_APPLIED_SCENARIO_EVIDENCE], practice=30, scenario=0)
+        result = recommend_next_action(db_session, user_id=user.id, track_code="CCAO-F")
+        assert (result.action, result.domain_code, result.scenario_external_id) == (
+            ACTION_ATTEMPT_SCENARIO, "OEV", "CCAO-F-OEV-SCN-001")

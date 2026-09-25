@@ -351,3 +351,50 @@ class TestNoExternalDependency:
 
         for forbidden in ("anthropic", "mcp", "app.services.zia_client"):
             assert not any(name.startswith(forbidden) for name in imported_names)
+
+
+# --- Retake validity surfaced to the learner -------------------------------------------
+
+class TestRetakeValidityApi:
+    SCN = "CCAO-F-WISD-SCN-001"
+
+    def _listing(self, client):
+        rows = client.get("/scenarios", params={"track_code": "CCAO-F"}).json()
+        return {r["external_id"]: r for r in rows}
+
+    def test_fresh_scenario_is_listed_as_evidence_eligible(self, scenario_env):
+        client, _ = scenario_env
+        row = self._listing(client)[self.SCN]
+        assert (row["learner_status"], row["counts_as_evidence"], row["evidence_band"]) == (
+            "not_started", True, None)
+
+    def test_answering_a_step_reveals_answers_and_ends_eligibility(self, scenario_env):
+        client, ids = scenario_env
+        start = client.post(f"/scenarios/{self.SCN}/start").json()
+        assert start["counts_as_evidence"] is True
+        client.post(f"/scenario-attempts/{start['attempt_id']}/steps/1/answer",
+                    json={"selected_option_ids": [ids["opt_a"]]})
+        row = self._listing(client)[self.SCN]
+        assert (row["learner_status"], row["counts_as_evidence"]) == ("in_progress", False)
+        retake = client.post(f"/scenarios/{self.SCN}/start").json()
+        assert retake["counts_as_evidence"] is False
+
+    def test_opening_without_answering_keeps_eligibility(self, scenario_env):
+        client, _ = scenario_env
+        client.post(f"/scenarios/{self.SCN}/start")
+        assert self._listing(client)[self.SCN]["counts_as_evidence"] is True
+        assert client.post(f"/scenarios/{self.SCN}/start").json()["counts_as_evidence"] is True
+
+    def test_recall_retake_cannot_change_the_evidence_band(self, scenario_env):
+        client, ids = scenario_env
+        first = client.post(f"/scenarios/{self.SCN}/start").json()["attempt_id"]
+        client.post(f"/scenario-attempts/{first}/steps/1/answer", json={"selected_option_ids": [ids["opt_b"]]})
+        client.post(f"/scenario-attempts/{first}/steps/2/answer", json={"selected_option_ids": [ids["opt_x"]]})
+        retake = client.post(f"/scenarios/{self.SCN}/start").json()["attempt_id"]
+        client.post(f"/scenario-attempts/{retake}/steps/1/answer", json={"selected_option_ids": [ids["opt_a"]]})
+        done = client.post(f"/scenario-attempts/{retake}/steps/2/answer",
+                           json={"selected_option_ids": [ids["opt_y"]]}).json()
+        assert done["result"]["mastery_band"] == "strong"  # the retake itself scored strong
+        row = self._listing(client)[self.SCN]
+        assert (row["learner_status"], row["counts_as_evidence"], row["evidence_band"]) == (
+            "completed", False, "critical")

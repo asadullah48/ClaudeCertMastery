@@ -19,6 +19,13 @@ class ScenarioListItemOut(BaseModel):
     title: str
     domain_code: str
     difficulty: int
+    # Additive, learner-specific: "not_started" | "in_progress" | "completed".
+    learner_status: str = "not_started"
+    # Whether a NEW attempt would count as readiness evidence -- false once the
+    # learner has seen this scenario's answers (retakes are practice only).
+    counts_as_evidence: bool = True
+    # Band of the learner's first-exposure (evidence) attempt, if submitted.
+    evidence_band: str | None = None
 
 
 class ScenarioStepOptionOut(BaseModel):
@@ -57,6 +64,9 @@ class ScenarioStartResponse(BaseModel):
     domain_code: str
     status: str
     current_step: ScenarioStepOut
+    # False when the learner has already seen this scenario's answers: the attempt is
+    # practice and will not change readiness.
+    counts_as_evidence: bool = True
 
 
 class ScenarioHintRequest(BaseModel):

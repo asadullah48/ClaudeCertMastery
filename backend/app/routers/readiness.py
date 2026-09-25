@@ -25,6 +25,8 @@ for founder-only validation to remain valid").
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -42,6 +44,7 @@ from app.services.readiness_policy import (
 from app.services.scenario_recommender import (
     DomainReadinessCandidate,
     recommend_next_action_from_candidates,
+    unexposed_scenarios_by_domain,
 )
 
 router = APIRouter(prefix="/me", tags=["readiness"])
@@ -169,6 +172,12 @@ def get_track_readiness(track_code: str, db: Session = Depends(get_db)) -> Track
             )
 
     overall = aggregate_track_readiness(assessments, {d.code for d in domains})
+    unexposed = unexposed_scenarios_by_domain(db, user_id=user.id, track_id=track.id)
+    code_to_id = {d.code: d.id for d in domains}
+    candidates = [
+        replace(c, unexposed_scenarios=unexposed.get(code_to_id[c.domain_code], ()))
+        for c in candidates
+    ]
     next_action = recommend_next_action_from_candidates(candidates)
 
     return TrackReadinessOut(
@@ -181,5 +190,6 @@ def get_track_readiness(track_code: str, db: Session = Depends(get_db)) -> Track
             action=next_action.action,
             domain_code=next_action.domain_code,
             reason_codes=list(next_action.reason_codes),
+            scenario_external_id=next_action.scenario_external_id,
         ),
     )

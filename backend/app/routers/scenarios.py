@@ -19,7 +19,16 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db
-from app.models import Domain, Scenario, ScenarioAttempt, ScenarioEvent, ScenarioStep, ScenarioStepAttempt, User
+from app.models import (
+    Domain,
+    Scenario,
+    ScenarioAttempt,
+    ScenarioEvent,
+    ScenarioStep,
+    ScenarioStepAttempt,
+    Track,
+    User,
+)
 from app.schemas import (
     ScenarioAttemptOut,
     ScenarioHintResponse,
@@ -32,7 +41,9 @@ from app.schemas import (
     ScenarioStepOut,
     SelectedOptionFeedback,
 )
+from app.services.learner_readiness import load_scenario_exposures
 from app.services.readiness_integration import best_effort_recompute_learner_domain_state
+from app.services.readiness_policy import exposed_scenario_ids, select_fresh_scenario_observations
 from app.services.scenario_scoring import (
     RevealedHint,
     ScenarioScoringError,
@@ -68,20 +79,46 @@ def _current_user(db: Session) -> User:
 
 @router.get("/scenarios", response_model=list[ScenarioListItemOut])
 def list_scenarios(track_code: str, db: Session = Depends(get_db)) -> list[ScenarioListItemOut]:
-    """Active scenarios for a track. No step content, no options -- discovery only."""
-    rows = db.scalars(
-        select(Scenario)
+    """Active scenarios for a track, in blueprint order (domain position, then
+    external_id). No step content, no options -- discovery only -- plus the current
+    learner's status on each: whether a new attempt would still count as evidence
+    (retake validity) and the band of their first-exposure attempt. Without a learner
+    identity the statuses stay at their neutral defaults; discovery never fails."""
+    rows = db.execute(
+        select(Scenario, Domain.code)
         .join(Domain, Scenario.domain_id == Domain.id)
         .where(Domain.track.has(code=track_code), Scenario.is_active.is_(True))
+        .order_by(Domain.position, Scenario.external_id)
     ).all()
+    track = db.scalar(select(Track).where(Track.code == track_code))
+    user = db.scalar(select(User).where(User.email == DEV_USER_EMAIL))
+    exposures = (
+        load_scenario_exposures(db, user_id=user.id, track_id=track.id)
+        if track is not None and user is not None and rows
+        else []
+    )
+    exposed = exposed_scenario_ids(exposures)
+    fresh_band = {
+        o.scenario_id: o.mastery_band.value if o.mastery_band else None
+        for o in select_fresh_scenario_observations(exposures)
+    }
+    submitted = {e.scenario_id for e in exposures if e.submitted}
+    started = {e.scenario_id for e in exposures}
     return [
         ScenarioListItemOut(
             external_id=s.external_id,
             title=s.title,
-            domain_code=db.get(Domain, s.domain_id).code,
+            domain_code=domain_code,
             difficulty=s.difficulty,
+            learner_status=(
+                "completed" if s.id in submitted
+                else "in_progress" if s.id in started
+                else "not_started"
+            ),
+            counts_as_evidence=s.id not in exposed,
+            evidence_band=fresh_band.get(s.id),
         )
-        for s in rows
+        for s, domain_code in rows
     ]
 
 
@@ -184,6 +221,11 @@ def start_scenario(
 
     user = _current_user(db)
     domain = db.get(Domain, scenario.domain_id)
+    # Retake validity: once this learner has seen the scenario's answers, a new
+    # attempt is practice -- recorded as evidence history, never as mastery.
+    counts_as_evidence = scenario.id not in exposed_scenario_ids(
+        load_scenario_exposures(db, user_id=user.id, domain_id=scenario.domain_id)
+    )
 
     # The client dictates nothing here beyond WHICH scenario -- content_version,
     # initial state and step 1 are entirely server-determined (Section 3).
@@ -215,6 +257,7 @@ def start_scenario(
         domain_code=domain.code,
         status=attempt.status,
         current_step=_step_out(steps[0], len(steps)),
+        counts_as_evidence=counts_as_evidence,
     )
 
 

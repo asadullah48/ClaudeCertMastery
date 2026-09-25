@@ -48,6 +48,9 @@ class NextActionOut(BaseModel):
     action: str
     domain_code: str | None = None
     reason_codes: list[str]
+    # Additive: with ATTEMPT_SCENARIO, the specific scenario the learner has not yet
+    # seen (only a first exposure counts as evidence). Null otherwise.
+    scenario_external_id: str | None = None
 
 
 class TrackReadinessOut(BaseModel):

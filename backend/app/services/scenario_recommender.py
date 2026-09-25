@@ -13,7 +13,7 @@ recommend among already-permitted activities; it never decides them.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -24,8 +24,10 @@ from app.models import (
     Domain,
     ExamAttempt,
     LearnerDomainState,
+    Scenario,
     Track,
 )
+from app.services.learner_readiness import load_scenario_exposures
 from app.services.readiness_policy import (
     INSUFFICIENT_DOMAIN_COVERAGE,
     MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY,
@@ -34,6 +36,7 @@ from app.services.readiness_policy import (
     STATE_APPROACHING_READY,
     STATE_INSUFFICIENT_EVIDENCE,
     STATE_READY,
+    exposed_scenario_ids,
 )
 
 # The published blueprint's default entry point when a learner has no submitted exam
@@ -151,6 +154,10 @@ class DomainReadinessCandidate:
     practice_evidence_count: int
     scenario_evidence_count: int
     unresolved_misconception_count: int
+    # Active scenarios in this domain whose answers the learner has NOT yet seen
+    # (retake validity: only a first exposure is evidence), in recommendation order.
+    # None = not supplied by the caller: treated as available, no specific scenario.
+    unexposed_scenarios: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -158,6 +165,18 @@ class NextActionRecommendation:
     action: str
     domain_code: str | None
     reason_codes: tuple[str, ...] = field(default_factory=tuple)
+    # Set with ATTEMPT_SCENARIO when a specific unseen scenario is known.
+    scenario_external_id: str | None = None
+
+
+def _can_attempt_new_scenario(c: DomainReadinessCandidate) -> bool:
+    """A scenario recommendation is only useful if a scenario the learner has not
+    seen exists -- repeating a seen one cannot produce fresh evidence."""
+    return c.unexposed_scenarios is None or len(c.unexposed_scenarios) > 0
+
+
+def _next_scenario(c: DomainReadinessCandidate) -> str | None:
+    return c.unexposed_scenarios[0] if c.unexposed_scenarios else None
 
 
 def _has_zero_evidence(c: DomainReadinessCandidate) -> bool:
@@ -216,7 +235,8 @@ def recommend_next_action_from_candidates(
     def _pick(matches, action):
         winner = min(matches, key=lambda c: c.domain_position)
         return NextActionRecommendation(
-            action=action, domain_code=winner.domain_code, reason_codes=winner.reason_codes
+            action=action, domain_code=winner.domain_code, reason_codes=winner.reason_codes,
+            scenario_external_id=_next_scenario(winner) if action == ACTION_ATTEMPT_SCENARIO else None,
         )
 
     zero_evidence = [c for c in ordered if _has_zero_evidence(c)]
@@ -227,7 +247,10 @@ def recommend_next_action_from_candidates(
     if with_misconception:
         return _pick(with_misconception, ACTION_REMEDIATE_MISCONCEPTION)
 
-    needs_scenario = [c for c in ordered if _has_sufficient_practice_no_scenario(c)]
+    needs_scenario = [
+        c for c in ordered
+        if _has_sufficient_practice_no_scenario(c) and _can_attempt_new_scenario(c)
+    ]
     if needs_scenario:
         return _pick(needs_scenario, ACTION_ATTEMPT_SCENARIO)
 
@@ -238,15 +261,40 @@ def recommend_next_action_from_candidates(
     remaining = [c for c in ordered if c.readiness_state != STATE_READY]
     if remaining:
         winner = min(remaining, key=lambda c: c.domain_position)
+        action = _fallback_action_for(winner)
+        if action == ACTION_ATTEMPT_SCENARIO and not _can_attempt_new_scenario(winner):
+            # Every scenario in this domain has been seen: a repeat cannot add
+            # evidence, so practice is the only evidence still available here.
+            action = ACTION_COLLECT_PRACTICE_EVIDENCE
         return NextActionRecommendation(
-            action=_fallback_action_for(winner),
+            action=action,
             domain_code=winner.domain_code,
             reason_codes=winner.reason_codes,
+            scenario_external_id=_next_scenario(winner) if action == ACTION_ATTEMPT_SCENARIO else None,
         )
 
     return NextActionRecommendation(
         action=ACTION_PROCEED_TO_READINESS_EVALUATION, domain_code=None, reason_codes=()
     )
+
+
+def unexposed_scenarios_by_domain(db: Session, *, user_id: int, track_id: int) -> dict[int, tuple[str, ...]]:
+    """For every domain in the track: its ACTIVE scenarios whose answers this learner
+    has not yet seen, ordered by external_id (so SCN-001 before SCN-002). Read-only:
+    one scenario query plus one grouped exposure query."""
+    exposed = exposed_scenario_ids(load_scenario_exposures(db, user_id=user_id, track_id=track_id))
+    rows = db.execute(
+        select(Scenario.domain_id, Scenario.external_id, Scenario.id)
+        .join(Domain, Scenario.domain_id == Domain.id)
+        .where(Domain.track_id == track_id, Scenario.is_active.is_(True))
+        .order_by(Scenario.external_id)
+    ).all()
+    result: dict[int, list[str]] = {}
+    for domain_id, external_id, scenario_id in rows:
+        result.setdefault(domain_id, [])
+        if scenario_id not in exposed:
+            result[domain_id].append(external_id)
+    return {domain_id: tuple(ids) for domain_id, ids in result.items()}
 
 
 def recommend_next_action(
@@ -312,4 +360,10 @@ def recommend_next_action(
                 )
             )
 
+    unexposed = unexposed_scenarios_by_domain(db, user_id=user_id, track_id=track.id)
+    code_to_id = {d.code: d.id for d in domains}
+    candidates = [
+        replace(c, unexposed_scenarios=unexposed.get(code_to_id[c.domain_code], ()))
+        for c in candidates
+    ]
     return recommend_next_action_from_candidates(candidates)
