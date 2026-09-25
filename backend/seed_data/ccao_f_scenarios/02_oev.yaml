@@ -2,7 +2,7 @@ scenario:
   external_id: CCAO-F-OEV-SCN-001
   domain_code: OEV
   title: "The Confident Citation"
-  content_version: 1
+  content_version: 2
   active: true
   difficulty: 2
   source_reference: >-
@@ -28,16 +28,6 @@ scenario:
       options:
         - label: A
           text: >-
-            Verify the specific statistic against the actual report before it is
-            used, since the citation could be fabricated or misattributed even
-            though the prose sounds authoritative.
-          correct: true
-          rationale: >-
-            A specific factual claim with a citation is exactly the kind of output
-            that needs checking against the real source. Fluency and specificity are
-            stylistic properties, not evidence that the claim is grounded.
-        - label: B
-          text: >-
             Ship it as written -- the writing is polished and internally
             consistent, which is a good sign of accuracy.
           correct: false
@@ -46,6 +36,16 @@ scenario:
             one. Fabricated numbers are frequently just as well written as real
             ones, so fluency cannot substitute for checking the source.
           misconception_tag: fluency_as_evidence
+        - label: B
+          text: >-
+            Verify the specific statistic against the actual report before it is
+            used, since the citation could be fabricated or misattributed even
+            though the prose sounds authoritative.
+          correct: true
+          rationale: >-
+            A specific factual claim with a citation is exactly the kind of output
+            that needs checking against the real source. Fluency and specificity are
+            stylistic properties, not evidence that the claim is grounded.
         - label: C
           text: >-
             Add a footnote saying "verify before use" and send it to the sales team

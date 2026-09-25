@@ -640,3 +640,237 @@ class TestScenariosOnlyControlFlow:
                 "Scenario Lab content loading must work fully offline, with no "
                 "model-provider or MCP dependency."
             )
+
+
+# --- Gate C3-C2: Scenario 001 answer-position repair ---------------------------------
+
+import hashlib  # noqa: E402
+import json  # noqa: E402
+
+import yaml  # noqa: E402
+
+SCENARIO_DIR = ROOT / "seed_data" / "ccao_f_scenarios"
+
+# Correct-answer label per step after the C3-C2 repair. PTE-001 keeps A/A because
+# founder evidence exists against it and it must stay byte-for-byte unchanged.
+EXPECTED_CORRECT_LABELS = {
+    "CCAO-F-PTE-SCN-001": ["A", "A"],
+    "CCAO-F-OEV-SCN-001": ["B", "A"],
+    "CCAO-F-PMS-SCN-001": ["C", "B"],
+    "CCAO-F-WISD-SCN-001": ["A", "B"],
+    "CCAO-F-CKM-SCN-001": ["C", "A"],
+    "CCAO-F-GRR-SCN-001": ["B", "A"],
+    "CCAO-F-TRO-SCN-001": ["C", "B"],
+}
+
+# Per-step digest of the UNORDERED (text, correct, rationale, misconception_tag)
+# tuples, pinned from the content_version 1 files (identical to what production
+# holds). Matching after the reorder proves only order moved: every rationale and
+# misconception tag is still attached to the same option text, correctness included.
+V1_SEMANTIC_STEP_DIGESTS = {
+    "CCAO-F-PTE-SCN-001": ["386857ef1f267544", "217a585a0e50f83d"],
+    "CCAO-F-OEV-SCN-001": ["9856c6c7705cd1b5", "3c14232d3e056399"],
+    "CCAO-F-PMS-SCN-001": ["be6ef5ff165290f9", "2cbe404b1ff416bd"],
+    "CCAO-F-WISD-SCN-001": ["ad89aa468eff423f", "f54d00dab88f3025"],
+    "CCAO-F-CKM-SCN-001": ["295fc39b08c6eeed", "0f9e86c12568480e"],
+    "CCAO-F-GRR-SCN-001": ["4bc2f28b2ef2c9b0", "44eab2f925dec795"],
+    "CCAO-F-TRO-SCN-001": ["01065a60681babe6", "d4a5998a4232b6da"],
+}
+
+# Digest of each scenario's FULL ORDERED v1 spec. PTE's current file must still
+# match exactly; for the other six, reconstructing v1 (correct option back to
+# first, relabel, version 1) must reproduce it, proving the repair is a pure reorder.
+V1_ORDERED_DIGESTS = {
+    "CCAO-F-PTE-SCN-001": "5413e9d12cc7abe3",
+    "CCAO-F-OEV-SCN-001": "3a2d8cb802efbc2f",
+    "CCAO-F-PMS-SCN-001": "9a2478f7c48cedad",
+    "CCAO-F-WISD-SCN-001": "627f6021027f36cc",
+    "CCAO-F-CKM-SCN-001": "4a8bfb4183692027",
+    "CCAO-F-GRR-SCN-001": "98f6cb444d7d1612",
+    "CCAO-F-TRO-SCN-001": "68c5206aec9a954f",
+}
+
+REPAIRED = [k for k in EXPECTED_CORRECT_LABELS if k != "CCAO-F-PTE-SCN-001"]
+
+
+def _authored_specs() -> dict[str, dict]:
+    specs = {}
+    for path in sorted(SCENARIO_DIR.glob("*.yaml")):
+        spec = yaml.safe_load(path.read_text(encoding="utf-8"))["scenario"]
+        specs[spec["external_id"]] = spec
+    return specs
+
+
+def _step_digest(step: dict) -> str:
+    rows = sorted(
+        [o["text"].strip(), bool(o.get("correct")), o["rationale"].strip(),
+         o.get("misconception_tag") or ""]
+        for o in step["options"]
+    )
+    return hashlib.sha256(json.dumps(rows).encode()).hexdigest()[:16]
+
+
+def _ordered_digest(spec: dict) -> str:
+    return hashlib.sha256(json.dumps(spec, sort_keys=True).encode()).hexdigest()[:16]
+
+
+def _reconstruct_v1(spec: dict) -> dict:
+    """The pre-repair shape: correct option first, distractors in their existing
+    relative order, labels re-lettered, content_version 1."""
+    v1 = json.loads(json.dumps(spec))
+    v1["content_version"] = 1
+    for step in v1["steps"]:
+        correct = [o for o in step["options"] if o.get("correct")]
+        rest = [o for o in step["options"] if not o.get("correct")]
+        step["options"] = correct + rest
+        for label, opt in zip("ABCD", step["options"]):
+            opt["label"] = label
+    return v1
+
+
+def _correct_labels(spec: dict) -> list[str]:
+    return [
+        next(o["label"] for o in step["options"] if o.get("correct"))
+        for step in sorted(spec["steps"], key=lambda s: s["position"])
+    ]
+
+
+class TestScenario001AnswerPositionRepair:
+    def test_all_seven_scenario_001_files_load_and_validate(self):
+        specs = _authored_specs()
+        assert set(specs) == set(EXPECTED_CORRECT_LABELS)
+        for spec in specs.values():
+            seed.validate_scenario_spec(spec, {"PTE", "OEV", "PMS", "WISD", "CKM", "GRR", "TRO"})
+
+    def test_correct_positions_match_the_intended_distribution(self):
+        specs = _authored_specs()
+        assert {k: _correct_labels(s) for k, s in specs.items()} == EXPECTED_CORRECT_LABELS
+
+    def test_repaired_scenarios_are_not_positionally_predictable(self):
+        specs = _authored_specs()
+        repaired = [_correct_labels(specs[k]) for k in REPAIRED]
+        flat = [label for labels in repaired for label in labels]
+        assert set(flat) >= {"A", "B", "C"}  # not all A; every available slot used
+        for labels in repaired:
+            assert len(set(labels)) == len(labels), labels  # never same slot every step
+
+    def test_semantics_rationales_and_tags_survive_reordering(self):
+        specs = _authored_specs()
+        for ext_id, digests in V1_SEMANTIC_STEP_DIGESTS.items():
+            steps = sorted(specs[ext_id]["steps"], key=lambda s: s["position"])
+            assert [_step_digest(s) for s in steps] == digests, ext_id
+
+    def test_labels_are_sequential_in_display_order(self):
+        for spec in _authored_specs().values():
+            for step in spec["steps"]:
+                labels = [o["label"] for o in step["options"]]
+                assert labels == list("ABCD"[: len(labels)])
+
+    def test_pte_001_is_unchanged(self):
+        spec = _authored_specs()["CCAO-F-PTE-SCN-001"]
+        assert spec["content_version"] == 1
+        assert _ordered_digest(spec) == V1_ORDERED_DIGESTS["CCAO-F-PTE-SCN-001"]
+
+    def test_repaired_scenarios_are_a_pure_reorder_at_content_version_2(self):
+        specs = _authored_specs()
+        for ext_id in REPAIRED:
+            assert specs[ext_id]["content_version"] == 2, ext_id
+            assert _ordered_digest(_reconstruct_v1(specs[ext_id])) == V1_ORDERED_DIGESTS[ext_id], ext_id
+
+
+def _seed_v1_world(seed_db, monkeypatch):
+    """A database holding exactly production's current scenario content: the v1
+    shape of all seven Scenario 001s (PTE's file is already v1)."""
+    run_seed(monkeypatch)  # track, domains, questions -- and the current scenarios
+    with seed_db() as db:
+        for scenario in db.scalars(select(Scenario)).all():
+            db.delete(scenario)
+        db.commit()
+        domains = {d.code: d for d in db.scalars(select(Domain)).all()}
+        for spec in _authored_specs().values():
+            v1 = spec if spec["content_version"] == 1 else _reconstruct_v1(spec)
+            seed.upsert_scenario(db, domains[spec["domain_code"]], v1)
+        db.commit()
+        return {s.external_id: s.id for s in db.scalars(select(Scenario)).all()}
+
+
+def _option_snapshot(db) -> list[tuple]:
+    return sorted(
+        (s.external_id, s.content_version, step.position, o.id, o.label, o.is_correct,
+         o.misconception_tag)
+        for s in db.scalars(select(Scenario)).all()
+        for step in s.steps
+        for o in step.options
+    )
+
+
+class TestScenario001RepairSeeding:
+    def test_scenarios_only_seed_upgrades_the_six_in_place_and_leaves_pte(self, seed_db, monkeypatch):
+        ids_before = _seed_v1_world(seed_db, monkeypatch)
+        with seed_db() as db:
+            pte_before = [row for row in _option_snapshot(db) if row[0] == "CCAO-F-PTE-SCN-001"]
+
+        assert run_seed(monkeypatch, "--scenarios-only") == 0
+
+        with seed_db() as db:
+            scenarios = {s.external_id: s for s in db.scalars(select(Scenario)).all()}
+            assert {k: s.id for k, s in scenarios.items()} == ids_before  # same Scenario rows
+            assert scenarios["CCAO-F-PTE-SCN-001"].content_version == 1
+            for ext_id in REPAIRED:
+                assert scenarios[ext_id].content_version == 2
+            for ext_id, labels in EXPECTED_CORRECT_LABELS.items():
+                got = [
+                    next(o.label for o in step.options if o.is_correct)
+                    for step in sorted(scenarios[ext_id].steps, key=lambda s: s.position)
+                ]
+                assert got == labels, ext_id
+            pte_after = [row for row in _option_snapshot(db) if row[0] == "CCAO-F-PTE-SCN-001"]
+            assert pte_after == pte_before  # PTE options not even re-created
+
+    def test_scenarios_only_seed_is_idempotent_after_the_repair(self, seed_db, monkeypatch):
+        _seed_v1_world(seed_db, monkeypatch)
+        run_seed(monkeypatch, "--scenarios-only")
+        with seed_db() as db:
+            before = _option_snapshot(db)
+            _, actions = seed.seed_ccao_f_scenarios(db)
+            db.commit()
+            assert set(actions.values()) == {"unchanged"}
+            assert _option_snapshot(db) == before
+
+    def test_scenarios_only_seed_never_touches_exam_answer_options(self, seed_db, monkeypatch):
+        _seed_v1_world(seed_db, monkeypatch)
+        with seed_db() as db:
+            answer_options_before = sorted(
+                (o.id, o.question_id, o.label, o.is_correct)
+                for o in db.scalars(select(AnswerOption)).all()
+            )
+        run_seed(monkeypatch, "--scenarios-only")
+        with seed_db() as db:
+            answer_options_after = sorted(
+                (o.id, o.question_id, o.label, o.is_correct)
+                for o in db.scalars(select(AnswerOption)).all()
+            )
+        assert answer_options_after == answer_options_before
+
+    def test_an_attempt_on_a_repaired_scenario_blocks_the_whole_run(self, seed_db, monkeypatch):
+        """If production gains an attempt on any of the six before the repair is
+        activated, the guard refuses the bump and nothing is written -- including the
+        scenarios processed earlier in the same run (the loader commits once, after
+        every file)."""
+        _seed_v1_world(seed_db, monkeypatch)
+        with seed_db() as db:
+            user = User(email="founder@example.com", display_name="Founder")
+            db.add(user)
+            db.flush()
+            tro = db.scalar(select(Scenario).where(Scenario.external_id == "CCAO-F-TRO-SCN-001"))
+            db.add(ScenarioAttempt(user_id=user.id, scenario_id=tro.id, status="in_progress",
+                                   scenario_content_version=1))
+            db.commit()
+            before = _option_snapshot(db)
+
+        with pytest.raises(ValueError, match="CCAO-F-TRO-SCN-001"):
+            run_seed(monkeypatch, "--scenarios-only")
+
+        with seed_db() as db:
+            assert _option_snapshot(db) == before
+            assert {s.content_version for s in db.scalars(select(Scenario)).all()} == {1}

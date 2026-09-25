@@ -94,7 +94,9 @@ class DomainEvidenceSummary:
     """
 
     practice_evidence_count: int
-    scenario_evidence_count: int
+    scenario_evidence_count: int  # raw submitted attempts, repeats included
+    # Legacy name; projection v3 meaning: distinct submitted scenario IDs. This --
+    # not the raw count -- is what scenario sufficiency is judged on.
     distinct_scenario_content_versions: int
     recent_practice_mastery_band: MasteryBand | None
     recent_scenario_mastery_band: MasteryBand | None
@@ -204,7 +206,10 @@ def classify_domain_readiness(summary: DomainEvidenceSummary) -> ReadinessAssess
     the prose with the rule and closes a gap where exactly one scenario attempt
     would otherwise fall through every tier unclassified. Reported as a deviation
     from the plan's literal bullet text, not a silent redesign -- see the C3 Slice 2
-    gate report.
+    gate report. Gate C3-C2 (projection v3) then moved that comparison from the raw
+    attempt count to the distinct-scenario count, per plan Section 6, and moved
+    REPEATED_SCENARIO_NOT_DIVERSE_EVIDENCE from the developing tier (now unreachable
+    there) into this sufficiency tier.
     """
     reason_codes: list[str] = []
 
@@ -212,8 +217,14 @@ def classify_domain_readiness(summary: DomainEvidenceSummary) -> ReadinessAssess
         reason_codes.append(NO_EVIDENCE)
     if summary.practice_evidence_count < MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY:
         reason_codes.append(INSUFFICIENT_PRACTICE_EVIDENCE)
-    if summary.scenario_evidence_count < MIN_SCENARIO_ATTEMPTS_FOR_SUFFICIENCY:
+    # Projection v3 (Gate C3-C2): scenario sufficiency counts INDEPENDENT scenarios
+    # (distinct scenario IDs), never raw attempts -- repeating one scenario, however
+    # often, is still one observation. When the raw count alone would have met the
+    # minimum, the repeat cap is what binds, and it is stated plainly (plan Section 6).
+    if summary.distinct_scenario_content_versions < MIN_SCENARIO_ATTEMPTS_FOR_SUFFICIENCY:
         reason_codes.append(NO_APPLIED_SCENARIO_EVIDENCE)
+        if summary.scenario_evidence_count >= MIN_SCENARIO_ATTEMPTS_FOR_SUFFICIENCY:
+            reason_codes.append(REPEATED_SCENARIO_NOT_DIVERSE_EVIDENCE)
 
     if reason_codes:
         return ReadinessAssessment(
@@ -223,7 +234,8 @@ def classify_domain_readiness(summary: DomainEvidenceSummary) -> ReadinessAssess
         )
 
     # Past this point: practice_evidence_count >= MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY
-    # and scenario_evidence_count >= MIN_SCENARIO_ATTEMPTS_FOR_SUFFICIENCY both hold.
+    # and distinct scenarios >= MIN_SCENARIO_ATTEMPTS_FOR_SUFFICIENCY both hold, so
+    # diversity is already satisfied -- it is no longer a separate developing rule.
     weak_practice = (
         summary.recent_practice_mastery_band is None
         or summary.recent_practice_mastery_band in _WEAK_BANDS
@@ -232,18 +244,12 @@ def classify_domain_readiness(summary: DomainEvidenceSummary) -> ReadinessAssess
         summary.recent_scenario_mastery_band is None
         or summary.recent_scenario_mastery_band in _WEAK_BANDS
     )
-    not_diverse = (
-        summary.distinct_scenario_content_versions
-        < MIN_SCENARIO_ATTEMPTS_FOR_SUFFICIENCY
-    )
 
     developing_codes: list[str] = []
     if weak_practice or weak_scenario:
         developing_codes.append(DOMAIN_BELOW_THRESHOLD)
     if summary.unresolved_misconception_count > 0:
         developing_codes.append(REPEATED_MISCONCEPTION)
-    if not_diverse:
-        developing_codes.append(REPEATED_SCENARIO_NOT_DIVERSE_EVIDENCE)
 
     if developing_codes:
         return ReadinessAssessment(
@@ -252,10 +258,9 @@ def classify_domain_readiness(summary: DomainEvidenceSummary) -> ReadinessAssess
             reason_codes=developing_codes,
         )
 
-    # Both recent bands are PROFICIENT/STRONG, zero unresolved misconceptions,
-    # distinct-content diversity met (which, since distinct_scenario_content_versions
-    # can never exceed scenario_evidence_count, also guarantees "sufficient scenario
-    # count" for the ready gate without a separate redundant check).
+    # Both recent bands are PROFICIENT/STRONG, zero unresolved misconceptions, and
+    # (from the sufficiency tier) at least MIN_SCENARIO_ATTEMPTS_FOR_SUFFICIENCY
+    # distinct scenarios.
     if _is_stale(summary):
         return ReadinessAssessment(
             state=STATE_APPROACHING_READY,

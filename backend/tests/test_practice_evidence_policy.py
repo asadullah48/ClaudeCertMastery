@@ -80,7 +80,9 @@ def test_v2_policy_constants_are_the_approved_values():
     assert MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY == 20
     assert MIN_SCENARIO_ATTEMPTS_FOR_SUFFICIENCY == 2  # unchanged by B2
     assert STALENESS_THRESHOLD_DAYS == 90  # unchanged by B2
-    assert PROJECTION_VERSION == 2
+    # Bumped to 3 by Gate C3-C2 (scenario-diversity semantics); the practice policy
+    # these tests pin is unchanged since v2.
+    assert PROJECTION_VERSION == 3
 
 
 # =====================================================================================
@@ -424,7 +426,7 @@ class TestRecomputeIntegration:
 
         row = self._recompute(db, world)
 
-        assert row.projection_version == 2
+        assert row.projection_version == PROJECTION_VERSION
         assert row.practice_evidence_count == 25  # 15 + 10, incomplete excluded
         assert row.recent_practice_mastery_band == "proficient"  # (12+8)/25 = 80%
         # newest qualifying practice (day -2) beats scenario (day -3); incomplete (day -1) ignored
@@ -467,7 +469,7 @@ class TestRecomputeIntegration:
         assert row.id == legacy_id
         assert (row.user_id, row.track_id, row.domain_id) == (
             world["user"].id, world["track"].id, world["pte"].id)
-        assert row.projection_version == 2
+        assert row.projection_version == PROJECTION_VERSION
         assert (row.practice_evidence_count, row.recent_practice_mastery_band) == (20, "strong")
         assert db.scalar(select(func.count()).select_from(LearnerDomainState)) == 1
         assert {m.__name__: _snapshot(db, m) for m in EVIDENCE_MODELS} == before

@@ -2,7 +2,7 @@ scenario:
   external_id: CCAO-F-WISD-SCN-001
   domain_code: WISD
   title: "The Escalation Loop"
-  content_version: 1
+  content_version: 2
   active: true
   difficulty: 2
   source_reference: >-
@@ -75,6 +75,16 @@ scenario:
       options:
         - label: A
           text: >-
+            Leave Claude's instructions unchanged, since it is correctly following
+            the written policy exactly as given.
+          correct: false
+          rationale: >-
+            This treats textual compliance with the policy as the goal, rather than
+            a means to the actual goal of a correct outcome. A known operational bug
+            is exactly the kind of context that needs to be kept current.
+          misconception_tag: policy_text_is_ground_truth
+        - label: B
+          text: >-
             Give Claude explicit, current knowledge of the known bug and its refund
             guidance, so its prep work reflects it rather than assuming the static
             policy text is complete.
@@ -84,13 +94,3 @@ scenario:
             the operating context has changed. The written policy is only reliable
             as long as it reflects current reality, and here a known bug means it
             does not.
-        - label: B
-          text: >-
-            Leave Claude's instructions unchanged, since it is correctly following
-            the written policy exactly as given.
-          correct: false
-          rationale: >-
-            This treats textual compliance with the policy as the goal, rather than
-            a means to the actual goal of a correct outcome. A known operational bug
-            is exactly the kind of context that needs to be kept current.
-          misconception_tag: policy_text_is_ground_truth

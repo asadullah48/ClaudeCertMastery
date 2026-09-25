@@ -50,9 +50,12 @@ from app.services.learner_readiness import (
     recompute_learner_domain_state,
 )
 from app.services.readiness_policy import (
+    DOMAIN_BELOW_THRESHOLD,
     MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY,
     MIN_SCENARIO_ATTEMPTS_FOR_SUFFICIENCY,
+    NO_APPLIED_SCENARIO_EVIDENCE,
     REPEATED_MISCONCEPTION,
+    REPEATED_SCENARIO_NOT_DIVERSE_EVIDENCE,
     STALENESS_THRESHOLD_DAYS,
     STATE_APPROACHING_READY,
     STATE_DEVELOPING,
@@ -382,11 +385,11 @@ class TestDistinctScenarioContentVersions:
         )
         assert summary.distinct_scenario_content_versions == 2
 
-    def test_content_version_bump_on_same_scenario_is_distinct(self, db_session):
-        """An attempt's own scenario_content_version snapshot (taken at start time)
-        is what identity is keyed on -- not the scenario's CURRENT content_version --
-        so a historical attempt against an old version stays a distinct content unit
-        from a later attempt against a bumped version."""
+    def test_content_version_bump_on_same_scenario_is_not_a_new_unit(self, db_session):
+        """Projection v3 (Gate C3-C2): identity is the scenario, not the
+        (scenario, content_version) pair. Attempts snapshot different versions here
+        -- a state the seeder guard normally prevents, constructed directly -- and
+        still count as ONE independent scenario."""
         track = make_track(db_session)
         domain = make_domain(db_session, track, "PTE")
         user = make_user(db_session)
@@ -395,11 +398,132 @@ class TestDistinctScenarioContentVersions:
         scenario.content_version = 2
         db_session.commit()
         add_scenario_attempt_evidence(db_session, user=user, scenario=scenario)
+        versions = {
+            a.scenario_content_version for a in db_session.scalars(select(ScenarioAttempt)).all()
+        }
+        assert versions == {1, 2}  # the two attempts really do differ in version
+        summary = build_domain_evidence_summary(
+            db_session, user_id=user.id, track_id=track.id, domain_id=domain.id, now=NOW
+        )
+        assert summary.scenario_evidence_count == 2
+        assert summary.distinct_scenario_content_versions == 1
+
+    def test_different_scenarios_with_same_version_integer_count_as_two(self, db_session):
+        track = make_track(db_session)
+        domain = make_domain(db_session, track, "PTE")
+        user = make_user(db_session)
+        s1 = make_scenario(db_session, domain=domain, external_id="SCN-1", content_version=1)
+        s2 = make_scenario(db_session, domain=domain, external_id="SCN-2", content_version=1)
+        add_scenario_attempt_evidence(db_session, user=user, scenario=s1)
+        add_scenario_attempt_evidence(db_session, user=user, scenario=s2)
         summary = build_domain_evidence_summary(
             db_session, user_id=user.id, track_id=track.id, domain_id=domain.id, now=NOW
         )
         assert summary.scenario_evidence_count == 2
         assert summary.distinct_scenario_content_versions == 2
+
+    def test_repeats_raise_raw_count_but_not_independent_count(self, db_session):
+        track = make_track(db_session)
+        domain = make_domain(db_session, track, "PTE")
+        user = make_user(db_session)
+        s1 = make_scenario(db_session, domain=domain, external_id="SCN-1")
+        s2 = make_scenario(db_session, domain=domain, external_id="SCN-2")
+        observed = []
+        for scenario in (s1, s1, s1, s2, s2):
+            add_scenario_attempt_evidence(db_session, user=user, scenario=scenario)
+            summary = build_domain_evidence_summary(
+                db_session, user_id=user.id, track_id=track.id, domain_id=domain.id, now=NOW
+            )
+            observed.append(
+                (summary.scenario_evidence_count, summary.distinct_scenario_content_versions)
+            )
+        assert observed == [(1, 1), (2, 1), (3, 1), (4, 2), (5, 2)]
+
+
+class TestScenarioSufficiencyEndToEnd:
+    """Gate C3-C2 Section 11 through the real recompute path: practice evidence is
+    fully sufficient and strong in every case, so scenario sufficiency alone decides
+    whether the domain can leave insufficient_evidence."""
+
+    def _world(self, db):
+        track = make_track(db)
+        domain = make_domain(db, track, "PTE")
+        user = make_user(db)
+        add_exam_attempt_evidence(
+            db, user=user, track=track, domain=domain,
+            item_count=MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY,
+            correct_count=MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY,
+            mastery_band=MasteryBand.STRONG, submitted_at=NOW,
+        )
+        return track, domain, user
+
+    def _recompute(self, db, track, domain, user):
+        return recompute_learner_domain_state(
+            db, user_id=user.id, track_id=track.id, domain_id=domain.id, now=NOW
+        )
+
+    def test_zero_scenarios_is_insufficient(self, db_session):
+        track, domain, user = self._world(db_session)
+        row = self._recompute(db_session, track, domain, user)
+        assert row.readiness_state == STATE_INSUFFICIENT_EVIDENCE
+        assert row.reason_codes == [NO_APPLIED_SCENARIO_EVIDENCE]
+
+    def test_one_scenario_is_insufficient(self, db_session):
+        track, domain, user = self._world(db_session)
+        add_scenario_attempt_evidence(
+            db_session, user=user,
+            scenario=make_scenario(db_session, domain=domain, external_id="SCN-1"),
+        )
+        row = self._recompute(db_session, track, domain, user)
+        assert row.readiness_state == STATE_INSUFFICIENT_EVIDENCE
+        assert row.reason_codes == [NO_APPLIED_SCENARIO_EVIDENCE]
+
+    @pytest.mark.parametrize("repeats", [2, 10])
+    def test_same_scenario_repeated_is_still_insufficient(self, db_session, repeats):
+        track, domain, user = self._world(db_session)
+        scenario = make_scenario(db_session, domain=domain, external_id="SCN-1")
+        for _ in range(repeats):
+            add_scenario_attempt_evidence(db_session, user=user, scenario=scenario)
+        row = self._recompute(db_session, track, domain, user)
+        assert (row.scenario_evidence_count, row.distinct_scenario_content_versions) == (repeats, 1)
+        assert row.readiness_state == STATE_INSUFFICIENT_EVIDENCE
+        assert row.reason_codes == [
+            NO_APPLIED_SCENARIO_EVIDENCE, REPEATED_SCENARIO_NOT_DIVERSE_EVIDENCE,
+        ]
+
+    def test_same_scenario_across_two_content_versions_is_still_insufficient(self, db_session):
+        track, domain, user = self._world(db_session)
+        scenario = make_scenario(db_session, domain=domain, external_id="SCN-1", content_version=1)
+        add_scenario_attempt_evidence(db_session, user=user, scenario=scenario)
+        scenario.content_version = 2
+        db_session.commit()
+        add_scenario_attempt_evidence(db_session, user=user, scenario=scenario)
+        row = self._recompute(db_session, track, domain, user)
+        assert (row.scenario_evidence_count, row.distinct_scenario_content_versions) == (2, 1)
+        assert row.readiness_state == STATE_INSUFFICIENT_EVIDENCE
+
+    def test_two_different_scenarios_satisfy_sufficiency(self, db_session):
+        track, domain, user = self._world(db_session)
+        for ext in ("SCN-1", "SCN-2"):
+            add_scenario_attempt_evidence(
+                db_session, user=user,
+                scenario=make_scenario(db_session, domain=domain, external_id=ext, content_version=1),
+            )
+        row = self._recompute(db_session, track, domain, user)
+        assert (row.scenario_evidence_count, row.distinct_scenario_content_versions) == (2, 2)
+        assert row.readiness_state == STATE_READY
+
+    def test_two_different_scenarios_other_gates_still_apply(self, db_session):
+        track, domain, user = self._world(db_session)
+        for ext in ("SCN-1", "SCN-2"):
+            add_scenario_attempt_evidence(
+                db_session, user=user,
+                scenario=make_scenario(db_session, domain=domain, external_id=ext),
+                mastery_band=MasteryBand.DEVELOPING, score_pct=50.0,
+            )
+        row = self._recompute(db_session, track, domain, user)
+        assert row.readiness_state == STATE_DEVELOPING
+        assert row.reason_codes == [DOMAIN_BELOW_THRESHOLD]
 
 
 # --- Timestamp derivation -----------------------------------------------------------
@@ -898,7 +1022,7 @@ class TestRecomputeUpsert:
         row = recompute_learner_domain_state(
             db_session, user_id=user.id, track_id=track.id, domain_id=domain.id, now=NOW
         )
-        assert row.projection_version == PROJECTION_VERSION == 2
+        assert row.projection_version == PROJECTION_VERSION == 3
 
     def test_calculated_at_differs_from_most_recent_evidence_at(self, db_session):
         track = make_track(db_session)
@@ -1203,3 +1327,96 @@ class TestIsolationFromProviders:
             assert not any(forbidden in name for name in imported_names), (
                 f"learner_readiness.py must not import anything referencing {forbidden!r}"
             )
+
+
+# --- Projection v2 -> v3 in-place upgrade (Gate C3-C2) --------------------------------
+
+
+class TestV2ToV3InPlaceRecompute:
+    EVIDENCE_MODELS = (ExamAttempt, AttemptItem, AttemptDomainScore, Scenario,
+                       ScenarioAttempt, ScenarioEvent, Question, AnswerOption)
+
+    def test_v2_row_is_upgraded_in_place_to_v3_without_touching_evidence(self, db_session):
+        """A row written under v2 pair semantics (one scenario attempted at two
+        content versions -> 2 "distinct" units) is recomputed in place: same row,
+        same identity, version 3, one independent scenario, still insufficient."""
+        track = make_track(db_session)
+        domain = make_domain(db_session, track, "PTE")
+        user = make_user(db_session)
+        add_exam_attempt_evidence(
+            db_session, user=user, track=track, domain=domain,
+            item_count=MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY,
+            correct_count=MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY,
+            mastery_band=MasteryBand.STRONG, submitted_at=NOW,
+        )
+        scenario = make_scenario(db_session, domain=domain, external_id="SCN-1", content_version=1)
+        add_scenario_attempt_evidence(db_session, user=user, scenario=scenario)
+        scenario.content_version = 2
+        db_session.commit()
+        add_scenario_attempt_evidence(db_session, user=user, scenario=scenario)
+
+        legacy = LearnerDomainState(
+            user_id=user.id, track_id=track.id, domain_id=domain.id,
+            practice_evidence_count=MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY,
+            scenario_evidence_count=2, distinct_scenario_content_versions=2,
+            recent_practice_mastery_band="strong", recent_scenario_mastery_band="strong",
+            most_recent_evidence_at=NOW, unresolved_misconception_count=0,
+            readiness_state=STATE_READY, reason_codes=[],
+            calculated_at=NOW - timedelta(days=1), projection_version=2,
+        )
+        db_session.add(legacy)
+        db_session.commit()
+        legacy_id = legacy.id
+
+        db_session.expire_all()
+        before = {m.__name__: snapshot_table(db_session, m) for m in self.EVIDENCE_MODELS}
+
+        row = recompute_learner_domain_state(
+            db_session, user_id=user.id, track_id=track.id, domain_id=domain.id, now=NOW
+        )
+
+        assert row.id == legacy_id
+        assert (row.user_id, row.track_id, row.domain_id) == (user.id, track.id, domain.id)
+        assert row.projection_version == 3
+        assert (row.scenario_evidence_count, row.distinct_scenario_content_versions) == (2, 1)
+        assert row.readiness_state == STATE_INSUFFICIENT_EVIDENCE
+        assert row.reason_codes == [
+            NO_APPLIED_SCENARIO_EVIDENCE, REPEATED_SCENARIO_NOT_DIVERSE_EVIDENCE,
+        ]
+        assert len(db_session.scalars(select(LearnerDomainState)).all()) == 1
+
+        db_session.expire_all()
+        after = {m.__name__: snapshot_table(db_session, m) for m in self.EVIDENCE_MODELS}
+        assert after == before
+
+    def test_production_shaped_evidence_keeps_expected_independent_counts(self, db_session):
+        """Today's production shape: one submitted PTE-001 attempt, no scenario
+        evidence in the other six domains, sufficient practice everywhere -> v3
+        independent counts PTE=1, others 0, all insufficient_evidence."""
+        track = make_track(db_session)
+        user = make_user(db_session)
+        codes = ["PTE", "OEV", "PMS", "WISD", "CKM", "GRR", "TRO"]
+        domains = {c: make_domain(db_session, track, c, position=i + 1) for i, c in enumerate(codes)}
+        for domain in domains.values():
+            add_exam_attempt_evidence(
+                db_session, user=user, track=track, domain=domain,
+                item_count=MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY,
+                correct_count=MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY,
+                mastery_band=MasteryBand.STRONG, submitted_at=NOW,
+            )
+            make_scenario(db_session, domain=domain, external_id=f"CCAO-F-{domain.code}-SCN-001")
+        pte_scenario = db_session.scalar(
+            select(Scenario).where(Scenario.external_id == "CCAO-F-PTE-SCN-001")
+        )
+        add_scenario_attempt_evidence(db_session, user=user, scenario=pte_scenario)
+
+        observed = {}
+        for code, domain in domains.items():
+            row = recompute_learner_domain_state(
+                db_session, user_id=user.id, track_id=track.id, domain_id=domain.id, now=NOW
+            )
+            observed[code] = (row.distinct_scenario_content_versions, row.readiness_state,
+                              row.projection_version)
+        assert observed == {
+            c: (1 if c == "PTE" else 0, STATE_INSUFFICIENT_EVIDENCE, 3) for c in codes
+        }

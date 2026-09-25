@@ -2,7 +2,7 @@ scenario:
   external_id: CCAO-F-TRO-SCN-001
   domain_code: TRO
   title: "The Slow Regression"
-  content_version: 1
+  content_version: 2
   active: true
   difficulty: 2
   source_reference: >-
@@ -28,16 +28,6 @@ scenario:
       options:
         - label: A
           text: >-
-            Check whether the size or length of the input documents being
-            summarized has grown, since that is a common source of "nothing changed
-            but it got slower."
-          correct: true
-          rationale: >-
-            Latency for a summarization task typically scales with how much text
-            has to be processed. A growing average input size is the cheapest thing
-            to rule out before assuming something changed upstream.
-        - label: B
-          text: >-
             Immediately escalate to Anthropic, assuming a platform-side outage or
             degradation, without checking anything on the team's own side first.
           correct: false
@@ -46,7 +36,7 @@ scenario:
             own side wastes time on both sides if the actual cause turns out to be
             input growth.
           misconception_tag: assume_external_outage
-        - label: C
+        - label: B
           text: >-
             Try lowering the temperature and shortening the prompt's instructions,
             assuming that will address the slowdown.
@@ -56,6 +46,16 @@ scenario:
             instructions does not address a root cause that has not been identified
             yet. This is a guess, not a diagnosis.
           misconception_tag: temperature_or_prompt_tuning_fixes_latency
+        - label: C
+          text: >-
+            Check whether the size or length of the input documents being
+            summarized has grown, since that is a common source of "nothing changed
+            but it got slower."
+          correct: true
+          rationale: >-
+            Latency for a summarization task typically scales with how much text
+            has to be processed. A growing average input size is the cheapest thing
+            to rule out before assuming something changed upstream.
     - position: 2
       type: mcq
       prompt: >-
@@ -66,16 +66,6 @@ scenario:
       options:
         - label: A
           text: >-
-            Measure where the added time actually occurs with a per-call latency
-            breakdown, rather than continuing to guess based on plausible-sounding
-            causes.
-          correct: true
-          rationale: >-
-            Once the simple explanation (input size) is ruled out, the next step is
-            to localize the delay directly. A latency breakdown would have surfaced
-            the added hop immediately, instead of relying on another guess.
-        - label: B
-          text: >-
             Conclude the model itself has gotten slower, since the slowdown roughly
             coincided with when the team assumes the model provider made changes.
           correct: false
@@ -84,3 +74,13 @@ scenario:
             especially when there is an actual, identifiable change on the team's
             own side (the new logging hop) that has not been checked yet.
           misconception_tag: symptom_matches_cause
+        - label: B
+          text: >-
+            Measure where the added time actually occurs with a per-call latency
+            breakdown, rather than continuing to guess based on plausible-sounding
+            causes.
+          correct: true
+          rationale: >-
+            Once the simple explanation (input size) is ruled out, the next step is
+            to localize the delay directly. A latency breakdown would have surfaced
+            the added hop immediately, instead of relying on another guess.

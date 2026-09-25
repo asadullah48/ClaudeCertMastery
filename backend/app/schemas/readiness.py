@@ -27,7 +27,10 @@ class DomainReadinessOut(BaseModel):
     reason_codes: list[str]
     is_materialized: bool
     practice_evidence_count: int
+    # Raw submitted scenario attempts, repeats included.
     scenario_evidence_count: int
+    # Legacy name kept for API compatibility. Projection v3: distinct submitted
+    # scenario IDs (independent scenario evidence units), not content versions.
     distinct_scenario_content_versions: int
     recent_practice_mastery_band: str | None = None
     recent_scenario_mastery_band: str | None = None

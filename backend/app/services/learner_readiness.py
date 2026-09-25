@@ -48,11 +48,15 @@ from app.services.scoring import MasteryBand
 
 # Represents projection *policy* semantics, never git/migration state. Set explicitly on
 # every upsert (not left to the ORM column default, which stays 1) so an UPDATE path is
-# just as deterministic as an INSERT path, and a v1 row recomputed in place becomes v2.
+# just as deterministic as an INSERT path, and an older row recomputed in place is
+# upgraded to the current version.
 #   v1: practice band = newest submitted attempt's AttemptDomainScore band.
 #   v2 (Gate C3-B2): only whole-exam >=80%-complete attempts qualify; band pooled over
 #       whole attempts newest-first until >= PRACTICE_BAND_MIN_ITEMS domain items.
-PROJECTION_VERSION = 2
+#   v3 (Gate C3-C2): scenario diversity = distinct submitted scenario_id (a content
+#       version bump of the same scenario is never a new independent evidence unit),
+#       and scenario sufficiency is judged on that distinct count, not raw attempts.
+PROJECTION_VERSION = 3
 
 
 def _as_utc(dt: datetime | None) -> datetime | None:
@@ -308,9 +312,10 @@ def build_domain_evidence_summary(
     resolved via the Scenario -> Domain relationship, never a denormalized column
     that doesn't exist on ScenarioAttempt. `scenario_evidence_count` counts every
     eligible attempt (repeats included, honestly); `distinct_scenario_content_versions`
-    separately counts distinct (scenario_id, scenario_content_version) pairs, per
-    plan Section 6's duplicate-evidence policy -- raw count and diversity are kept as
-    two different fields, never collapsed into one.
+    (legacy name, projection v3 meaning: distinct submitted scenario IDs) separately
+    counts independent scenarios, per plan Section 6's duplicate-evidence policy --
+    raw count and diversity are kept as two different fields, never collapsed into
+    one. Scenario sufficiency in the classifier reads the distinct count.
     """
     now = now or datetime.now(timezone.utc)
 
@@ -336,9 +341,11 @@ def build_domain_evidence_summary(
         )
     ).all()
     scenario_evidence_count = len(scenario_attempts)
-    distinct_scenario_content_versions = len(
-        {(sa.scenario_id, sa.scenario_content_version) for sa in scenario_attempts}
-    )
+    # v3: independent evidence units are distinct scenarios. scenario_content_version
+    # is deliberately ignored here -- a revision of the same scenario is the same
+    # assessment, not a second observation (Gate C3-C1/C3-C2). The field keeps its
+    # legacy name for schema/API compatibility only; see LearnerDomainState.
+    distinct_scenario_content_versions = len({sa.scenario_id for sa in scenario_attempts})
     latest_scenario = max(
         scenario_attempts,
         key=lambda sa: (_as_utc(sa.submitted_at) or datetime.min.replace(tzinfo=timezone.utc), sa.id),

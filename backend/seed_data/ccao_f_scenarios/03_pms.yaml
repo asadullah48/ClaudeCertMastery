@@ -2,7 +2,7 @@ scenario:
   external_id: CCAO-F-PMS-SCN-001
   domain_code: PMS
   title: "The Latency Budget"
-  content_version: 1
+  content_version: 2
   active: true
   difficulty: 2
   source_reference: >-
@@ -28,15 +28,6 @@ scenario:
       options:
         - label: A
           text: >-
-            Route short, simple messages to a faster and smaller tier, and reserve
-            the largest tier for messages that need deeper reasoning.
-          correct: true
-          rationale: >-
-            Latency and cost scale with the tier used. Matching the tier to the
-            task's actual complexity avoids paying the largest tier's latency cost
-            for a one-word acknowledgment.
-        - label: B
-          text: >-
             Keep using the largest tier for everything, since more capability can
             only help output quality.
           correct: false
@@ -45,7 +36,7 @@ scenario:
             a simple acknowledgment does not need or benefit from that extra
             capability.
           misconception_tag: capability_always_wins
-        - label: C
+        - label: B
           text: >-
             Add caching for common responses instead of changing which tier handles
             which message.
@@ -55,6 +46,15 @@ scenario:
             are unique text. It does not address the root cause: every message,
             regardless of complexity, is paying the slowest tier's latency.
           misconception_tag: caching_fixes_latency
+        - label: C
+          text: >-
+            Route short, simple messages to a faster and smaller tier, and reserve
+            the largest tier for messages that need deeper reasoning.
+          correct: true
+          rationale: >-
+            Latency and cost scale with the tier used. Matching the tier to the
+            task's actual complexity avoids paying the largest tier's latency cost
+            for a one-word acknowledgment.
     - position: 2
       type: mcq
       prompt: >-
@@ -65,16 +65,6 @@ scenario:
       options:
         - label: A
           text: >-
-            Route by an estimate of the task's actual complexity or intent, not by
-            message length, since a short message can still require deep reasoning.
-          correct: true
-          rationale: >-
-            Message length and task complexity are different signals. A one-line
-            troubleshooting question can be harder than a five-line greeting, so the
-            routing signal itself needs to change, not just where its threshold
-            sits.
-        - label: B
-          text: >-
             Keep routing by message length, but raise the length threshold so more
             messages qualify for the larger tier.
           correct: false
@@ -83,3 +73,13 @@ scenario:
             miscategorized. It does not fix the underlying problem of using length
             as a stand-in for complexity.
           misconception_tag: length_as_complexity
+        - label: B
+          text: >-
+            Route by an estimate of the task's actual complexity or intent, not by
+            message length, since a short message can still require deep reasoning.
+          correct: true
+          rationale: >-
+            Message length and task complexity are different signals. A one-line
+            troubleshooting question can be harder than a five-line greeting, so the
+            routing signal itself needs to change, not just where its threshold
+            sits.

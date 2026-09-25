@@ -2,7 +2,7 @@ scenario:
   external_id: CCAO-F-GRR-SCN-001
   domain_code: GRR
   title: "The Borrowed Example"
-  content_version: 1
+  content_version: 2
   active: true
   difficulty: 3
   source_reference: >-
@@ -30,6 +30,16 @@ scenario:
       options:
         - label: A
           text: >-
+            Share it as is internally, since it is only going to employees and not
+            the public.
+          correct: false
+          rationale: >-
+            "Internal only" describes the audience, not whether the customer would
+            reasonably expect their transcript to be reused this way. An audience
+            restriction does not resolve a scope-of-use problem.
+          misconception_tag: internal_sharing_is_safe
+        - label: B
+          text: >-
             Remove or replace the customer's identifying details before the
             document is shared, even internally, since the transcript was not
             collected for this purpose.
@@ -39,16 +49,6 @@ scenario:
             internal purpose is a data-handling issue regardless of audience. The
             fix is removing the identifying details, not discarding the example
             itself.
-        - label: B
-          text: >-
-            Share it as is internally, since it is only going to employees and not
-            the public.
-          correct: false
-          rationale: >-
-            "Internal only" describes the audience, not whether the customer would
-            reasonably expect their transcript to be reused this way. An audience
-            restriction does not resolve a scope-of-use problem.
-          misconception_tag: internal_sharing_is_safe
         - label: C
           text: >-
             Leave the identifying details in, since the customer's experience is a

@@ -2,7 +2,7 @@ scenario:
   external_id: CCAO-F-CKM-SCN-001
   domain_code: CKM
   title: "The Stale Playbook"
-  content_version: 1
+  content_version: 2
   active: true
   difficulty: 2
   source_reference: >-
@@ -31,16 +31,6 @@ scenario:
       options:
         - label: A
           text: >-
-            Add the temporary exception to the knowledge document immediately, with
-            a clear expiry date, rather than waiting for the scheduled quarterly
-            refresh.
-          correct: true
-          rationale: >-
-            The scheduled cadence is a default, not a ceiling. A knowledge source
-            known to be actively producing wrong answers right now should be
-            corrected as soon as that is known.
-        - label: B
-          text: >-
             Leave it until the next scheduled quarterly refresh, since that is the
             established process.
           correct: false
@@ -49,7 +39,7 @@ scenario:
             exists to serve accurate answers; it should not override accuracy when
             the document is already known to be stale.
           misconception_tag: schedule_over_accuracy
-        - label: C
+        - label: B
           text: >-
             Tell Claude in the system prompt to "mention that some products have
             extended returns," without updating the knowledge document itself.
@@ -59,6 +49,16 @@ scenario:
             a system-prompt patch and an unchanged document. The underlying source
             should be the one that gets corrected.
           misconception_tag: instruction_patch_without_source_update
+        - label: C
+          text: >-
+            Add the temporary exception to the knowledge document immediately, with
+            a clear expiry date, rather than waiting for the scheduled quarterly
+            refresh.
+          correct: true
+          rationale: >-
+            The scheduled cadence is a default, not a ceiling. A knowledge source
+            known to be actively producing wrong answers right now should be
+            corrected as soon as that is known.
     - position: 2
       type: mcq
       prompt: >-

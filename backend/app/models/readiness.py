@@ -73,6 +73,10 @@ class LearnerDomainState(Base):
     # Evidence coverage (plan Section 3).
     practice_evidence_count: Mapped[int] = mapped_column(Integer, default=0)
     scenario_evidence_count: Mapped[int] = mapped_column(Integer, default=0)
+    # LEGACY NAME. Projection v1/v2 stored distinct (scenario_id, content_version)
+    # pairs; projection v3 (Gate C3-C2) stores distinct submitted scenario IDs -- a
+    # content-version bump never adds an independent evidence unit. Kept physically
+    # under this name for schema/API compatibility; a rename needs its own migration.
     distinct_scenario_content_versions: Mapped[int] = mapped_column(Integer, default=0)
 
     # Recent performance, reusing scoring.MasteryBand's string values verbatim -- no

@@ -158,33 +158,32 @@ class TestDeveloping:
         assert r.state == STATE_DEVELOPING
         assert r.reason_codes == [REPEATED_MISCONCEPTION]
 
-    def test_sufficient_counts_but_insufficient_diversity_is_developing_not_ready(self):
-        """Sufficient raw counts (practice>=5, scenario>=2) with repeated identical
-        content does not reach insufficient_evidence (the counts are real) nor
-        ready (not diverse) -- it lands in developing, per the plan's explicit
-        `developing` rule and reason code."""
+    def test_repeated_single_scenario_is_insufficient_not_developing(self):
+        """Projection v3 (Gate C3-C2): five raw attempts of ONE scenario are one
+        independent observation. Sufficiency is judged on distinct scenarios, so this
+        stays insufficient_evidence, and the repeat cap is named explicitly because
+        the raw count alone would have met the minimum."""
         r = classify_domain_readiness(
             make_summary(
                 scenario_evidence_count=5, distinct_scenario_content_versions=1
             )
         )
-        assert r.state == STATE_DEVELOPING
-        assert r.reason_codes == [REPEATED_SCENARIO_NOT_DIVERSE_EVIDENCE]
+        assert r.state == STATE_INSUFFICIENT_EVIDENCE
+        assert r.evidence_sufficient is False
+        assert r.reason_codes == [
+            NO_APPLIED_SCENARIO_EVIDENCE,
+            REPEATED_SCENARIO_NOT_DIVERSE_EVIDENCE,
+        ]
 
     def test_multiple_developing_reasons_all_reported(self):
         r = classify_domain_readiness(
             make_summary(
                 recent_practice_mastery_band=MasteryBand.CRITICAL,
                 unresolved_misconception_count=2,
-                distinct_scenario_content_versions=1,
             )
         )
         assert r.state == STATE_DEVELOPING
-        assert r.reason_codes == [
-            DOMAIN_BELOW_THRESHOLD,
-            REPEATED_MISCONCEPTION,
-            REPEATED_SCENARIO_NOT_DIVERSE_EVIDENCE,
-        ]
+        assert r.reason_codes == [DOMAIN_BELOW_THRESHOLD, REPEATED_MISCONCEPTION]
 
 
 # --- Approaching ready / recency -------------------------------------------------
@@ -251,7 +250,7 @@ class TestReady:
             ({"recent_practice_mastery_band": MasteryBand.DEVELOPING}, STATE_DEVELOPING),
             ({"recent_scenario_mastery_band": MasteryBand.CRITICAL}, STATE_DEVELOPING),
             ({"unresolved_misconception_count": 1}, STATE_DEVELOPING),
-            ({"distinct_scenario_content_versions": 1}, STATE_DEVELOPING),
+            ({"distinct_scenario_content_versions": 1}, STATE_INSUFFICIENT_EVIDENCE),
             ({"most_recent_evidence_at": NOW - timedelta(days=STALENESS_THRESHOLD_DAYS + 1)},
              STATE_APPROACHING_READY),
         ],
@@ -509,3 +508,80 @@ class TestStateVocabularyMatchesModel:
         assert STATE_DEVELOPING == ReadinessState.DEVELOPING.value
         assert STATE_APPROACHING_READY == ReadinessState.APPROACHING_READY.value
         assert STATE_READY == ReadinessState.READY.value
+
+
+# --- Projection v3: scenario sufficiency counts independent scenarios (Gate C3-C2) ---
+
+
+class TestScenarioSufficiencyIsDistinctScenarios:
+    """Gate C3-C2 Section 11 matrix at the classifier level. `raw` is
+    scenario_evidence_count (every submitted attempt); `distinct` is the legacy-named
+    distinct_scenario_content_versions field, which under projection v3 holds
+    distinct submitted scenario IDs. Everything else stays at the fully-qualifying
+    baseline, so only scenario sufficiency can block `ready`."""
+
+    @pytest.mark.parametrize(
+        "raw,distinct,expected_codes",
+        [
+            (0, 0, [NO_APPLIED_SCENARIO_EVIDENCE]),  # zero scenarios
+            (1, 1, [NO_APPLIED_SCENARIO_EVIDENCE]),  # one distinct scenario
+            (2, 1, [NO_APPLIED_SCENARIO_EVIDENCE,
+                    REPEATED_SCENARIO_NOT_DIVERSE_EVIDENCE]),  # same scenario twice
+            (10, 1, [NO_APPLIED_SCENARIO_EVIDENCE,
+                     REPEATED_SCENARIO_NOT_DIVERSE_EVIDENCE]),  # same scenario ten times
+        ],
+    )
+    def test_fewer_than_two_distinct_scenarios_is_insufficient(self, raw, distinct, expected_codes):
+        r = classify_domain_readiness(
+            make_summary(scenario_evidence_count=raw, distinct_scenario_content_versions=distinct)
+        )
+        assert r.state == STATE_INSUFFICIENT_EVIDENCE
+        assert r.evidence_sufficient is False
+        assert r.reason_codes == expected_codes
+
+    def test_two_distinct_scenarios_satisfy_scenario_sufficiency(self):
+        r = classify_domain_readiness(
+            make_summary(scenario_evidence_count=2, distinct_scenario_content_versions=2)
+        )
+        assert r.state == STATE_READY
+        assert r.evidence_sufficient is True
+
+    def test_repeats_on_top_of_two_distinct_scenarios_still_sufficient(self):
+        r = classify_domain_readiness(
+            make_summary(scenario_evidence_count=7, distinct_scenario_content_versions=2)
+        )
+        assert r.state == STATE_READY
+        assert REPEATED_SCENARIO_NOT_DIVERSE_EVIDENCE not in r.reason_codes
+
+    def test_two_distinct_scenarios_do_not_bypass_other_gates(self):
+        """Scenario sufficiency is necessary, never sufficient: every other
+        readiness gate still applies independently."""
+        weak = classify_domain_readiness(
+            make_summary(recent_scenario_mastery_band=MasteryBand.DEVELOPING)
+        )
+        assert weak.state == STATE_DEVELOPING
+        assert weak.reason_codes == [DOMAIN_BELOW_THRESHOLD]
+
+        thin_practice = classify_domain_readiness(
+            make_summary(practice_evidence_count=MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY - 1)
+        )
+        assert thin_practice.state == STATE_INSUFFICIENT_EVIDENCE
+        assert thin_practice.reason_codes == [INSUFFICIENT_PRACTICE_EVIDENCE]
+
+        misconception = classify_domain_readiness(make_summary(unresolved_misconception_count=1))
+        assert misconception.state == STATE_DEVELOPING
+        assert misconception.reason_codes == [REPEATED_MISCONCEPTION]
+
+    def test_repeated_code_never_appears_in_developing_tier(self):
+        """Once sufficiency passes, diversity is already met -- the repeat reason
+        code is confined to the insufficient tier under v3."""
+        for raw, distinct in [(2, 2), (3, 2), (10, 5)]:
+            r = classify_domain_readiness(
+                make_summary(
+                    scenario_evidence_count=raw,
+                    distinct_scenario_content_versions=distinct,
+                    recent_practice_mastery_band=MasteryBand.CRITICAL,
+                )
+            )
+            assert r.state == STATE_DEVELOPING
+            assert REPEATED_SCENARIO_NOT_DIVERSE_EVIDENCE not in r.reason_codes

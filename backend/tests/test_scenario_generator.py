@@ -215,11 +215,30 @@ class TestRecommendNextActionCore:
         assert NO_APPLIED_SCENARIO_EVIDENCE in result.reason_codes
 
     def test_repeated_non_diverse_scenario_preserves_evidence_quality_distinction(self):
-        c = candidate("PTE", 1, state=STATE_DEVELOPING,
-                       reasons=[REPEATED_SCENARIO_NOT_DIVERSE_EVIDENCE], practice=10, scenario=3)
+        # Projection v3 shape (Gate C3-C2): repeats of one scenario leave the domain
+        # insufficient_evidence, with the repeat cap named alongside the sufficiency
+        # reason. The raw scenario count (3) is still what the ranking compares.
+        c = candidate("PTE", 1, state=STATE_INSUFFICIENT_EVIDENCE,
+                       reasons=[NO_APPLIED_SCENARIO_EVIDENCE,
+                                REPEATED_SCENARIO_NOT_DIVERSE_EVIDENCE],
+                       practice=MIN_PRACTICE_ITEMS_FOR_SUFFICIENCY, scenario=3)
         result = recommend_next_action_from_candidates([c])
         assert result.action == ACTION_ATTEMPT_SCENARIO
         assert REPEATED_SCENARIO_NOT_DIVERSE_EVIDENCE in result.reason_codes
+
+    def test_current_production_shape_still_recommends_oev_scenario(self):
+        """Gate C3-C2 regression: today's founder projections (PTE one scenario,
+        OEV-TRO none, all practice-sufficient, all insufficient_evidence) must still
+        yield ATTEMPT_SCENARIO on OEV under projection v3."""
+        practice = {"PTE": 67, "OEV": 111, "PMS": 60, "WISD": 89, "CKM": 60, "GRR": 81, "TRO": 52}
+        cands = [
+            candidate(code, i + 1, state=STATE_INSUFFICIENT_EVIDENCE,
+                      reasons=[NO_APPLIED_SCENARIO_EVIDENCE], practice=p,
+                      scenario=1 if code == "PTE" else 0)
+            for i, (code, p) in enumerate(practice.items())
+        ]
+        result = recommend_next_action_from_candidates(cands)
+        assert (result.action, result.domain_code) == (ACTION_ATTEMPT_SCENARIO, "OEV")
 
     def test_unresolved_misconception_outranks_plain_developing(self):
         plain = candidate("PTE", 1, state=STATE_DEVELOPING, reasons=[DOMAIN_BELOW_THRESHOLD])
