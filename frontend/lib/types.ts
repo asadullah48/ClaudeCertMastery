@@ -207,6 +207,12 @@ export interface ScenarioListItem {
   title: string;
   domain_code: string;
   difficulty: number;
+  /** Learner-specific; optional so an older backend still type-checks. */
+  learner_status?: "not_started" | "in_progress" | "completed";
+  /** False once this scenario's answers have been seen: a new attempt is practice only. */
+  counts_as_evidence?: boolean;
+  /** Band of the learner's first (evidence) attempt, when submitted. */
+  evidence_band?: string | null;
 }
 
 export interface ScenarioStepOption {
@@ -233,6 +239,43 @@ export interface ScenarioStartResponse {
   domain_code: string;
   status: string;
   current_step: ScenarioStep;
+  counts_as_evidence?: boolean;
+}
+
+/* ---- KSOR readiness (GET /me/tracks/{code}/readiness) ---- */
+
+export interface DomainReadiness {
+  domain_code: string;
+  domain_name: string;
+  domain_position: number;
+  readiness_state: string;
+  reason_codes: string[];
+  is_materialized: boolean;
+  practice_evidence_count: number;
+  scenario_evidence_count: number;
+  /** Legacy field name: the number of distinct scenarios with evidence. */
+  distinct_scenario_content_versions: number;
+  recent_practice_mastery_band: string | null;
+  recent_scenario_mastery_band: string | null;
+  most_recent_evidence_at: string | null;
+  unresolved_misconception_count: number;
+  calculated_at: string | null;
+}
+
+export interface NextAction {
+  action: string;
+  domain_code: string | null;
+  reason_codes: string[];
+  scenario_external_id?: string | null;
+}
+
+export interface TrackReadiness {
+  track_code: string;
+  track_name: string;
+  overall_readiness_state: string;
+  overall_reason_codes: string[];
+  domains: DomainReadiness[];
+  next_action: NextAction;
 }
 
 export interface ScenarioHintResponse {

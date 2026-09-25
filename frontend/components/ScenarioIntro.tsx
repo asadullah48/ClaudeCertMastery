@@ -16,11 +16,14 @@ export function ScenarioIntro({
   domainCode,
   loading,
   onBegin,
+  countsAsEvidence = true,
 }: {
   title: string;
   domainCode: string;
   loading: boolean;
   onBegin: () => void;
+  /** False when the learner has already seen this scenario's answers. */
+  countsAsEvidence?: boolean;
 }) {
   return (
     <div>
@@ -34,6 +37,14 @@ export function ScenarioIntro({
         You will work through a short sequence of decisions, each graded the moment
         you commit to it, with what happened and why shown before you move on.
       </p>
+
+      {!countsAsEvidence && (
+        <p className="mt-4 max-w-xl rounded-lg border border-[var(--color-warn)]/40 bg-[var(--color-warn)]/5 p-3 text-sm text-[var(--color-warn)]">
+          Practice only: you have already seen this scenario&apos;s answers, so this
+          attempt will not change your readiness. A scenario you have not seen yet is
+          the way to show new evidence.
+        </p>
+      )}
 
       <button
         type="button"

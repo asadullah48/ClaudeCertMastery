@@ -148,6 +148,7 @@ export default function ScenarioRunnerPage({
           domainCode={preview?.domain_code ?? code}
           loading={(preview === null) as boolean}
           onBegin={() => void start(externalId)}
+          countsAsEvidence={preview?.counts_as_evidence ?? true}
         />
       </div>
     </main>

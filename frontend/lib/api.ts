@@ -11,6 +11,7 @@ import type {
   ScenarioStepAnswerResponse,
   SubmitAnswer,
   Track,
+  TrackReadiness,
   ZiaCheckAnswer,
   ZiaConcepts,
   ZiaExplain,
@@ -134,6 +135,10 @@ export const api = {
     ),
   getScenarioAttempt: (attemptId: number) =>
     get<ScenarioAttemptState>(`/scenario-attempts/${attemptId}`),
+
+  // KSOR readiness: deterministic and evidence-derived; never a certification prediction.
+  getReadiness: (trackCode: string) =>
+    get<TrackReadiness>(`/me/tracks/${encodeURIComponent(trackCode)}/readiness`),
 };
 
 export { ApiError, API_URL };

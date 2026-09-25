@@ -152,6 +152,12 @@ export default async function TrackDetail({
           >
             Browse scenarios ({scenarios.length})
           </Link>
+          <Link
+            href={`/tracks/${code}/readiness`}
+            className="ml-3 inline-block rounded-md border border-[var(--color-edge)] px-4 py-2 text-sm hover:border-[var(--color-accent)]"
+          >
+            Your readiness
+          </Link>
         </section>
       )}
 

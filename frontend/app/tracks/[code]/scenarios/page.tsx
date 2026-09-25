@@ -5,6 +5,30 @@ import type { ScenarioListItem, Track } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
+/** Learner status for one scenario: whether a new attempt still counts as evidence
+ * (only a first exposure does) and the band of the evidence attempt, if any. */
+function ScenarioStatusBadge({ item }: { item: ScenarioListItem }) {
+  if (item.learner_status === "completed") {
+    return (
+      <span className="rounded border border-[var(--color-edge)] px-2 py-0.5 text-xs text-[var(--color-muted)]">
+        Completed{item.evidence_band ? ` · ${item.evidence_band}` : ""} · practice only now
+      </span>
+    );
+  }
+  if (item.counts_as_evidence === false) {
+    return (
+      <span className="rounded border border-[var(--color-edge)] px-2 py-0.5 text-xs text-[var(--color-muted)]">
+        Answers seen · practice only
+      </span>
+    );
+  }
+  return (
+    <span className="rounded border border-[var(--color-pass)]/50 px-2 py-0.5 text-xs text-[var(--color-pass)]">
+      {item.learner_status === "in_progress" ? "In progress" : "New"} · counts toward readiness
+    </span>
+  );
+}
+
 export default async function ScenarioListPage({
   params,
 }: {
@@ -59,9 +83,12 @@ export default async function ScenarioListPage({
               href={`/tracks/${code}/scenarios/${s.external_id}`}
               className="rounded-lg border border-[var(--color-edge)] bg-[var(--color-surface)] p-5 transition-colors hover:border-[var(--color-accent)]"
             >
-              <span className="rounded bg-[var(--color-edge)] px-2 py-0.5 font-mono text-xs">
-                {s.domain_code}
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded bg-[var(--color-edge)] px-2 py-0.5 font-mono text-xs">
+                  {s.domain_code}
+                </span>
+                <ScenarioStatusBadge item={s} />
+              </div>
               <div className="mt-2 text-sm font-medium">{s.title}</div>
             </Link>
           ))}
