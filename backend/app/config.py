@@ -34,6 +34,16 @@ class Settings(BaseSettings):
 
     cors_origins: str = "http://localhost:3000"
 
+    # --- Learner authentication (app/auth.py) ------------------------------------
+    # "clerk" verifies Clerk session JWTs; "dev" is the pre-auth single shared user and
+    # must be opted into explicitly (local development only). Clerk mode with no issuer
+    # configured fails closed with 503 rather than falling back to a shared identity.
+    auth_mode: str = "clerk"
+    # Clerk Frontend API URL, e.g. https://example.clerk.accounts.dev -- the token `iss`.
+    clerk_issuer: str | None = None
+    # Defaults to {clerk_issuer}/.well-known/jwks.json. Public keys, not a secret.
+    clerk_jwks_url: str | None = None
+
     # --- Zia Tutor AI MCP (optional companion tutor) ---------------------------
     # The endpoint is an OAuth 2.0 protected resource (probed 2026-09-03: 401 with
     # authorization server auth.panaversity.org), so this token is a bearer ACCESS
@@ -46,6 +56,12 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def clerk_jwks_endpoint(self) -> str:
+        if self.clerk_jwks_url:
+            return self.clerk_jwks_url
+        return f"{(self.clerk_issuer or '').rstrip('/')}/.well-known/jwks.json"
 
     @property
     def ai_explanations_enabled(self) -> bool:

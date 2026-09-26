@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
+import { dark } from "@clerk/themes";
 import { SiteFooter } from "@/components/SiteFooter";
+import { SiteHeader } from "@/components/SiteHeader";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -14,10 +17,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen antialiased">
-        <div className="mx-auto max-w-5xl px-6 py-10">
-          {children}
-          <SiteFooter />
-        </div>
+        <ClerkProvider appearance={{ theme: dark, variables: { colorPrimary: "#c96442" } }}>
+          <div className="mx-auto max-w-5xl px-6 py-10">
+            <SiteHeader />
+            {children}
+            <SiteFooter />
+          </div>
+        </ClerkProvider>
       </body>
     </html>
   );

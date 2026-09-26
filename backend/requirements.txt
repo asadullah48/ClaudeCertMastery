@@ -13,6 +13,7 @@ mcp>=1.30.0,<2.0               # Gate C2C-1: Zia MCP client transport (zia_clien
                                 # against the 2.x API -- upper-bounded until that is verified
 httpx>=0.27
 slowapi>=0.1.9                 # Gate B1A: rate limiting; tested against 0.1.10 (repo convention is compatible-range, not exact pins -- see every other line in this file)
+PyJWT[crypto]>=2.10            # Learner auth: Clerk session JWT (RS256) verification via JWKS; tested against 2.10.1
 
 # dev / test
 pytest>=8.3

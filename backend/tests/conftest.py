@@ -23,6 +23,18 @@ def _disable_rate_limiting():
     _rate_limiter.enabled = False
     yield
 
+
+@pytest.fixture(autouse=True)
+def _dev_auth_mode(monkeypatch):
+    """Production defaults to Clerk auth and fails closed without it. The suites that
+    predate learner auth exercise evidence semantics through the single seeded dev
+    user, so they run in explicit dev mode; test_auth_isolation.py switches back to
+    clerk mode to test real token verification and cross-learner isolation."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "auth_mode", "dev")
+    yield
+
 # The published CCAO-F blueprint. Used across suites so that a change to the real
 # blueprint surfaces as a single failing constant rather than seven scattered ones.
 CCAO_F_WEIGHTS = [

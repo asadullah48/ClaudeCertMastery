@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.auth import get_current_user
 from app.database import get_db
 from app.models import (
     AttemptDomainScore,
@@ -17,6 +18,7 @@ from app.models import (
     ExamAttempt,
     Question,
     Track,
+    User,
 )
 from app.schemas import (
     AttemptOut,
@@ -31,20 +33,26 @@ from app.services.scoring import QuestionType, grade_item, score_attempt
 router = APIRouter(prefix="/attempts", tags=["attempts"])
 
 
-def _load_attempt(db: Session, attempt_id: int) -> ExamAttempt:
+def _load_attempt(db: Session, attempt_id: int, user: User) -> ExamAttempt:
     attempt = db.scalar(
         select(ExamAttempt)
         .options(selectinload(ExamAttempt.items))
         .where(ExamAttempt.id == attempt_id)
     )
-    if attempt is None:
+    # 404, not 403: another learner's attempt must be indistinguishable from a
+    # missing one, so ids cannot be probed for existence.
+    if attempt is None or attempt.user_id != user.id:
         raise HTTPException(404, f"Attempt {attempt_id} not found.")
     return attempt
 
 
 @router.get("/{attempt_id}", response_model=AttemptOut)
-def get_attempt(attempt_id: int, db: Session = Depends(get_db)) -> AttemptOut:
-    attempt = _load_attempt(db, attempt_id)
+def get_attempt(
+    attempt_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> AttemptOut:
+    attempt = _load_attempt(db, attempt_id, user)
     track = db.get(Track, attempt.track_id)
     return AttemptOut(
         id=attempt.id,
@@ -64,10 +72,13 @@ def get_attempt(attempt_id: int, db: Session = Depends(get_db)) -> AttemptOut:
 
 @router.post("/{attempt_id}/submit", response_model=SubmitResponse)
 def submit(
-    attempt_id: int, payload: SubmitRequest, db: Session = Depends(get_db)
+    attempt_id: int,
+    payload: SubmitRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> SubmitResponse:
     """Grade an attempt, persist the results, and return the scaled score."""
-    attempt = _load_attempt(db, attempt_id)
+    attempt = _load_attempt(db, attempt_id, user)
     if attempt.status == AttemptStatus.SUBMITTED:
         raise HTTPException(409, "Attempt has already been submitted.")
 

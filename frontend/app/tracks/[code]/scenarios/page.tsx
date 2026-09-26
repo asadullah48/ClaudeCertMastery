@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { api } from "@/lib/api";
+import { serverToken } from "@/lib/serverToken";
 import type { ScenarioListItem, Track } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -45,7 +46,7 @@ export default async function ScenarioListPage({
 
   let scenarios: ScenarioListItem[] = [];
   try {
-    scenarios = await api.listScenarios(code);
+    scenarios = await api.listScenarios(code, await serverToken());
   } catch {
     scenarios = []; // discovery degrades to an empty list, never an error page
   }

@@ -15,12 +15,6 @@ own Section 6 ("prefer ONE cohesive track-level learner endpoint... do not inven
 multiple APIs... if one bounded response can truthfully provide them together"):
 one endpoint, `GET /me/tracks/{track_code}/readiness`, returns both.
 
-No real per-request authentication exists anywhere in this codebase yet (every
-router -- exams.py, scenarios.py, attempts.py -- resolves the same shared dev user
-via `_current_user(db)`, documented as a stated limitation, not hidden). This
-router inherits that identical, already-audited posture rather than inventing a
-new one (plan Section 23: "this plan does not claim to fix it and does not need to
-for founder-only validation to remain valid").
 """
 
 from __future__ import annotations
@@ -31,6 +25,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.auth import get_current_user
 from app.database import get_db
 from app.models import Domain, LearnerDomainState, Track, User
 from app.schemas import DomainReadinessOut, NextActionOut, TrackReadinessOut
@@ -49,20 +44,12 @@ from app.services.scenario_recommender import (
 
 router = APIRouter(prefix="/me", tags=["readiness"])
 
-DEV_USER_EMAIL = "dev@certmastery.local"
-
-
-def _current_user(db: Session) -> User:
-    """Stand-in for authentication, matching exams.py/scenarios.py exactly (D-7) --
-    no new auth mechanism is introduced here."""
-    user = db.scalar(select(User).where(User.email == DEV_USER_EMAIL))
-    if user is None:
-        raise HTTPException(500, "Dev user missing. Run: python seed.py")
-    return user
-
-
 @router.get("/tracks/{track_code}/readiness", response_model=TrackReadinessOut)
-def get_track_readiness(track_code: str, db: Session = Depends(get_db)) -> TrackReadinessOut:
+def get_track_readiness(
+    track_code: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> TrackReadinessOut:
     """Everything currently known about this learner's readiness in this track,
     plus the deterministic next action -- read-only. Issues only SELECTs: no
     recompute, no upsert, no synthesized row is ever persisted.
@@ -71,8 +58,6 @@ def get_track_readiness(track_code: str, db: Session = Depends(get_db)) -> Track
     domains, one for the learner's existing projections -- then everything is
     mapped and aggregated in memory. No per-domain query.
     """
-    user = _current_user(db)
-
     track = db.scalar(select(Track).where(Track.code == track_code))
     if track is None:
         raise HTTPException(status_code=404, detail=f"Track {track_code} not found.")

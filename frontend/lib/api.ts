@@ -18,7 +18,29 @@ import type {
   ZiaSession,
 } from "./types";
 
+import { getToken } from "@clerk/nextjs";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
+/** Learner identity for the backend: a Clerk session token as a Bearer header.
+ *
+ * `token` undefined -> resolve it here (browser only: Clerk's global getToken).
+ * Server components cannot use the browser session, so they pass the token they got
+ * from `serverToken()` explicitly; `null` means "signed out" and sends no header.
+ * The backend derives the learner from this token alone -- no request ever names a
+ * learner id. */
+async function authHeaders(token?: string | null): Promise<Record<string, string>> {
+  let t = token;
+  if (t === undefined) {
+    if (typeof window === "undefined") return {};
+    try {
+      t = await getToken();
+    } catch {
+      t = null; // Clerk not loaded/offline: the request goes out anonymous (401 if private)
+    }
+  }
+  return t ? { Authorization: `Bearer ${t}` } : {};
+}
 
 class ApiError extends Error {
   constructor(
@@ -44,8 +66,9 @@ async function parseDetail(res: Response): Promise<string | undefined> {
   }
 }
 
-async function get<T>(path: string): Promise<T> {
+async function get<T>(path: string, token?: string | null): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
+    headers: await authHeaders(token),
     // Track and blueprint data changes only when the bank is reseeded, but a stale
     // cache during development is more confusing than an extra request.
     cache: "no-store",
@@ -59,7 +82,7 @@ async function get<T>(path: string): Promise<T> {
 async function post<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -115,8 +138,8 @@ export const api = {
   // Scenario Lab (Gate C1 Slice 3). Consumes the Slice 2 API exactly as designed --
   // every field below is exactly what the backend returns; nothing is reconstructed
   // or inferred client-side.
-  listScenarios: (trackCode: string) =>
-    get<ScenarioListItem[]>(`/scenarios?track_code=${encodeURIComponent(trackCode)}`),
+  listScenarios: (trackCode: string, token?: string | null) =>
+    get<ScenarioListItem[]>(`/scenarios?track_code=${encodeURIComponent(trackCode)}`, token),
   startScenario: (externalId: string) =>
     post<ScenarioStartResponse>(`/scenarios/${encodeURIComponent(externalId)}/start`, {}),
   revealHint: (attemptId: number, position: number) =>
@@ -137,8 +160,8 @@ export const api = {
     get<ScenarioAttemptState>(`/scenario-attempts/${attemptId}`),
 
   // KSOR readiness: deterministic and evidence-derived; never a certification prediction.
-  getReadiness: (trackCode: string) =>
-    get<TrackReadiness>(`/me/tracks/${encodeURIComponent(trackCode)}/readiness`),
+  getReadiness: (trackCode: string, token?: string | null) =>
+    get<TrackReadiness>(`/me/tracks/${encodeURIComponent(trackCode)}/readiness`, token),
 };
 
 export { ApiError, API_URL };

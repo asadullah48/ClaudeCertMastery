@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { api } from "@/lib/api";
+import { serverToken } from "@/lib/serverToken";
 import { AskZiaPanel } from "@/components/AskZiaPanel";
 import type { Blueprint, ScenarioListItem, Track, ZiaConcepts } from "@/lib/types";
 
@@ -36,7 +37,7 @@ export default async function TrackDetail({
 
   let scenarios: ScenarioListItem[] = [];
   try {
-    scenarios = await api.listScenarios(code);
+    scenarios = await api.listScenarios(code, await serverToken());
   } catch {
     scenarios = []; // Scenario Lab section simply does not render
   }

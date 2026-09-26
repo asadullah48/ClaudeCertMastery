@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.auth import get_current_user, get_optional_user
 from app.database import get_db
 from app.models import (
     Domain,
@@ -55,30 +56,15 @@ from app.services.scenario_scoring import (
 
 router = APIRouter(tags=["scenarios"])
 
-DEV_USER_EMAIL = "dev@certmastery.local"
-
-
-def _current_user(db: Session) -> User:
-    """Stand-in for authentication, matching exams.py/zia.py exactly (D-7).
-
-    Section 13 of this slice's brief: document the actual repository state rather
-    than pretend stronger security exists. There is no real learner auth anywhere in
-    this codebase yet -- every route below still enforces the OWNERSHIP check
-    (attempt.user_id == this user's id), which is meaningful groundwork even under a
-    single dev user, and becomes load-bearing the moment real auth lands, exactly as
-    the approved plan states (Section 4).
-    """
-    user = db.scalar(select(User).where(User.email == DEV_USER_EMAIL))
-    if user is None:
-        raise HTTPException(500, "Dev user missing. Run: python seed.py")
-    return user
-
-
 # --- read-only discovery -----------------------------------------------------------
 
 
 @router.get("/scenarios", response_model=list[ScenarioListItemOut])
-def list_scenarios(track_code: str, db: Session = Depends(get_db)) -> list[ScenarioListItemOut]:
+def list_scenarios(
+    track_code: str,
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_optional_user),
+) -> list[ScenarioListItemOut]:
     """Active scenarios for a track, in blueprint order (domain position, then
     external_id). No step content, no options -- discovery only -- plus the current
     learner's status on each: whether a new attempt would still count as evidence
@@ -91,7 +77,6 @@ def list_scenarios(track_code: str, db: Session = Depends(get_db)) -> list[Scena
         .order_by(Domain.position, Scenario.external_id)
     ).all()
     track = db.scalar(select(Track).where(Track.code == track_code))
-    user = db.scalar(select(User).where(User.email == DEV_USER_EMAIL))
     exposures = (
         load_scenario_exposures(db, user_id=user.id, track_id=track.id)
         if track is not None and user is not None and rows
@@ -205,7 +190,9 @@ def _load_scenario_and_steps(db: Session, scenario_id: int) -> tuple[Scenario, l
 
 @router.post("/scenarios/{external_id}/start", response_model=ScenarioStartResponse, status_code=201)
 def start_scenario(
-    external_id: str, db: Session = Depends(get_db)
+    external_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> ScenarioStartResponse:
     scenario = db.scalar(
         select(Scenario)
@@ -219,7 +206,6 @@ def start_scenario(
     if not steps:
         raise HTTPException(409, f"Scenario {external_id} has no authored steps.")
 
-    user = _current_user(db)
     domain = db.get(Domain, scenario.domain_id)
     # Retake validity: once this learner has seen the scenario's answers, a new
     # attempt is practice -- recorded as evidence history, never as mastery.
@@ -266,9 +252,11 @@ def start_scenario(
     response_model=ScenarioHintResponse,
 )
 def reveal_hint(
-    attempt_id: int, position: int, db: Session = Depends(get_db)
+    attempt_id: int,
+    position: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> ScenarioHintResponse:
-    user = _current_user(db)
     attempt = _load_owned_attempt(db, attempt_id, user)
     if attempt.status != "in_progress":
         raise HTTPException(409, "This scenario attempt has already been completed.")
@@ -329,8 +317,8 @@ def reveal_hint(
 def answer_step(
     attempt_id: int, position: int, payload: ScenarioStepAnswerRequest,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> ScenarioStepAnswerResponse:
-    user = _current_user(db)
     attempt = _load_owned_attempt(db, attempt_id, user)
     if attempt.status != "in_progress":
         raise HTTPException(409, "This scenario attempt has already been completed.")
@@ -523,9 +511,10 @@ def _answer_response_from_row(
 
 @router.get("/scenario-attempts/{attempt_id}", response_model=ScenarioAttemptOut)
 def get_scenario_attempt(
-    attempt_id: int, db: Session = Depends(get_db)
+    attempt_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> ScenarioAttemptOut:
-    user = _current_user(db)
     attempt = _load_owned_attempt(db, attempt_id, user)
     scenario, steps = _load_scenario_and_steps(db, attempt.scenario_id)
 

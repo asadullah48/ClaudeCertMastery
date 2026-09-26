@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ReadinessSummary } from "@/components/ReadinessSummary";
 import { api } from "@/lib/api";
+import { serverToken } from "@/lib/serverToken";
 import type { Track, TrackReadiness } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +23,7 @@ export default async function ReadinessPage({
 
   let readiness: TrackReadiness | null = null;
   try {
-    readiness = await api.getReadiness(code);
+    readiness = await api.getReadiness(code, await serverToken());
   } catch {
     readiness = null; // shown as an unavailable state, never a fabricated one
   }

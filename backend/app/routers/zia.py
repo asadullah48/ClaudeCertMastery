@@ -21,6 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.config import settings
+from app.auth import get_current_user
 from app.database import get_db
 from app.models import ConceptCurriculumMap, Question, Track, User, ZiaLearnerLink
 from app.schemas import (
@@ -40,22 +41,12 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/zia", tags=["zia"])
 
-DEV_USER_EMAIL = "dev@certmastery.local"
-
 # A "visit" for the purposes of begin_session vs open_student_record. Within this
 # window the learner is resumed; after it, a new session is begun.
 VISIT_WINDOW = timedelta(hours=4)
 
 # How much of the retrieved passage to show before linking out to the lesson.
 MAX_EXPLANATION_CHARS = 1800
-
-
-def _current_user(db: Session) -> User:
-    """Stand-in for authentication, matching the rest of the API (D-7)."""
-    user = db.scalar(select(User).where(User.email == DEV_USER_EMAIL))
-    if user is None:
-        raise HTTPException(500, "Dev user missing. Run: python seed.py")
-    return user
 
 
 def get_zia_client() -> ZiaTutorClient:
@@ -68,6 +59,7 @@ def open_session(
     payload: ZiaSessionRequest,
     db: Session = Depends(get_db),
     client: ZiaTutorClient = Depends(get_zia_client),
+    user: User = Depends(get_current_user),
 ) -> ZiaSessionResponse:
     """Open or resume the learner's Zia session.
 
@@ -82,7 +74,6 @@ def open_session(
             detail="Zia is not configured (CERTMASTERY_ZIA_MCP_TOKEN unset).",
         )
 
-    user = _current_user(db)
     link = db.scalar(select(ZiaLearnerLink).where(ZiaLearnerLink.user_id == user.id))
     now = datetime.now(timezone.utc)
 
@@ -231,6 +222,7 @@ def check_answer(
     payload: ZiaCheckAnswerRequest,
     db: Session = Depends(get_db),
     client: ZiaTutorClient = Depends(get_zia_client),
+    user: User = Depends(get_current_user),
 ) -> ZiaCheckAnswerResponse:
     """Record the candidate's follow-up answer on their Zia learner record.
 
@@ -250,7 +242,6 @@ def check_answer(
             ok=False, recorded=False, detail="No answer supplied."
         )
 
-    user = _current_user(db)
     link = db.scalar(select(ZiaLearnerLink).where(ZiaLearnerLink.user_id == user.id))
     if link is None:
         return ZiaCheckAnswerResponse(

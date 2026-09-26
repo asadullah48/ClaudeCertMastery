@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.config import settings
+from app.auth import get_current_user
 from app.database import get_db
 from app.models import (
     AttemptStatus,
@@ -24,6 +25,7 @@ from app.models import (
     Explanation,
     Question,
     Track,
+    User,
 )
 from app.schemas import ExplanationOut, ExplanationRequest, ExplanationResponse
 from app.services.explanation_engine import (
@@ -105,6 +107,7 @@ def generate_explanations(
     payload: ExplanationRequest | None = None,
     db: Session = Depends(get_db),
     engine: ExplanationEngine = Depends(get_engine),
+    user: User = Depends(get_current_user),
 ) -> ExplanationResponse:
     """Return remediation for the wrong answers in a submitted attempt.
 
@@ -125,7 +128,9 @@ def generate_explanations(
         .options(selectinload(ExamAttempt.items))
         .where(ExamAttempt.id == attempt_id)
     )
-    if attempt is None:
+    # 404, not 403: another learner's attempt must be indistinguishable from a
+    # missing one, so ids cannot be probed for existence.
+    if attempt is None or attempt.user_id != user.id:
         raise HTTPException(404, f"Attempt {attempt_id} not found.")
     if attempt.status != AttemptStatus.SUBMITTED:
         raise HTTPException(

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.auth import get_current_user
 from app.database import get_db
 from app.models import (
     AttemptItem,
@@ -26,22 +27,11 @@ from app.services.exam_generator import ExamGenerationError, generate_exam
 
 router = APIRouter(prefix="/exams", tags=["exams"])
 
-DEV_USER_EMAIL = "dev@certmastery.local"
-
-
-def _current_user(db: Session) -> User:
-    """Stand-in for authentication until Session 3 (D-7)."""
-    user = db.scalar(select(User).where(User.email == DEV_USER_EMAIL))
-    if user is None:
-        raise HTTPException(
-            status_code=500, detail="Dev user missing. Run: python seed.py"
-        )
-    return user
-
-
 @router.post("/generate", response_model=ExamGenerateResponse, status_code=201)
 def generate(
-    payload: ExamGenerateRequest, db: Session = Depends(get_db)
+    payload: ExamGenerateRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> ExamGenerateResponse:
     """Compose a blueprint-weighted exam and persist it as an in-progress attempt."""
     track = db.scalar(
@@ -83,7 +73,7 @@ def generate(
         raise HTTPException(409, str(exc)) from exc
 
     attempt = ExamAttempt(
-        user_id=_current_user(db).id,
+        user_id=user.id,
         track_id=track.id,
         mode=AttemptMode(payload.mode),
         seed=exam.seed,
