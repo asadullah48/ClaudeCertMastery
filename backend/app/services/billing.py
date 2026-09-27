@@ -23,7 +23,10 @@ from sqlalchemy.orm import Session
 from app import entitlements
 from app.models import LearnerEntitlement, User
 
-PRODUCT_READINESS_PASS = "readiness_pass"
+# Internal product codes -> the one track each product unlocks. A provider adapter maps
+# its own product/variant id to one of these codes; the track is never taken from the
+# provider payload itself. v1 sells exactly one product.
+PRODUCT_TRACKS: dict[str, str] = {"readiness_pass_ccao_f": "CCAO-F"}
 
 
 @dataclass(frozen=True)
@@ -33,7 +36,7 @@ class VerifiedPurchase:
     provider: str             # "lemonsqueezy" | "paddle"
     external_reference: str   # the provider's order/transaction id -- idempotency key
     learner_subject: str      # Clerk subject passed through checkout custom data
-    product: str              # internal product code, mapped by the adapter
+    product: str              # internal product code (a PRODUCT_TRACKS key), mapped by the adapter
     occurred_at: datetime
 
 
@@ -63,7 +66,8 @@ class PurchaseRejected(Exception):
 def apply_verified_purchase(db: Session, purchase: VerifiedPurchase) -> LearnerEntitlement:
     """Translate a verified purchase into access. Idempotent: a re-delivered event
     returns the grant it already created. The caller commits."""
-    if purchase.product != PRODUCT_READINESS_PASS:
+    track_code = PRODUCT_TRACKS.get(purchase.product)
+    if track_code is None:
         raise PurchaseRejected(f"unknown product {purchase.product!r}")
     user = db.scalar(select(User).where(User.auth_subject == purchase.learner_subject))
     if user is None:
@@ -71,6 +75,7 @@ def apply_verified_purchase(db: Session, purchase: VerifiedPurchase) -> LearnerE
     return entitlements.activate_readiness_pass(
         db,
         user,
+        track_code,
         source="purchase",
         provider=purchase.provider,
         external_reference=purchase.external_reference,

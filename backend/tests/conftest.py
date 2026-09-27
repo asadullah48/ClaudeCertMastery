@@ -51,7 +51,9 @@ def _full_access_for_evidence_suites(request, monkeypatch):
     monkeypatch.setattr(
         entitlements,
         "get_access",
-        lambda db, user, now=None: entitlements.AccessState(plan=entitlements.PLAN_READINESS_PASS),
+        lambda db, user, track_code, now=None: entitlements.AccessState(
+            plan=entitlements.PLAN_READINESS_PASS, track_code=track_code
+        ),
     )
     yield
 

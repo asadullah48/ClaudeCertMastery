@@ -1,9 +1,11 @@
 """Commercial entitlement: what a learner has paid for (or been granted), never what
 their evidence says.
 
-One row per grant of a time-boxed Readiness Pass. A learner with no currently-valid row
-is on the free Explorer plan -- "free" is the absence of a grant, not a stored state, so
-there is nothing to backfill for existing learners and nothing to expire by job.
+One row per grant of a time-boxed Readiness Pass for ONE track. A pass is scoped: a
+CCAO-F pass unlocks CCAO-F only, never another (current or future) track. A learner with
+no currently-valid row for a track is on the free Explorer plan for that track -- "free"
+is the absence of a grant, not a stored state, so there is nothing to backfill for
+existing learners and nothing to expire by job.
 
 This table is deliberately disjoint from every evidence table: no foreign key points
 from evidence to here or back, and nothing in readiness, scoring or scenario aggregation
@@ -23,7 +25,7 @@ from app.database import Base
 class LearnerEntitlement(Base):
     __tablename__ = "learner_entitlements"
     __table_args__ = (
-        Index("ix_learner_entitlements_user_expires", "user_id", "expires_at"),
+        Index("ix_learner_entitlements_user_track_expires", "user_id", "track_code", "expires_at"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -31,6 +33,9 @@ class LearnerEntitlement(Base):
     # Only "readiness_pass" today. A string, not a DB enum, so adding a product later is
     # not a schema migration.
     plan: Mapped[str] = mapped_column(String(40))
+    # The certification track this pass prepares for (tracks.code). Access is only ever
+    # granted for this track.
+    track_code: Mapped[str] = mapped_column(String(16), ForeignKey("tracks.code"))
     # "active" or "revoked". Expiry is NOT a status change -- it is read from expires_at
     # at request time, so an elapsed pass is free without any job having run.
     status: Mapped[str] = mapped_column(String(20), default="active")

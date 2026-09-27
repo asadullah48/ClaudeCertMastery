@@ -48,7 +48,7 @@ def generate(
             f"Track {track.code} has no published blueprint yet. "
             "Its question bank is not authored.",
         )
-    entitlements.check_exam_generation(db, user, entitlements.get_access(db, user), track.id)
+    entitlements.check_exam_generation(db, user, entitlements.get_access(db, user, track.code), track.id)
 
     weights = [DomainWeight(d.code, d.weight_bps, d.position) for d in track.domains]
     domain_by_code = {d.code: d for d in track.domains}

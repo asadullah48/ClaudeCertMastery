@@ -334,6 +334,8 @@ export interface ScenarioAttemptState {
 
 export interface Offer {
   product_name: string;
+  /** The one track this product unlocks. */
+  track_code: string;
   subtitle: string;
   price_usd: number;
   duration_days: number;
@@ -350,7 +352,9 @@ export interface ExamAllowance {
   free_submitted_limit: number | null;
 }
 
+/** Access is always answered for ONE track: a pass for one track never unlocks another. */
 export interface Access {
+  track_code: string;
   plan: "free" | "readiness_pass";
   starts_at: string | null;
   expires_at: string | null;

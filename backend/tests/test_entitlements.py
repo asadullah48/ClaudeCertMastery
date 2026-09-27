@@ -27,6 +27,9 @@ from tests.test_auth_isolation import ISSUER, _KEY, as_  # noqa: E402
 REAL_ENTITLEMENTS = True  # conftest: do not grant full access in this module
 
 SAMPLE_A, SAMPLE_B, LOCKED_C = "CCAO-F-PTE-SCN-001", "CCAO-F-PTE-SCN-002", "CCAO-F-OEV-SCN-001"
+# A second, unrelated track standing in for any future certification.
+FUTURE = "FUTURE-X"
+FUTURE_LOCKED = "FUTURE-X-DOM-SCN-003"
 EVIDENCE_TABLES = [
     "exam_attempts", "attempt_items", "attempt_domain_scores", "scenario_attempts",
     "scenario_step_attempts", "scenario_events", "learner_domain_states",
@@ -82,6 +85,23 @@ def env(tmp_path, monkeypatch):
                 ScenarioStepOption(step_id=step.id, label="A", text="Right", is_correct=True, position=1, rationale="r"),
                 ScenarioStepOption(step_id=step.id, label="B", text="Wrong", is_correct=False, position=2, rationale="r"),
             ])
+        future = Track(code=FUTURE, name="Future certification", item_count=4)
+        db.add(future)
+        db.flush()
+        fdom = Domain(track_id=future.id, code="DOM", name="Domain", weight_bps=10000, position=1)
+        db.add(fdom)
+        db.flush()
+        for i in range(6):
+            q = Question(domain_id=fdom.id, external_id=f"FX-Q{i}", stem="Stem?", question_type="mcq")
+            db.add(q)
+            db.flush()
+            db.add(AnswerOption(question_id=q.id, label="A", text="Right", is_correct=True, position=1))
+        for ext in ("FUTURE-X-DOM-SCN-001", "FUTURE-X-DOM-SCN-002", FUTURE_LOCKED):
+            sc = Scenario(domain_id=fdom.id, external_id=ext, title=ext, setup_text="Setup.",
+                          difficulty=2, is_active=True, content_version=1)
+            db.add(sc)
+            db.flush()
+            db.add(ScenarioStep(scenario_id=sc.id, position=1, prompt_text="Q1", step_type="mcq"))
         db.commit()
 
     def override_get_db():
@@ -104,12 +124,14 @@ def _user(Session, subject):
         return db.scalar(select(User).where(User.auth_subject == subject))
 
 
-def _grant(Session, subject, *, now=None, days=90):
+def _grant(Session, subject, *, track="CCAO-F", now=None, days=90):
     from app import entitlements
 
     with Session() as db:
         user = db.merge(_user(Session, subject))
-        g = entitlements.activate_readiness_pass(db, user, source="manual_grant", granted_by="test", now=now, days=days)
+        g = entitlements.activate_readiness_pass(
+            db, user, track, source="manual_grant", granted_by="test", now=now, days=days
+        )
         db.commit()
         return g.id
 
@@ -142,7 +164,7 @@ def test_new_learner_is_explorer(env):
     r = client.get("/me/access?track_code=CCAO-F", headers=as_("user_free"))
     assert r.status_code == 200
     body = r.json()
-    assert body["plan"] == "free"
+    assert body["plan"] == "free" and body["track_code"] == "CCAO-F"
     assert body["expires_at"] is None
     assert set(body["capabilities"]) == {"diagnostic_exam", "sample_scenarios", "readiness_preview"}
     assert body["exam_allowance"] == {
@@ -162,7 +184,8 @@ def test_public_offer(env):
     r = client.get("/offer")
     assert r.status_code == 200
     assert r.json() == {
-        "product_name": "ClaudeCertMastery Readiness Pass", "subtitle": "90-Day CCAO-F Preparation",
+        "product_name": "ClaudeCertMastery Readiness Pass — CCAO-F", "track_code": "CCAO-F",
+        "subtitle": "90-Day CCAO-F Preparation",
         "price_usd": 29, "duration_days": 90, "recurring": False, "checkout_available": False,
     }
 
@@ -209,6 +232,67 @@ def test_signed_out_catalog_shows_explorer_locks(env):
     client, _ = env
     listing = {s["external_id"]: s["locked"] for s in client.get("/scenarios?track_code=CCAO-F").json()}
     assert listing == {SAMPLE_A: False, SAMPLE_B: False, LOCKED_C: True}
+
+
+# --- track scope: a CCAO-F pass is a CCAO-F pass ------------------------------------
+
+
+def test_ccao_f_pass_unlocks_ccao_f_only(env):
+    client, Session = env
+    h = as_("user_paid")
+    _provision(client, "user_paid")
+    _grant(Session, "user_paid", track="CCAO-F")
+
+    assert client.get("/me/access?track_code=CCAO-F", headers=h).json()["plan"] == "readiness_pass"
+    assert client.post(f"/scenarios/{LOCKED_C}/start", headers=h).status_code == 201
+    assert client.get("/me/tracks/CCAO-F/readiness", headers=h).json()["depth"] == "full"
+
+    # The same learner, same moment, a different track: Explorer.
+    other = client.get(f"/me/access?track_code={FUTURE}", headers=h).json()
+    assert other["plan"] == "free" and other["expires_at"] is None
+    r = client.post(f"/scenarios/{FUTURE_LOCKED}/start", headers=h)
+    assert r.status_code == 402 and r.json()["detail"]["capability"] == "full_scenario_lab"
+    locks = {s["external_id"]: s["locked"] for s in client.get(f"/scenarios?track_code={FUTURE}", headers=h).json()}
+    assert locks[FUTURE_LOCKED] is True
+    assert client.get(f"/me/tracks/{FUTURE}/readiness", headers=h).json()["depth"] == "preview"
+    assert client.post("/exams/generate", json={"track_code": FUTURE}, headers=h).status_code == 201
+    _submit_all_exams(Session, "user_paid")
+    assert client.post("/exams/generate", json={"track_code": FUTURE}, headers=h).status_code == 402
+
+
+def test_expiry_is_scoped_per_track(env):
+    client, Session = env
+    h = as_("user_two")
+    _provision(client, "user_two")
+    _grant(Session, "user_two", track="CCAO-F", now=datetime.now(timezone.utc) - timedelta(days=91))
+    _grant(Session, "user_two", track=FUTURE)
+    assert client.get("/me/access?track_code=CCAO-F", headers=h).json()["plan"] == "free"
+    assert client.get(f"/me/access?track_code={FUTURE}", headers=h).json()["plan"] == "readiness_pass"
+    assert client.post(f"/scenarios/{LOCKED_C}/start", headers=h).status_code == 402
+
+
+def test_extension_only_counts_the_same_tracks_time(env):
+    client, Session = env
+    from app import entitlements
+
+    _provision(client, "user_ext")
+    now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    _grant(Session, "user_ext", track=FUTURE, now=now)
+    with Session() as db:
+        user = db.merge(_user(Session, "user_ext"))
+        starts, _ = entitlements.plan_readiness_pass(db, user, "CCAO-F", now=now)
+    assert starts == now  # a FUTURE-X pass does not push the CCAO-F start date
+
+
+def test_grant_for_unknown_track_is_refused(env):
+    client, Session = env
+    from app import entitlements
+
+    _provision(client, "user_x")
+    with Session() as db:
+        user = db.merge(_user(Session, "user_x"))
+        with pytest.raises(ValueError):
+            entitlements.activate_readiness_pass(db, user, "NOPE", source="manual_grant")
 
 
 # --- 4. Readiness Pass ------------------------------------------------------------
@@ -399,7 +483,7 @@ def _grant_rows(Session):
 def test_grant_script_dry_run_writes_nothing(env, grant_script, capsys):
     client, Session = env
     _provision(client, "user_beta")
-    assert grant_script.main(["--subject", "user_beta", "--granted-by", "founder"]) == 0
+    assert grant_script.main(["--subject", "user_beta", "--track", "CCAO-F", "--granted-by", "founder"]) == 0
     assert "DRY RUN" in capsys.readouterr().out
     assert _grant_rows(Session) == []
 
@@ -409,33 +493,47 @@ def test_grant_script_execute_grants_ninety_days_and_keeps_evidence(env, grant_s
     h = as_("user_beta")
     assert client.post("/exams/generate", json={"track_code": "CCAO-F"}, headers=h).status_code == 201
     before = _evidence_snapshot(Session)
-    assert grant_script.main(["--subject", "user_beta", "--granted-by", "founder", "--execute"]) == 0
+    assert grant_script.main(
+        ["--subject", "user_beta", "--track", "CCAO-F", "--granted-by", "founder", "--execute"]
+    ) == 0
     rows = _grant_rows(Session)
     assert len(rows) == 1
     g = rows[0]
-    assert (g.source, g.granted_by, g.plan, g.status) == ("manual_grant", "founder", "readiness_pass", "active")
+    assert (g.source, g.granted_by, g.plan, g.status, g.track_code) == (
+        "manual_grant", "founder", "readiness_pass", "active", "CCAO-F",
+    )
     assert g.expires_at - g.starts_at == timedelta(days=90)
     assert _evidence_snapshot(Session) == before
     assert client.get("/me/access", headers=h).json()["plan"] == "readiness_pass"
+    assert client.get(f"/me/access?track_code={FUTURE}", headers=h).json()["plan"] == "free"
+
+
+def test_grant_script_requires_a_known_track(env, grant_script):
+    client, Session = env
+    _provision(client, "user_beta")
+    with pytest.raises(SystemExit):  # --track is mandatory
+        grant_script.main(["--subject", "user_beta", "--granted-by", "f", "--execute"])
+    assert grant_script.main(["--subject", "user_beta", "--track", "NOPE", "--granted-by", "f", "--execute"]) == 2
+    assert _grant_rows(Session) == []
 
 
 def test_grant_script_refuses_unknown_or_unlinked_learner(env, grant_script):
     client, Session = env
     from app.models import User
 
-    assert grant_script.main(["--subject", "user_nobody", "--granted-by", "f", "--execute"]) == 2
+    assert grant_script.main(["--subject", "user_nobody", "--track", "CCAO-F", "--granted-by", "f", "--execute"]) == 2
     with Session() as db:
         db.add(User(email="orphan@example.com", display_name="Orphan"))
         db.commit()
-    assert grant_script.main(["--email", "orphan@example.com", "--granted-by", "f", "--execute"]) == 2
+    assert grant_script.main(["--email", "orphan@example.com", "--track", "CCAO-F", "--granted-by", "f", "--execute"]) == 2
     assert _grant_rows(Session) == []
 
 
 def test_grant_script_requires_exactly_one_selector(env, grant_script):
     with pytest.raises(SystemExit):
-        grant_script.main(["--subject", "a", "--user-id", "1", "--granted-by", "f"])
+        grant_script.main(["--subject", "a", "--user-id", "1", "--track", "CCAO-F", "--granted-by", "f"])
     with pytest.raises(SystemExit):
-        grant_script.main(["--granted-by", "f"])
+        grant_script.main(["--track", "CCAO-F", "--granted-by", "f"])
 
 
 # --- 2F. payment provider boundary ------------------------------------------------
@@ -447,7 +545,7 @@ def test_verified_purchase_activates_once(env):
 
     _provision(client, "user_buyer")
     p = VerifiedPurchase(provider="lemonsqueezy", external_reference="order_1",
-                         learner_subject="user_buyer", product="readiness_pass",
+                         learner_subject="user_buyer", product="readiness_pass_ccao_f",
                          occurred_at=datetime.now(timezone.utc))
     with Session() as db:
         first = apply_verified_purchase(db, p).id
@@ -457,9 +555,11 @@ def test_verified_purchase_activates_once(env):
         with pytest.raises(PurchaseRejected):
             apply_verified_purchase(db, VerifiedPurchase("paddle", "o2", "user_buyer", "other", p.occurred_at))
         with pytest.raises(PurchaseRejected):
-            apply_verified_purchase(db, VerifiedPurchase("paddle", "o3", "user_ghost", "readiness_pass", p.occurred_at))
-    assert len(_grant_rows(Session)) == 1
+            apply_verified_purchase(db, VerifiedPurchase("paddle", "o3", "user_ghost", "readiness_pass_ccao_f", p.occurred_at))
+    rows = _grant_rows(Session)
+    assert len(rows) == 1 and rows[0].track_code == "CCAO-F"
     assert client.get("/me/access", headers=as_("user_buyer")).json()["plan"] == "readiness_pass"
+    assert client.get(f"/me/access?track_code={FUTURE}", headers=as_("user_buyer")).json()["plan"] == "free"
 
 
 def test_no_webhook_endpoint_is_exposed(env):

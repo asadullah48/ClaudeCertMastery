@@ -18,7 +18,8 @@ function formatDate(iso: string): string {
 export default async function AccountPage() {
   let access: Access | null = null;
   try {
-    access = await api.getAccess(undefined, await serverToken());
+    // v1 sells one product, scoped to CCAO-F; the plan shown is for that track only.
+    access = await api.getAccess("CCAO-F", await serverToken());
   } catch {
     access = null;
   }
@@ -37,11 +38,12 @@ export default async function AccountPage() {
         <section className="rounded-lg border border-[var(--color-accent)]/60 bg-[var(--color-surface)] p-5">
           <p className="text-sm font-semibold">{access.offer.product_name}</p>
           <p className="mt-1 text-sm text-[var(--color-muted)]">
-            Full access{access.expires_at ? ` until ${formatDate(access.expires_at)} (UTC)` : ""}.
+            Full {access.track_code} access
+            {access.expires_at ? ` until ${formatDate(access.expires_at)} (UTC)` : ""}.
             It does not renew automatically.
           </p>
           <Link
-            href="/tracks/CCAO-F/readiness"
+            href={`/tracks/${access.track_code}/readiness`}
             className="mt-4 inline-block text-sm text-[var(--color-accent)] hover:underline"
           >
             Go to your readiness &rarr;
@@ -50,7 +52,7 @@ export default async function AccountPage() {
       ) : (
         <div className="space-y-6">
           <section className="rounded-lg border border-[var(--color-edge)] bg-[var(--color-surface)] p-5">
-            <p className="text-sm font-semibold">Explorer (free)</p>
+            <p className="text-sm font-semibold">Explorer (free) &middot; {access.track_code}</p>
             <p className="mt-1 text-sm text-[var(--color-muted)]">
               A diagnostic exam, sample scenarios and a readiness preview, so you can see
               how evidence-based readiness works before you commit.

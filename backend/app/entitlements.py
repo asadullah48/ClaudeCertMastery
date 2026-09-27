@@ -14,7 +14,9 @@ Plans:
 
 * ``free`` (Explorer): the absence of a currently-valid grant. One diagnostic exam per
   track, a small fixed set of sample scenarios, and a readiness *preview*.
-* ``readiness_pass``: a time-boxed grant (90 days) in learner_entitlements. Everything.
+* ``readiness_pass``: a time-boxed grant (90 days) in learner_entitlements. Everything
+  -- for the grant's own track only. Access is always resolved for ONE track: a CCAO-F
+  pass never unlocks another current or future track.
 
 An expired or revoked pass is simply "no valid grant" -> free. Evidence created while
 paid stays evidence forever; losing access only narrows what can be *started* or *seen
@@ -31,7 +33,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models import Domain, ExamAttempt, LearnerEntitlement, Scenario, User
+from app.models import Domain, ExamAttempt, LearnerEntitlement, Scenario, Track, User
 from app.models.attempt import AttemptStatus
 
 PLAN_FREE = "free"
@@ -70,6 +72,7 @@ PLAN_CAPABILITIES: dict[str, frozenset[Capability]] = {
 @dataclass(frozen=True)
 class AccessState:
     plan: str
+    track_code: str | None = None
     starts_at: datetime | None = None
     expires_at: datetime | None = None
     entitlement_id: int | None = None
@@ -102,12 +105,16 @@ def _aware(dt: datetime) -> datetime:
     return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
 
 
-def current_entitlement(db: Session, user_id: int, now: datetime | None = None) -> LearnerEntitlement | None:
-    """The valid grant with the latest expiry, or None. Valid = active, started, not ended."""
+def current_entitlement(
+    db: Session, user_id: int, track_code: str, now: datetime | None = None
+) -> LearnerEntitlement | None:
+    """This track's valid grant with the latest expiry, or None.
+    Valid = active, started, not ended, and for exactly this track."""
     now = now or _utcnow()
     rows = db.scalars(
         select(LearnerEntitlement).where(
             LearnerEntitlement.user_id == user_id,
+            LearnerEntitlement.track_code == track_code,
             LearnerEntitlement.plan == PLAN_READINESS_PASS,
             LearnerEntitlement.status == "active",
         )
@@ -116,13 +123,14 @@ def current_entitlement(db: Session, user_id: int, now: datetime | None = None) 
     return max(valid, key=lambda r: _aware(r.expires_at), default=None)
 
 
-def get_access(db: Session, user: User, now: datetime | None = None) -> AccessState:
-    """The single answer to: what access does this learner have right now?"""
-    grant = current_entitlement(db, user.id, now)
+def get_access(db: Session, user: User, track_code: str, now: datetime | None = None) -> AccessState:
+    """The single answer to: what access does this learner have in this track right now?"""
+    grant = current_entitlement(db, user.id, track_code, now)
     if grant is None:
-        return AccessState(plan=PLAN_FREE)
+        return AccessState(plan=PLAN_FREE, track_code=track_code)
     return AccessState(
         plan=PLAN_READINESS_PASS,
+        track_code=track_code,
         starts_at=_aware(grant.starts_at),
         expires_at=_aware(grant.expires_at),
         entitlement_id=grant.id,
@@ -184,12 +192,17 @@ def scenario_locked(access: AccessState, scenario_id: int, samples: set[int]) ->
     return not access.has(Capability.FULL_SCENARIO_LAB) and scenario_id not in samples
 
 
-def check_scenario_start(db: Session, access: AccessState, scenario: Scenario) -> None:
-    """Gate STARTING a scenario. Continuing an attempt already started is never gated:
-    a pass that expires mid-scenario must not strand half-recorded evidence."""
-    if access.has(Capability.FULL_SCENARIO_LAB):
+def check_scenario_start(db: Session, user: User, scenario: Scenario) -> None:
+    """Gate STARTING a scenario, against the pass for the scenario's own track.
+    Continuing an attempt already started is never gated: a pass that expires
+    mid-scenario must not strand half-recorded evidence."""
+    track_id, track_code = db.execute(
+        select(Track.id, Track.code)
+        .join(Domain, Domain.track_id == Track.id)
+        .where(Domain.id == scenario.domain_id)
+    ).one()
+    if get_access(db, user, track_code).has(Capability.FULL_SCENARIO_LAB):
         return
-    track_id = db.scalar(select(Domain.track_id).where(Domain.id == scenario.domain_id))
     if scenario.id not in sample_scenario_ids(db, track_id):
         raise EntitlementRequired(
             Capability.FULL_SCENARIO_LAB,
@@ -240,12 +253,14 @@ def require(access: AccessState, capability: Capability, message: str) -> None:
 
 
 def plan_readiness_pass(
-    db: Session, user: User, *, days: int = READINESS_PASS_DAYS, now: datetime | None = None
+    db: Session, user: User, track_code: str, *, days: int = READINESS_PASS_DAYS,
+    now: datetime | None = None,
 ) -> tuple[datetime, datetime]:
-    """The (starts_at, expires_at) a new grant would get -- read-only. A learner with
-    time left is extended from their current expiry rather than overlapped."""
+    """The (starts_at, expires_at) a new grant for this track would get -- read-only.
+    Time left on THIS track's pass is extended rather than overlapped; another track's
+    pass is irrelevant."""
     now = now or _utcnow()
-    current = current_entitlement(db, user.id, now)
+    current = current_entitlement(db, user.id, track_code, now)
     starts_at = _aware(current.expires_at) if current is not None else now
     return starts_at, starts_at + timedelta(days=days)
 
@@ -253,6 +268,7 @@ def plan_readiness_pass(
 def activate_readiness_pass(
     db: Session,
     user: User,
+    track_code: str,
     *,
     source: str,
     days: int = READINESS_PASS_DAYS,
@@ -262,26 +278,29 @@ def activate_readiness_pass(
     note: str | None = None,
     now: datetime | None = None,
 ) -> LearnerEntitlement:
-    """Grant a Readiness Pass. The only way access is ever created.
+    """Grant a Readiness Pass for one track. The only way access is ever created.
 
     Idempotent on external_reference (a re-delivered purchase returns the existing
     grant). A learner who still has time left is extended, not overlapped: the new
     grant starts when the current one ends. Flushes; the caller owns the commit.
     """
     now = now or _utcnow()
+    if db.scalar(select(Track.id).where(Track.code == track_code)) is None:
+        raise ValueError(f"unknown track {track_code!r}")
     if external_reference is not None:
         existing = db.scalar(
             select(LearnerEntitlement).where(LearnerEntitlement.external_reference == external_reference)
         )
         if existing is not None:
-            if existing.user_id != user.id:
-                raise ValueError("external_reference already belongs to a different learner")
+            if existing.user_id != user.id or existing.track_code != track_code:
+                raise ValueError("external_reference already belongs to a different grant")
             return existing
 
-    starts_at, expires_at = plan_readiness_pass(db, user, days=days, now=now)
+    starts_at, expires_at = plan_readiness_pass(db, user, track_code, days=days, now=now)
     grant = LearnerEntitlement(
         user_id=user.id,
         plan=PLAN_READINESS_PASS,
+        track_code=track_code,
         status="active",
         starts_at=starts_at,
         expires_at=expires_at,

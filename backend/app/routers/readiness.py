@@ -181,4 +181,4 @@ def get_track_readiness(
     )
     # Entitlement shapes what is SHOWN, after everything above is computed exactly as
     # before -- it never feeds back into readiness, aggregation or the recommendation.
-    return entitlements.present_readiness(db, entitlements.get_access(db, user), out, track.id)
+    return entitlements.present_readiness(db, entitlements.get_access(db, user, track.code), out, track.id)

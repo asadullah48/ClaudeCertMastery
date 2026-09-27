@@ -7,7 +7,8 @@ import type { DomainReadiness, TrackReadiness } from "@/lib/types";
 vi.mock("@/lib/api", () => ({
   api: {
     getOffer: vi.fn(async () => ({
-      product_name: "ClaudeCertMastery Readiness Pass",
+      product_name: "ClaudeCertMastery Readiness Pass — CCAO-F",
+      track_code: "CCAO-F",
       subtitle: "90-Day CCAO-F Preparation",
       price_usd: 29,
       duration_days: 90,
@@ -132,7 +133,7 @@ describe("Pricing page", () => {
     const { default: PricingPage } = await import("@/app/pricing/page");
     render(await PricingPage());
     expect(screen.getByText("Explorer")).toBeInTheDocument();
-    expect(screen.getByText("ClaudeCertMastery Readiness Pass")).toBeInTheDocument();
+    expect(screen.getByText("ClaudeCertMastery Readiness Pass — CCAO-F")).toBeInTheDocument();
     expect(screen.getByText("$0")).toBeInTheDocument();
     expect(screen.getByText("$29")).toBeInTheDocument();
     expect(screen.getByText("/ 90 days")).toBeInTheDocument();

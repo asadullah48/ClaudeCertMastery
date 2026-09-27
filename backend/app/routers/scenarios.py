@@ -92,8 +92,8 @@ def list_scenarios(
     started = {e.scenario_id for e in exposures}
     # Signed-out visitors see what Explorer would see.
     access = (
-        entitlements.get_access(db, user) if user is not None
-        else entitlements.AccessState(plan=entitlements.PLAN_FREE)
+        entitlements.get_access(db, user, track_code) if user is not None
+        else entitlements.AccessState(plan=entitlements.PLAN_FREE, track_code=track_code)
     )
     samples = entitlements.sample_scenario_ids(db, track.id) if track is not None else set()
     return [
@@ -213,7 +213,7 @@ def start_scenario(
     steps = sorted(scenario.steps, key=lambda s: s.position)
     if not steps:
         raise HTTPException(409, f"Scenario {external_id} has no authored steps.")
-    entitlements.check_scenario_start(db, entitlements.get_access(db, user), scenario)
+    entitlements.check_scenario_start(db, user, scenario)
 
     domain = db.get(Domain, scenario.domain_id)
     # Retake validity: once this learner has seen the scenario's answers, a new
