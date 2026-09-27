@@ -13,7 +13,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import settings
 from app.database import SessionLocal
-from app.routers import attempts, exams, explanations, readiness, scenarios, tracks, zia
+from app.routers import access, attempts, exams, explanations, readiness, scenarios, tracks, zia
 
 
 def rate_limit_key(request: Request) -> str:
@@ -80,6 +80,7 @@ app.include_router(explanations.router)
 app.include_router(scenarios.router)
 app.include_router(readiness.router)
 app.include_router(zia.router)
+app.include_router(access.router)
 
 
 @app.get("/health/live", tags=["meta"])

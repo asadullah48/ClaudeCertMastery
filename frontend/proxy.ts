@@ -8,6 +8,7 @@ const isLearnerRoute = createRouteMatcher([
   "/tracks/:code/exam(.*)",
   "/tracks/:code/scenarios(.*)",
   "/tracks/:code/readiness(.*)",
+  "/account(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

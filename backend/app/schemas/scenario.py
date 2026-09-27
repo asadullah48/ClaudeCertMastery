@@ -26,6 +26,9 @@ class ScenarioListItemOut(BaseModel):
     counts_as_evidence: bool = True
     # Band of the learner's first-exposure (evidence) attempt, if submitted.
     evidence_band: str | None = None
+    # Additive, entitlement: true when this learner's plan does not cover STARTING this
+    # scenario (Explorer sees the full catalog; only the sample scenarios are open).
+    locked: bool = False
 
 
 class ScenarioStepOptionOut(BaseModel):

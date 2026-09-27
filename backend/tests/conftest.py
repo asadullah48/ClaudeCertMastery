@@ -35,6 +35,26 @@ def _dev_auth_mode(monkeypatch):
     monkeypatch.setattr(settings, "auth_mode", "dev")
     yield
 
+
+@pytest.fixture(autouse=True)
+def _full_access_for_evidence_suites(request, monkeypatch):
+    """Commercial entitlement limits what a FREE learner may start (one diagnostic exam,
+    sample scenarios) and how deep readiness is shown. The suites that predate it test
+    evidence semantics -- scoring, readiness, scenarios, isolation -- which must hold
+    identically for any learner, so they run as a Readiness Pass holder. A module that
+    tests entitlement itself sets REAL_ENTITLEMENTS = True and gets the real policy."""
+    if getattr(request.module, "REAL_ENTITLEMENTS", False):
+        yield
+        return
+    from app import entitlements
+
+    monkeypatch.setattr(
+        entitlements,
+        "get_access",
+        lambda db, user, now=None: entitlements.AccessState(plan=entitlements.PLAN_READINESS_PASS),
+    )
+    yield
+
 # The published CCAO-F blueprint. Used across suites so that a change to the real
 # blueprint surfaces as a single failing constant rather than seven scattered ones.
 CCAO_F_WEIGHTS = [

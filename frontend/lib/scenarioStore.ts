@@ -20,7 +20,7 @@ export type ScenarioStatus =
  * a restart, a not-found attempt needs a restart, a transient failure just needs a
  * retry that keeps the learner's selection (Slice 2's idempotent-replay guarantee is
  * exactly what makes that retry safe). */
-export type ScenarioErrorKind = "conflict" | "not_found" | "transient" | null;
+export type ScenarioErrorKind = "conflict" | "not_found" | "locked" | "transient" | null;
 
 interface ScenarioState {
   attemptId: number | null;
@@ -92,6 +92,9 @@ function readPersistedAttemptId(externalId: string): number | null {
 
 function classifyError(e: unknown): { message: string; kind: ScenarioErrorKind } {
   if (e instanceof ApiError) {
+    if (e.status === 402 && e.entitlement) {
+      return { message: e.entitlement.message, kind: "locked" };
+    }
     if (e.status === 409) {
       return {
         message:

@@ -9,6 +9,9 @@ export function SiteHeader() {
         Claude Cert Mastery
       </Link>
       <nav className="flex items-center gap-3 text-sm">
+        <Link href="/pricing" className="px-1 text-[var(--color-muted)] hover:text-[var(--color-accent)]">
+          Pricing
+        </Link>
         <Show when="signed-out">
           <SignInButton mode="modal">
             <button className="rounded-md px-3 py-1.5 text-[var(--color-muted)] hover:text-[var(--color-accent)]">
@@ -22,6 +25,9 @@ export function SiteHeader() {
           </SignUpButton>
         </Show>
         <Show when="signed-in">
+          <Link href="/account" className="px-1 text-[var(--color-muted)] hover:text-[var(--color-accent)]">
+            Your plan
+          </Link>
           <UserButton />
         </Show>
       </nav>

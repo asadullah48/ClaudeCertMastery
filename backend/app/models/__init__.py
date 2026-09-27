@@ -13,6 +13,7 @@ from app.models.attempt import (
     ExamAttempt,
 )
 from app.models.catalog import AnswerOption, Domain, Question, QuestionType, Track
+from app.models.entitlement import LearnerEntitlement
 from app.models.explanation import Explanation
 from app.models.flashcard import Flashcard
 from app.models.readiness import LearnerDomainState, ReadinessState
@@ -40,6 +41,7 @@ __all__ = [
     "Explanation",
     "Flashcard",
     "LearnerDomainState",
+    "LearnerEntitlement",
     "Question",
     "QuestionType",
     "ReadinessState",

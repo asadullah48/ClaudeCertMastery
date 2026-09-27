@@ -6,8 +6,12 @@ import { api } from "@/lib/api";
 import { ScenarioIntro } from "@/components/ScenarioIntro";
 import { ScenarioResult } from "@/components/ScenarioResult";
 import { ScenarioStepRunner } from "@/components/ScenarioStepRunner";
+import { UpgradePanel } from "@/components/UpgradePanel";
 import { useScenario } from "@/lib/scenarioStore";
 import type { ScenarioListItem } from "@/lib/types";
+
+const LOCKED_OUTCOME =
+  "This scenario is part of the full Scenario Lab. Readiness Pass unlocks every scenario, so each domain can gain independent scenario evidence -- the evidence readiness needs beyond practice questions.";
 
 export default function ScenarioRunnerPage({
   params,
@@ -23,6 +27,7 @@ export default function ScenarioRunnerPage({
     domainCode,
     result,
     error,
+    errorKind,
     start,
     resume,
     reset,
@@ -76,6 +81,17 @@ export default function ScenarioRunnerPage({
       <main>
         {backLink}
         <p className="mt-6 text-sm text-[var(--color-muted)]">Loading&hellip;</p>
+      </main>
+    );
+  }
+
+  if (status === "error" && errorKind === "locked") {
+    return (
+      <main>
+        {backLink}
+        <div className="mt-6">
+          <UpgradePanel headline="Part of the full Scenario Lab" outcome={error ?? LOCKED_OUTCOME} />
+        </div>
       </main>
     );
   }
@@ -135,6 +151,23 @@ export default function ScenarioRunnerPage({
         <p className="mt-6 rounded-lg border border-[var(--color-warn)]/40 bg-[var(--color-warn)]/5 p-4 text-sm text-[var(--color-warn)]">
           This scenario could not be found.
         </p>
+      </main>
+    );
+  }
+
+  // Explorer: a locked scenario explains what it would add instead of offering a Begin
+  // that the server will refuse. (An attempt already in progress resumes above.)
+  if (preview?.locked) {
+    return (
+      <main>
+        {backLink}
+        <div className="mt-4">
+          <h1 className="text-xl font-semibold tracking-tight">{preview.title}</h1>
+          <p className="mt-1 text-xs text-[var(--color-muted)]">{preview.domain_code}</p>
+        </div>
+        <div className="mt-6">
+          <UpgradePanel headline="Part of the full Scenario Lab" outcome={LOCKED_OUTCOME} />
+        </div>
       </main>
     );
   }

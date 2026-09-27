@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { api } from "./api";
+import { api, ApiError } from "./api";
 import type { ExamQuestion, ExamResult, SubmitAnswer } from "./types";
 
 /**
@@ -44,6 +44,8 @@ interface ExamState {
   endReason: EndReason;
   result: ExamResult | null;
   error: string | null;
+  /** Set when the backend refused with 402: the plan does not cover another exam. */
+  locked: string | null;
 
   start: (trackCode: string, itemCount?: number) => Promise<void>;
   select: (questionId: number, optionId: number) => void;
@@ -69,6 +71,7 @@ const initial = {
   endReason: null as EndReason,
   result: null,
   error: null,
+  locked: null as string | null,
 };
 
 export const useExam = create<ExamState>((set, get) => ({
@@ -94,6 +97,10 @@ export const useExam = create<ExamState>((set, get) => ({
         status: "running",
       });
     } catch (e) {
+      if (e instanceof ApiError && e.entitlement) {
+        set({ status: "idle", locked: e.entitlement.message });
+        return;
+      }
       set({
         status: "idle",
         error: e instanceof Error ? e.message : "Could not start the exam.",

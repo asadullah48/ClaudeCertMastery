@@ -1,9 +1,12 @@
 import type {
+  Access,
   Blueprint,
+  EntitlementRequired,
   ExamGenerated,
   ExamResult,
   ExplanationResponse,
   Health,
+  Offer,
   ScenarioAttemptState,
   ScenarioHintResponse,
   ScenarioListItem,
@@ -51,6 +54,8 @@ class ApiError extends Error {
      * distinguishes these by status rather than by parsing this string -- it exists
      * for a human-readable fallback message only, never for control flow. */
     readonly detail?: string,
+    /** Set on a 402: which paid capability was needed and why it matters. */
+    readonly entitlement?: EntitlementRequired,
   ) {
     super(message);
     this.name = "ApiError";
@@ -66,6 +71,25 @@ async function parseDetail(res: Response): Promise<string | undefined> {
   }
 }
 
+async function parseEntitlement(res: Response): Promise<EntitlementRequired | undefined> {
+  if (res.status !== 402) return undefined;
+  try {
+    const body = (await res.clone().json()) as { detail?: EntitlementRequired };
+    return body.detail?.code === "entitlement_required" ? body.detail : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function failure(method: string, path: string, res: Response): Promise<ApiError> {
+  return new ApiError(
+    `${method} ${path} failed`,
+    res.status,
+    await parseDetail(res),
+    await parseEntitlement(res),
+  );
+}
+
 async function get<T>(path: string, token?: string | null): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     headers: await authHeaders(token),
@@ -74,7 +98,7 @@ async function get<T>(path: string, token?: string | null): Promise<T> {
     cache: "no-store",
   });
   if (!res.ok) {
-    throw new ApiError(`GET ${path} failed`, res.status, await parseDetail(res));
+    throw await failure("GET", path, res);
   }
   return res.json() as Promise<T>;
 }
@@ -86,7 +110,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    throw new ApiError(`POST ${path} failed`, res.status, await parseDetail(res));
+    throw await failure("POST", path, res);
   }
   return res.json() as Promise<T>;
 }
@@ -158,6 +182,14 @@ export const api = {
     ),
   getScenarioAttempt: (attemptId: number) =>
     get<ScenarioAttemptState>(`/scenario-attempts/${attemptId}`),
+
+  // Commercial access. The backend decides; the UI only renders what it is told.
+  getOffer: () => get<Offer>("/offer"),
+  getAccess: (trackCode?: string, token?: string | null) =>
+    get<Access>(
+      trackCode ? `/me/access?track_code=${encodeURIComponent(trackCode)}` : "/me/access",
+      token,
+    ),
 
   // KSOR readiness: deterministic and evidence-derived; never a certification prediction.
   getReadiness: (trackCode: string, token?: string | null) =>

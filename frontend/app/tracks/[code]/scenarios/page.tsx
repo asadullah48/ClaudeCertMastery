@@ -16,6 +16,13 @@ function ScenarioStatusBadge({ item }: { item: ScenarioListItem }) {
       </span>
     );
   }
+  if (item.locked && item.learner_status !== "in_progress") {
+    return (
+      <span className="rounded border border-[var(--color-accent)]/50 px-2 py-0.5 text-xs text-[var(--color-accent)]">
+        Readiness Pass
+      </span>
+    );
+  }
   if (item.counts_as_evidence === false) {
     return (
       <span className="rounded border border-[var(--color-edge)] px-2 py-0.5 text-xs text-[var(--color-muted)]">
@@ -70,6 +77,15 @@ export default async function ScenarioListPage({
           the exam. Each one asks you to reason through a realistic situation, not
           recall a definition.
         </p>
+        {scenarios.some((s) => s.locked) && (
+          <p className="mt-2 max-w-2xl text-xs leading-relaxed text-[var(--color-muted)]">
+            Explorer includes the sample scenarios marked New. Scenarios marked Readiness
+            Pass add independent scenario evidence in every domain.{" "}
+            <Link href="/pricing" className="text-[var(--color-accent)] hover:underline">
+              Compare plans
+            </Link>
+          </p>
+        )}
       </header>
 
       {scenarios.length === 0 ? (

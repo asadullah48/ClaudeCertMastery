@@ -37,7 +37,9 @@ class DomainReadinessOut(BaseModel):
     # non-cleared) band across each scenario's first-exposure (fresh) attempt.
     recent_scenario_mastery_band: str | None = None
     most_recent_evidence_at: datetime | None = None
-    unresolved_misconception_count: int
+    # None only in an Explorer preview (TrackReadinessOut.depth == "preview"), where
+    # misconception detection is withheld -- never None in a full response.
+    unresolved_misconception_count: int | None
     calculated_at: datetime | None = None
 
 
@@ -51,6 +53,9 @@ class NextActionOut(BaseModel):
     # Additive: with ATTEMPT_SCENARIO / REMEDIATE_MISCONCEPTION, the specific scenario
     # the learner has not yet seen (only a first exposure counts as evidence). Null otherwise.
     scenario_external_id: str | None = None
+    # Additive, entitlement: the recommended scenario exists but this learner's plan
+    # does not cover starting it. The recommendation itself is never altered.
+    scenario_locked: bool = False
 
 
 class TrackReadinessOut(BaseModel):
@@ -65,3 +70,7 @@ class TrackReadinessOut(BaseModel):
     overall_reason_codes: list[str]
     domains: list[DomainReadinessOut]
     next_action: NextActionOut
+    # Additive, entitlement: "full" (Readiness Pass) or "preview" (Explorer). A preview
+    # is the SAME computed readiness with depth fields withheld (mastery bands and
+    # misconception counts set to None) -- never a different readiness rule.
+    depth: str = "full"

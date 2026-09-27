@@ -213,6 +213,8 @@ export interface ScenarioListItem {
   counts_as_evidence?: boolean;
   /** Band of the learner's first (evidence) attempt, when submitted. */
   evidence_band?: string | null;
+  /** Entitlement: the learner's plan does not cover starting this scenario. */
+  locked?: boolean;
 }
 
 export interface ScenarioStepOption {
@@ -258,7 +260,8 @@ export interface DomainReadiness {
   recent_practice_mastery_band: string | null;
   recent_scenario_mastery_band: string | null;
   most_recent_evidence_at: string | null;
-  unresolved_misconception_count: number;
+  /** null only in an Explorer preview (TrackReadiness.depth === "preview"): withheld, not zero. */
+  unresolved_misconception_count: number | null;
   calculated_at: string | null;
 }
 
@@ -267,6 +270,8 @@ export interface NextAction {
   domain_code: string | null;
   reason_codes: string[];
   scenario_external_id?: string | null;
+  /** The recommended scenario exists but the learner's plan does not cover it. */
+  scenario_locked?: boolean;
 }
 
 export interface TrackReadiness {
@@ -276,6 +281,8 @@ export interface TrackReadiness {
   overall_reason_codes: string[];
   domains: DomainReadiness[];
   next_action: NextAction;
+  /** "preview" (Explorer): same readiness, depth fields withheld. Absent = full. */
+  depth?: "full" | "preview";
 }
 
 export interface ScenarioHintResponse {
@@ -321,4 +328,40 @@ export interface ScenarioAttemptState {
   status: string;
   current_step: ScenarioStep | null;
   result: ScenarioResult | null;
+}
+
+/* ---- Commercial access (GET /me/access, GET /offer) ---- */
+
+export interface Offer {
+  product_name: string;
+  subtitle: string;
+  price_usd: number;
+  duration_days: number;
+  recurring: boolean;
+  /** False until a merchant of record is connected: no purchase flow may pretend otherwise. */
+  checkout_available: boolean;
+}
+
+export interface ExamAllowance {
+  track_code: string;
+  allowed: boolean;
+  submitted: number;
+  started: number;
+  free_submitted_limit: number | null;
+}
+
+export interface Access {
+  plan: "free" | "readiness_pass";
+  starts_at: string | null;
+  expires_at: string | null;
+  capabilities: string[];
+  exam_allowance: ExamAllowance | null;
+  offer: Offer;
+}
+
+/** Body of a 402: the learner is known, the plan does not cover this capability. */
+export interface EntitlementRequired {
+  code: "entitlement_required";
+  capability: string;
+  message: string;
 }

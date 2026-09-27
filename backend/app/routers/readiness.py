@@ -25,6 +25,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import entitlements
 from app.auth import get_current_user
 from app.database import get_db
 from app.models import Domain, LearnerDomainState, Track, User
@@ -165,7 +166,7 @@ def get_track_readiness(
     ]
     next_action = recommend_next_action_from_candidates(candidates)
 
-    return TrackReadinessOut(
+    out = TrackReadinessOut(
         track_code=track.code,
         track_name=track.name,
         overall_readiness_state=overall.state,
@@ -178,3 +179,6 @@ def get_track_readiness(
             scenario_external_id=next_action.scenario_external_id,
         ),
     )
+    # Entitlement shapes what is SHOWN, after everything above is computed exactly as
+    # before -- it never feeds back into readiness, aggregation or the recommendation.
+    return entitlements.present_readiness(db, entitlements.get_access(db, user), out, track.id)

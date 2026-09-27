@@ -1,10 +1,16 @@
 "use client";
 
-import { use, useEffect } from "react";
+import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { ExamRunner } from "@/components/ExamRunner";
 import { ReviewScreen } from "@/components/ReviewScreen";
+import { UpgradePanel } from "@/components/UpgradePanel";
+import { api } from "@/lib/api";
 import { useExam } from "@/lib/store";
+import type { Access } from "@/lib/types";
+
+const EXAMS_LOCKED =
+  "Your free diagnostic exam is complete. Readiness Pass unlocks further practice exams so you can build repeated evidence in every domain.";
 
 /** Practice lengths. Full length mirrors the published item count for the track. */
 const LENGTHS: { label: string; items?: number; note: string }[] = [
@@ -15,7 +21,22 @@ const LENGTHS: { label: string; items?: number; note: string }[] = [
 
 export default function ExamPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = use(params);
-  const { status, error, start, reset, trackCode } = useExam();
+  const { status, error, locked, start, reset, trackCode } = useExam();
+  // The backend decides whether another exam may start; asked up front so an Explorer
+  // learner sees the value boundary instead of a button that will be refused.
+  const [access, setAccess] = useState<Access | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getAccess(code)
+      .then((a) => !cancelled && setAccess(a))
+      .catch(() => undefined); // unknown -> show the normal start; the server still enforces
+    return () => {
+      cancelled = true;
+    };
+  }, [code, status]);
+  const allowance = access?.exam_allowance;
+  const blocked = locked !== null || allowance?.allowed === false;
 
   // A stale sitting from another track must not bleed into this page. Reset on mount
   // when the store is holding an exam for a different track.
@@ -69,6 +90,20 @@ export default function ExamPage({ params }: { params: Promise<{ code: string }>
         </p>
       )}
 
+      {access?.plan === "free" && !blocked && (
+        <p className="mb-6 rounded-lg border border-[var(--color-edge)] bg-[var(--color-surface)] p-4 text-sm text-[var(--color-muted)]">
+          Explorer includes one complete diagnostic exam. Choose the full exam for the
+          clearest picture of every domain.
+        </p>
+      )}
+
+      {blocked ? (
+        <UpgradePanel
+          headline="Keep building evidence"
+          outcome={locked ?? EXAMS_LOCKED}
+          checkoutAvailable={access?.offer.checkout_available ?? false}
+        />
+      ) : (
       <div className="grid gap-3 sm:grid-cols-3">
         {LENGTHS.map((option) => (
           <button
@@ -83,6 +118,7 @@ export default function ExamPage({ params }: { params: Promise<{ code: string }>
           </button>
         ))}
       </div>
+      )}
 
       {status === "loading" && (
         <p className="mt-6 text-sm text-[var(--color-muted)]">

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { UpgradePanel } from "@/components/UpgradePanel";
 import type { DomainReadiness, NextAction, TrackReadiness } from "@/lib/types";
 
 /**
@@ -87,6 +88,28 @@ function NextActionCard({ trackCode, next }: { trackCode: string; next: NextActi
       text = next.action;
   }
 
+  if (next.scenario_locked) {
+    return (
+      <section className="rounded-lg border border-[var(--color-accent)]/60 bg-[var(--color-surface)] p-5">
+        <h2 className="text-xs font-medium uppercase tracking-widest text-[var(--color-muted)]">
+          Recommended next step
+        </h2>
+        <p className="mt-2 text-sm leading-relaxed">{text}</p>
+        <p className="mt-2 text-sm leading-relaxed text-[var(--color-muted)]">
+          Your evidence points to {next.scenario_external_id ?? "a scenario"}, which is part of
+          the full Scenario Lab. Readiness Pass unlocks it, so this domain can gain the
+          independent scenario evidence it is missing.
+        </p>
+        <Link
+          href="/pricing"
+          className="mt-4 inline-block rounded-md border border-[var(--color-accent)] px-4 py-2 text-sm font-medium text-[var(--color-accent)]"
+        >
+          Unlock with Readiness Pass
+        </Link>
+      </section>
+    );
+  }
+
   return (
     <section className="rounded-lg border border-[var(--color-accent)]/60 bg-[var(--color-surface)] p-5">
       <h2 className="text-xs font-medium uppercase tracking-widest text-[var(--color-muted)]">
@@ -105,7 +128,13 @@ function NextActionCard({ trackCode, next }: { trackCode: string; next: NextActi
   );
 }
 
-function DomainRow({ d }: { d: DomainReadiness }) {
+/** In a preview the band exists but is withheld -- never render it as "none yet". */
+function Band({ value, preview }: { value: string | null; preview: boolean }) {
+  if (preview) return <span className="italic">Readiness Pass</span>;
+  return <>{value ?? "none yet"}</>;
+}
+
+function DomainRow({ d, preview }: { d: DomainReadiness; preview: boolean }) {
   return (
     <li className="rounded-lg border border-[var(--color-edge)] bg-[var(--color-surface)] p-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -122,7 +151,9 @@ function DomainRow({ d }: { d: DomainReadiness }) {
         </div>
         <div>
           <dt>Practice band</dt>
-          <dd>{d.recent_practice_mastery_band ?? "none yet"}</dd>
+          <dd>
+            <Band value={d.recent_practice_mastery_band} preview={preview} />
+          </dd>
         </div>
         <div>
           <dt>Scenarios with evidence</dt>
@@ -130,9 +161,17 @@ function DomainRow({ d }: { d: DomainReadiness }) {
         </div>
         <div>
           <dt>Scenario band</dt>
-          <dd>{d.recent_scenario_mastery_band ?? "none yet"}</dd>
+          <dd>
+            <Band value={d.recent_scenario_mastery_band} preview={preview} />
+          </dd>
         </div>
       </dl>
+      {!preview && (d.unresolved_misconception_count ?? 0) > 0 && (
+        <p className="mt-3 text-xs text-[var(--color-warn)]">
+          {d.unresolved_misconception_count} unresolved misconception
+          {d.unresolved_misconception_count === 1 ? "" : "s"} detected in this domain.
+        </p>
+      )}
       {d.reason_codes.length > 0 && (
         <ul className="mt-3 list-disc pl-5 text-xs text-[var(--color-muted)]">
           {d.reason_codes.map((code) => (
@@ -144,8 +183,23 @@ function DomainRow({ d }: { d: DomainReadiness }) {
   );
 }
 
+/** Which value boundary to explain, chosen from the evidence counts already returned.
+ * Copy selection only -- never a readiness rule. */
+export function previewOutcome(domains: DomainReadiness[]): string {
+  const practice = domains.some((d) => d.practice_evidence_count > 0);
+  const scenarios = domains.some((d) => d.distinct_scenario_content_versions > 0);
+  if (practice && !scenarios) {
+    return "You have practice evidence, but your readiness profile still needs independent scenario evidence. Readiness Pass unlocks the full Scenario Lab and remediation path.";
+  }
+  if (!practice && !scenarios) {
+    return "Start with your free diagnostic exam and a sample scenario. Readiness Pass then adds repeated practice, every scenario and the mastery bands that show exactly where you are weak.";
+  }
+  return "Your preview shows each domain's state and what evidence is missing. Readiness Pass adds practice and scenario mastery bands, misconception detection and a remediation path across every domain.";
+}
+
 export function ReadinessSummary({ readiness }: { readiness: TrackReadiness }) {
   const domains = [...readiness.domains].sort((a, b) => a.domain_position - b.domain_position);
+  const preview = readiness.depth === "preview";
   return (
     <div className="space-y-6">
       <section>
@@ -162,13 +216,17 @@ export function ReadinessSummary({ readiness }: { readiness: TrackReadiness }) {
 
       <NextActionCard trackCode={readiness.track_code} next={readiness.next_action} />
 
+      {preview && (
+        <UpgradePanel headline="This is your readiness preview" outcome={previewOutcome(domains)} />
+      )}
+
       <section>
         <h2 className="mb-3 text-xs font-medium uppercase tracking-widest text-[var(--color-muted)]">
           Domains
         </h2>
         <ul className="space-y-3">
           {domains.map((d) => (
-            <DomainRow key={d.domain_code} d={d} />
+            <DomainRow key={d.domain_code} d={d} preview={preview} />
           ))}
         </ul>
       </section>

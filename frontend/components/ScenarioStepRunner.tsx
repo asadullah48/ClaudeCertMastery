@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useScenario } from "@/lib/scenarioStore";
+import { useScenario, type ScenarioErrorKind } from "@/lib/scenarioStore";
 
 /**
  * The Scenario Lab decision engine: presents the current step, takes a committed
@@ -338,7 +338,7 @@ function ErrorPanel({
   onRestart,
 }: {
   message: string;
-  kind: "conflict" | "not_found" | "transient" | null;
+  kind: ScenarioErrorKind;
   onRestart: () => void;
 }) {
   const needsRestart = kind === "conflict" || kind === "not_found";

@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app import entitlements
 from app.auth import get_current_user, get_optional_user
 from app.database import get_db
 from app.models import (
@@ -89,6 +90,12 @@ def list_scenarios(
     }
     submitted = {e.scenario_id for e in exposures if e.submitted}
     started = {e.scenario_id for e in exposures}
+    # Signed-out visitors see what Explorer would see.
+    access = (
+        entitlements.get_access(db, user) if user is not None
+        else entitlements.AccessState(plan=entitlements.PLAN_FREE)
+    )
+    samples = entitlements.sample_scenario_ids(db, track.id) if track is not None else set()
     return [
         ScenarioListItemOut(
             external_id=s.external_id,
@@ -102,6 +109,7 @@ def list_scenarios(
             ),
             counts_as_evidence=s.id not in exposed,
             evidence_band=fresh_band.get(s.id),
+            locked=entitlements.scenario_locked(access, s.id, samples),
         )
         for s, domain_code in rows
     ]
@@ -205,6 +213,7 @@ def start_scenario(
     steps = sorted(scenario.steps, key=lambda s: s.position)
     if not steps:
         raise HTTPException(409, f"Scenario {external_id} has no authored steps.")
+    entitlements.check_scenario_start(db, entitlements.get_access(db, user), scenario)
 
     domain = db.get(Domain, scenario.domain_id)
     # Retake validity: once this learner has seen the scenario's answers, a new

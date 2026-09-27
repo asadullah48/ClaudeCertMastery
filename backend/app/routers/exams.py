@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app import entitlements
 from app.auth import get_current_user
 from app.database import get_db
 from app.models import (
@@ -47,6 +48,7 @@ def generate(
             f"Track {track.code} has no published blueprint yet. "
             "Its question bank is not authored.",
         )
+    entitlements.check_exam_generation(db, user, entitlements.get_access(db, user), track.id)
 
     weights = [DomainWeight(d.code, d.weight_bps, d.position) for d in track.domains]
     domain_by_code = {d.code: d for d in track.domains}
