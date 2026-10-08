@@ -262,6 +262,8 @@ OPTIONS
 CORRECT ANSWER: {question.correct_labels}
 THE CANDIDATE SELECTED: {question.selected_labels}
 
+Option order is shuffled for every candidate, so the letters above are not the ones the candidate saw. Refer to options by their content, never by letter.
+
 Write remediation for this candidate's specific mistake."""
 
 

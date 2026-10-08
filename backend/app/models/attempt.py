@@ -103,6 +103,12 @@ class AttemptItem(Base):
     # read and written whole, never queried by element.
     selected_option_ids: Mapped[list[int]] = mapped_column(JSON, default=list)
 
+    # Option ids in the order this attempt presented them; display letters are just
+    # positions in this list. Stored so a review shows exactly what the candidate saw.
+    # NULL on attempts created before per-attempt shuffling: those were presented in
+    # authored order, which is what order_options() falls back to.
+    option_order: Mapped[list[int] | None] = mapped_column(JSON, nullable=True)
+
     is_correct: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
     # Recorded for every item but excluded from the scaled score by default (D-4).

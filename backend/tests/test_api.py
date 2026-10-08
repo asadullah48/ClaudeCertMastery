@@ -164,33 +164,97 @@ class TestExamGeneration:
         assert client.post("/exams/generate", json={"track_code": "NOPE"}).status_code == 404
 
 
+def _correct_texts() -> dict[str, set[str]]:
+    """external_id -> texts of its correct options, read from the authored YAML."""
+    import yaml
+
+    out = {}
+    for path in sorted((ROOT / "seed_data" / "ccao_f").glob("*.yaml")):
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        for q in data["questions"]:
+            out[q["external_id"]] = {o["text"] for o in q["options"] if o.get("correct")}
+    return out
+
+
 def _answer_key(client, questions, n_correct):
     """Build a submission answering exactly `n_correct` questions correctly.
 
     The exam payload deliberately omits the answer key, so correctness is derived from
-    the seeded YAML rather than from the API response.
+    the seeded YAML rather than from the API response. Options are matched on their
+    text: payload letters are per-attempt display positions, not the authored labels.
     """
-    import yaml
-
-    correct_by_external_id = {}
-    for path in sorted((ROOT / "seed_data" / "ccao_f").glob("*.yaml")):
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        for q in data["questions"]:
-            correct_by_external_id[q["external_id"]] = {
-                o["label"] for o in q["options"] if o.get("correct")
-            }
+    correct_by_external_id = _correct_texts()
 
     answers = []
     for i, q in enumerate(questions):
-        correct_labels = correct_by_external_id[q["external_id"]]
+        correct_texts = correct_by_external_id[q["external_id"]]
         if i < n_correct:
-            chosen = [o["id"] for o in q["options"] if o["label"] in correct_labels]
+            chosen = [o["id"] for o in q["options"] if o["text"] in correct_texts]
         else:
             # Deliberately wrong: pick the options that are not correct.
-            wrong = [o["id"] for o in q["options"] if o["label"] not in correct_labels]
+            wrong = [o["id"] for o in q["options"] if o["text"] not in correct_texts]
             chosen = wrong[:1]
         answers.append({"question_id": q["id"], "selected_option_ids": chosen})
     return answers
+
+
+class TestOptionShuffle:
+    """Per-attempt option order: shuffled, re-lettered, graded by id, reviewed as seen."""
+
+    def test_presented_options_are_relettered_from_a(self, client):
+        gen = client.post("/exams/generate", json={"track_code": "CCAO-F", "seed": 301}).json()
+        for q in gen["questions"]:
+            assert [o["label"] for o in q["options"]] == list("ABCD"[: len(q["options"])])
+
+    def test_the_same_seed_presents_the_same_option_order(self, client):
+        a = client.post("/exams/generate", json={"track_code": "CCAO-F", "seed": 302}).json()
+        b = client.post("/exams/generate", json={"track_code": "CCAO-F", "seed": 302}).json()
+
+        def order(g):
+            return [[o["id"] for o in q["options"]] for q in g["questions"]]
+
+        assert order(a) == order(b)
+
+    def test_the_key_moves_off_its_authored_letter(self, client):
+        # The authored bank keys only 21 of 112 items on C or D; a shuffled exam must
+        # put the key on those letters far more often than that.
+        correct = _correct_texts()
+        late = total = 0
+        for seed in range(310, 320):
+            gen = client.post(
+                "/exams/generate", json={"track_code": "CCAO-F", "seed": seed}
+            ).json()
+            for q in gen["questions"]:
+                for i, o in enumerate(q["options"]):
+                    if o["text"] in correct[q["external_id"]]:
+                        total += 1
+                        late += i >= 2
+        assert late / total > 0.35
+
+    def test_grading_by_option_id_is_unchanged_by_the_shuffle(self, client):
+        gen = client.post("/exams/generate", json={"track_code": "CCAO-F", "seed": 304}).json()
+        answers = _answer_key(client, gen["questions"], 60)
+        body = client.post(
+            f"/attempts/{gen['attempt_id']}/submit", json={"answers": answers}
+        ).json()
+        assert body["raw_correct"] == 60
+
+    def test_review_shows_the_order_and_letters_the_candidate_saw(self, client):
+        gen = client.post("/exams/generate", json={"track_code": "CCAO-F", "seed": 305}).json()
+        answers = _answer_key(client, gen["questions"], 30)
+        body = client.post(
+            f"/attempts/{gen['attempt_id']}/submit", json={"answers": answers}
+        ).json()
+        seen = {
+            q["id"]: [(o["id"], o["label"], o["text"]) for o in q["options"]]
+            for q in gen["questions"]
+        }
+        for item in body["items"]:
+            reviewed = [(o["id"], o["label"], o["text"]) for o in item["options"]]
+            assert reviewed == seen[item["question_id"]]
+            assert {o["id"] for o in item["options"] if o["is_correct"]} == set(
+                item["correct_option_ids"]
+            )
 
 
 class TestSubmission:

@@ -10,6 +10,7 @@ from app import entitlements
 from app.auth import get_current_user
 from app.database import get_db
 from app.models import (
+    AnswerOption,
     AttemptItem,
     AttemptMode,
     ExamAttempt,
@@ -24,7 +25,12 @@ from app.schemas import (
     QuestionOut,
 )
 from app.services.blueprint import DomainWeight
-from app.services.exam_generator import ExamGenerationError, generate_exam
+from app.services.exam_generator import (
+    ExamGenerationError,
+    display_label,
+    generate_exam,
+    order_options,
+)
 
 router = APIRouter(prefix="/exams", tags=["exams"])
 
@@ -68,9 +74,21 @@ def generate(
     for qid, domain_id in rows:
         bank[id_to_code[domain_id]].append(qid)
 
+    # Authored option order per question, so the generator can shuffle it per attempt.
+    option_rows = db.execute(
+        select(AnswerOption.question_id, AnswerOption.id)
+        .where(AnswerOption.question_id.in_([qid for qid, _ in rows]))
+        .order_by(AnswerOption.question_id, AnswerOption.position, AnswerOption.id)
+    ).all()
+    options: dict[int, list[int]] = {}
+    for qid, oid in option_rows:
+        options.setdefault(qid, []).append(oid)
+
     total_items = payload.item_count or track.item_count
     try:
-        exam = generate_exam(weights, bank, total_items, seed=payload.seed)
+        exam = generate_exam(
+            weights, bank, total_items, seed=payload.seed, options=options
+        )
     except ExamGenerationError as exc:
         raise HTTPException(409, str(exc)) from exc
 
@@ -92,6 +110,7 @@ def generate(
                 domain_id=domain_by_code[exam.domain_of_question[qid]].id,
                 position=position,
                 selected_option_ids=[],
+                option_order=exam.option_order[qid],
             )
         )
 
@@ -116,8 +135,14 @@ def generate(
                 difficulty=q.difficulty,
                 domain_code=exam.domain_of_question[qid],
                 # AnswerOptionOut omits is_correct, so the answer key never leaves the
-                # server with the exam payload.
-                options=[AnswerOptionOut.model_validate(o) for o in q.options],
+                # server with the exam payload. Options go out in this attempt's
+                # shuffled order, re-lettered A.. by position; grading uses ids only.
+                options=[
+                    AnswerOptionOut(
+                        id=o.id, label=display_label(i), text=o.text, position=i + 1
+                    )
+                    for i, o in enumerate(order_options(q.options, exam.option_order[qid]))
+                ],
             )
         )
 

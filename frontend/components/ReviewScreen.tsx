@@ -203,9 +203,12 @@ function ItemRow({
     }
   }
 
+  // The server's presented order is authoritative; the in-memory exam payload is only
+  // a fallback for older backends. Both carry the letters the candidate actually saw.
+  const presented = item.options ?? question?.options;
   const labelOf = (ids: number[]) =>
-    question
-      ? question.options
+    presented
+      ? presented
           .filter((o) => ids.includes(o.id))
           .map((o) => o.label)
           .join(", ") || "none"

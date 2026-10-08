@@ -147,6 +147,15 @@ export interface DomainScore {
   mastery_band: string;
 }
 
+/** An option as presented in the attempt, revealed after grading. */
+export interface ReviewOption {
+  id: number;
+  /** The letter the candidate saw, not the authored label. */
+  label: string;
+  text: string;
+  is_correct: boolean;
+}
+
 export interface ItemResult {
   question_id: number;
   external_id: string;
@@ -155,6 +164,8 @@ export interface ItemResult {
   partial_credit: number;
   selected_option_ids: number[];
   correct_option_ids: number[];
+  /** Options in the order this attempt presented them. Optional for older backends. */
+  options?: ReviewOption[];
   /** The authored explanation. Always present, with or without an API key. */
   explanation: string;
 }

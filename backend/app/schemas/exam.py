@@ -48,6 +48,18 @@ class DomainScoreOut(BaseModel):
     mastery_band: str
 
 
+class ReviewOptionOut(BaseModel):
+    """An option as presented in this attempt, revealed after grading.
+
+    label is the display letter the candidate saw, not the authored label.
+    """
+
+    id: int
+    label: str
+    text: str
+    is_correct: bool
+
+
 class ItemResultOut(BaseModel):
     question_id: int
     external_id: str
@@ -56,6 +68,8 @@ class ItemResultOut(BaseModel):
     partial_credit: float
     selected_option_ids: list[int]
     correct_option_ids: list[int]
+    # In presented order, with presented letters.
+    options: list[ReviewOptionOut] = Field(default_factory=list)
     # Always populated from the question's authored explanation, so results are useful
     # with no ANTHROPIC_API_KEY configured. Session 2 layers AI explanations on top.
     explanation: str

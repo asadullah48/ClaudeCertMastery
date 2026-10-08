@@ -24,9 +24,11 @@ from app.schemas import (
     AttemptOut,
     DomainScoreOut,
     ItemResultOut,
+    ReviewOptionOut,
     SubmitRequest,
     SubmitResponse,
 )
+from app.services.exam_generator import display_label, order_options
 from app.services.readiness_integration import best_effort_recompute_learner_domain_state
 from app.services.scoring import QuestionType, grade_item, score_attempt
 
@@ -126,6 +128,12 @@ def submit(
                 partial_credit=result.partial_credit,
                 selected_option_ids=sorted(selected),
                 correct_option_ids=sorted(correct_ids),
+                options=[
+                    ReviewOptionOut(
+                        id=o.id, label=display_label(i), text=o.text, is_correct=o.is_correct
+                    )
+                    for i, o in enumerate(order_options(question.options, item.option_order))
+                ],
                 explanation=question.static_explanation,
             )
         )

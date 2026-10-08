@@ -4,7 +4,15 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.exam_generator import ExamGenerationError, generate_exam
+from collections import Counter
+from types import SimpleNamespace
+
+from app.services.exam_generator import (
+    ExamGenerationError,
+    display_label,
+    generate_exam,
+    order_options,
+)
 from tests.conftest import CCAO_F_ITEMS_AT_60
 
 
@@ -111,3 +119,72 @@ class TestValidation:
     def test_an_entirely_empty_bank_is_rejected(self, ccao_weights):
         with pytest.raises(ExamGenerationError, match="empty"):
             generate_exam(ccao_weights, {w.code: [] for w in ccao_weights}, 60)
+
+
+def _four_options(bank: dict[str, list[int]]) -> dict[int, list[int]]:
+    """Give every question four option ids, the first being the authored key."""
+    return {qid: [qid * 10 + k for k in range(4)] for ids in bank.values() for qid in ids}
+
+
+class TestOptionShuffle:
+    def test_the_same_seed_gives_the_same_option_order(self, ccao_weights, healthy_bank):
+        opts = _four_options(healthy_bank)
+        a = generate_exam(ccao_weights, healthy_bank, 60, seed=77, options=opts)
+        b = generate_exam(ccao_weights, healthy_bank, 60, seed=77, options=opts)
+        assert a.option_order == b.option_order
+
+    def test_every_presented_item_has_a_permutation_of_its_options(
+        self, ccao_weights, healthy_bank
+    ):
+        opts = _four_options(healthy_bank)
+        exam = generate_exam(ccao_weights, healthy_bank, 60, seed=5, options=opts)
+        assert set(exam.option_order) == set(exam.question_ids)
+        for qid, order in exam.option_order.items():
+            assert sorted(order) == opts[qid]
+
+    def test_shuffling_options_does_not_change_which_questions_a_seed_draws(
+        self, ccao_weights, healthy_bank
+    ):
+        # Stored attempts replay from their seed; adding the option shuffle must not
+        # have moved any existing seed onto a different question set or order.
+        opts = _four_options(healthy_bank)
+        for seed in range(20):
+            plain = generate_exam(ccao_weights, healthy_bank, 60, seed=seed)
+            shuffled = generate_exam(ccao_weights, healthy_bank, 60, seed=seed, options=opts)
+            assert plain.question_ids == shuffled.question_ids
+
+    def test_the_key_lands_on_every_position_20_to_30_percent_over_1000_seeds(
+        self, ccao_weights, healthy_bank
+    ):
+        # The authored key is always at index 0 here -- the worst case, which the
+        # current bank comes close to.
+        opts = _four_options(healthy_bank)
+        positions: Counter[int] = Counter()
+        for seed in range(1000):
+            exam = generate_exam(ccao_weights, healthy_bank, 60, seed=seed, options=opts)
+            qid = exam.question_ids[0]
+            positions[exam.option_order[qid].index(opts[qid][0])] += 1
+        shares = {p: positions[p] / 1000 for p in range(4)}
+        assert all(0.20 <= share <= 0.30 for share in shares.values()), shares
+
+    def test_no_option_map_means_no_option_order(self, ccao_weights, healthy_bank):
+        assert generate_exam(ccao_weights, healthy_bank, 60, seed=1).option_order == {}
+
+
+class TestOrderOptions:
+    @staticmethod
+    def _opts(*ids):
+        return [SimpleNamespace(id=i) for i in ids]
+
+    def test_options_follow_the_stored_order(self):
+        ordered = order_options(self._opts(1, 2, 3, 4), [3, 1, 4, 2])
+        assert [o.id for o in ordered] == [3, 1, 4, 2]
+
+    def test_a_legacy_attempt_with_no_stored_order_keeps_authored_order(self):
+        assert [o.id for o in order_options(self._opts(1, 2, 3), None)] == [1, 2, 3]
+
+    def test_an_option_missing_from_the_stored_order_goes_last(self):
+        assert [o.id for o in order_options(self._opts(1, 2, 3), [2, 1])] == [2, 1, 3]
+
+    def test_display_labels_are_positional_letters(self):
+        assert [display_label(i) for i in range(4)] == ["A", "B", "C", "D"]

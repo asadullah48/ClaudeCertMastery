@@ -10,8 +10,16 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field
+from typing import Sequence, TypeVar
 
 from app.services.blueprint import DomainWeight, allocate_items
+
+T = TypeVar("T")
+
+# Display letters for a presented option list. Authored labels are not used for display:
+# they encode where the author happened to put the key, which is exactly the leak that
+# per-attempt shuffling exists to remove.
+DISPLAY_LABELS = "ABCDEFGH"
 
 
 @dataclass(frozen=True)
@@ -24,6 +32,9 @@ class GeneratedExam:
     requested_items: int
     composition_warning: str | None = None
     domain_of_question: dict[int, str] = field(default_factory=dict)
+    # question_id -> option ids in the order this attempt presents them. Empty for
+    # callers that pass no option map (pure composition tests).
+    option_order: dict[int, list[int]] = field(default_factory=dict)
 
     @property
     def item_count(self) -> int:
@@ -36,6 +47,25 @@ class GeneratedExam:
 
 class ExamGenerationError(ValueError):
     """Raised when no valid exam can be composed from the available bank."""
+
+
+def display_label(index: int) -> str:
+    """The letter shown for the option at ``index`` in a presented order."""
+    return DISPLAY_LABELS[index]
+
+
+def order_options(options: Sequence[T], order: Sequence[int] | None) -> list[T]:
+    """Arrange option objects (anything with an ``id``) in a stored presentation order.
+
+    ``order`` of None means a legacy attempt recorded before shuffling existed: those
+    were shown in authored order, so that is what a faithful review reproduces. Options
+    missing from ``order`` (added to the bank after the attempt) go last, in authored
+    order, rather than vanishing.
+    """
+    if not order:
+        return list(options)
+    rank = {oid: i for i, oid in enumerate(order)}
+    return sorted(options, key=lambda o: rank.get(o.id, len(rank)))
 
 
 def _redistribute(
@@ -88,6 +118,7 @@ def generate_exam(
     total_items: int,
     seed: int | None = None,
     shuffle: bool = True,
+    options: dict[int, list[int]] | None = None,
 ) -> GeneratedExam:
     """Compose a blueprint-weighted exam.
 
@@ -99,6 +130,8 @@ def generate_exam(
                      the result so the exam can be reproduced exactly later.
         shuffle:     interleave domains in the final ordering. False keeps items grouped
                      by domain, which is what domain-drill mode wants.
+        options:     {question_id: [option_id, ...]} in authored order. When given, each
+                     selected item's options are shuffled and returned as option_order.
 
     Draws each domain's quota without replacement, so no question appears twice.
     """
@@ -136,6 +169,16 @@ def generate_exam(
     if shuffle:
         rng.shuffle(selected)
 
+    # Options are shuffled last, from the same RNG, so adding this step left the
+    # question draw for every existing seed unchanged. Always shuffled, even in
+    # drill mode: the position of the key is never information the candidate gets.
+    option_order: dict[int, list[int]] = {}
+    if options is not None:
+        for qid in selected:
+            order = list(options.get(qid, []))
+            rng.shuffle(order)
+            option_order[qid] = order
+
     warning = None
     if notes:
         warning = (
@@ -151,4 +194,5 @@ def generate_exam(
         requested_items=total_items,
         composition_warning=warning,
         domain_of_question=domain_of,
+        option_order=option_order,
     )
