@@ -145,6 +145,36 @@ export function ExamRunner() {
 
       <article className="mt-6">
         <p className="text-base leading-relaxed">{question.stem}</p>
+        {question.table && (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full border-collapse text-left text-sm">
+              <thead>
+                <tr>
+                  {question.table.columns.map((c) => (
+                    <th
+                      key={c}
+                      scope="col"
+                      className="border-b border-[var(--color-edge)] px-3 py-2 font-medium"
+                    >
+                      {c}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {question.table.rows.map((row, r) => (
+                  <tr key={r} className="border-b border-[var(--color-edge)] last:border-b-0">
+                    {row.map((cell, c) => (
+                      <td key={c} className="px-3 py-2 align-top leading-relaxed">
+                        {cell}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
         <p className="mt-2 text-xs text-[var(--color-muted)]">
           {question.question_type === "mr"
             ? question.select_count != null

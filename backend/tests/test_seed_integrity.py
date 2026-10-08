@@ -134,3 +134,28 @@ class TestSelectCount:
         }
         with pytest.raises(ValueError, match="select_count"):
             seed.validate_bank("OEV", [bad])
+
+
+class TestTableItems:
+    def test_every_authored_table_is_rectangular(self):
+        for _, q in ALL_QUESTIONS:
+            if "table" in q:
+                cols = q["table"]["columns"]
+                assert len(cols) >= 2 and len(q["table"]["rows"]) >= 2, q["external_id"]
+                assert all(len(r) == len(cols) for r in q["table"]["rows"]), q["external_id"]
+
+    def test_the_seed_rejects_a_ragged_table(self):
+        import seed
+
+        bad = {
+            "external_id": "CCAO-F-OEV-998", "type": "mcq", "stem": "Which row?",
+            "explanation": "Because.",
+            "table": {"columns": ["Plan", "Reviewer"], "rows": [["1", "x"], ["2"]]},
+            "options": [
+                {"label": "A", "text": "a", "correct": True},
+                {"label": "B", "text": "b", "correct": False},
+                {"label": "C", "text": "c", "correct": False},
+            ],
+        }
+        with pytest.raises(ValueError, match="table row"):
+            seed.validate_bank("OEV", [bad])

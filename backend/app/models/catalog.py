@@ -125,6 +125,11 @@ class Question(Base):
     # of correct options -- seed.py refuses content where it is not. NULL for MCQ.
     select_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+    # Table-format items: {"columns": [...], "rows": [[...], ...]} shown under the stem,
+    # whose options compare its rows. Structured rather than drawn in the stem text so
+    # the runner can render a real, accessible table. NULL for ordinary items.
+    stem_table: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
     # Always present. The AI engine augments this; it does not replace it, so the
     # platform explains every answer even with no ANTHROPIC_API_KEY set.
     static_explanation: Mapped[str] = mapped_column(Text, default="")

@@ -142,6 +142,7 @@ def upsert_question(db: Session, domain: Domain, spec: dict) -> Question:
     question.question_type = QuestionType(spec["type"])
     question.difficulty = spec.get("difficulty", 2)
     question.select_count = spec.get("select_count") if spec["type"] == "mr" else None
+    question.stem_table = spec.get("table")
     question.static_explanation = spec.get("explanation", "").strip()
     question.is_active = spec.get("active", True)
     db.flush()
@@ -193,6 +194,13 @@ def validate_bank(domain_code: str, questions: list[dict]) -> None:
                 f"{qid}: stem says 'select all that apply'; state the count via "
                 "select_count instead."
             )
+        if "table" in q:
+            table = q["table"]
+            columns, rows = table.get("columns") or [], table.get("rows") or []
+            if len(columns) < 2 or len(rows) < 2:
+                raise ValueError(f"{qid}: a table needs at least 2 columns and 2 rows.")
+            if any(len(r) != len(columns) for r in rows):
+                raise ValueError(f"{qid}: every table row must have {len(columns)} cells.")
         if len(q["options"]) < 3:
             raise ValueError(f"{qid}: needs at least 3 options.")
         labels = [o["label"] for o in q["options"]]

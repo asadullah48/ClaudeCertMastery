@@ -81,4 +81,6 @@ class QuestionOut(BaseModel):
     # MR only: the exact number of options to select. Not an answer leak -- the real
     # exam prints it on every multi-response item.
     select_count: int | None = None
+    # Table-format items only: {"columns": [...], "rows": [[...], ...]}.
+    table: dict | None = None
     options: list[AnswerOptionOut] = Field(default_factory=list)

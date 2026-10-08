@@ -67,3 +67,26 @@ describe("Select N on multi-response items", () => {
     expect(incompleteMultiResponse([mr], {})).toEqual([]);
   });
 });
+
+describe("Table-format items", () => {
+  it("renders the stem table with its header and every row", () => {
+    useExam.setState({
+      questions: [
+        {
+          ...mr,
+          table: {
+            columns: ["Plan", "Model tier", "Reviewer"],
+            rows: [
+              ["1", "Smaller, faster model", "None"],
+              ["2", "Larger model", "Domain expert"],
+            ],
+          },
+        },
+      ],
+    });
+    render(<ExamRunner />);
+    expect(screen.getByRole("columnheader", { name: "Model tier" })).toBeInTheDocument();
+    expect(screen.getAllByRole("row")).toHaveLength(3);
+    expect(screen.getByText("Domain expert")).toBeInTheDocument();
+  });
+});

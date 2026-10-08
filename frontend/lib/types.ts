@@ -117,6 +117,8 @@ export interface ExamQuestion {
   domain_code: string;
   /** MR only: exactly how many options to select. Null for MCQ. */
   select_count?: number | null;
+  /** Table-format items: rows the options compare. Absent on ordinary items. */
+  table?: { columns: string[]; rows: string[][] } | null;
   /** Never carries is_correct: the answer key does not leave the server. */
   options: ExamOption[];
 }

@@ -101,7 +101,7 @@ class BankStats:
 def _add(stats: BankStats, q: dict) -> None:
     options = q["options"]
     stats.items += 1
-    if q.get("format") == "table":
+    if q.get("table"):
         stats.table_items += 1
     for o in options:
         stats.option_lengths.append(len(o["text"]))
