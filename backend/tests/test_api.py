@@ -82,7 +82,8 @@ class TestTracks:
             assert tracks[code]["is_seeded"] is False
 
     def test_ccao_f_reports_its_full_question_count(self, client):
-        assert client.get("/tracks/CCAO-F").json()["question_count"] == 112
+        # Every authored item, no more: the count follows the YAML as the bank grows.
+        assert client.get("/tracks/CCAO-F").json()["question_count"] == len(_correct_texts())
 
     def test_ccao_f_exam_parameters_match_the_specification(self, client):
         t = client.get("/tracks/CCAO-F").json()
@@ -204,7 +205,8 @@ class TestOptionShuffle:
     def test_presented_options_are_relettered_from_a(self, client):
         gen = client.post("/exams/generate", json={"track_code": "CCAO-F", "seed": 301}).json()
         for q in gen["questions"]:
-            assert [o["label"] for o in q["options"]] == list("ABCD"[: len(q["options"])])
+            # Positional letters: A-D on four-option items, A-E on five-option MR items.
+            assert [o["label"] for o in q["options"]] == list("ABCDEFGH"[: len(q["options"])])
 
     def test_the_same_seed_presents_the_same_option_order(self, client):
         a = client.post("/exams/generate", json={"track_code": "CCAO-F", "seed": 302}).json()

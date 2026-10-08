@@ -26,6 +26,9 @@ SEED_DIR = Path(__file__).resolve().parents[2] / "seed_data" / "ccao_f"
 
 # Gate thresholds (see tests/test_bank_realism.py).
 MAX_LONGEST_IS_KEY = 0.35   # chance with 4 options is 0.25
+# The mirror of the rule above. Not in the original brief: added so that fixing the
+# "longest option is the key" tell cannot simply invert it into "shortest is the key".
+MAX_SHORTEST_IS_KEY = 0.35
 MAX_LABEL_SHARE = 0.35      # chance with 4 labels is 0.25
 MAX_ABSOLUTE_WRONG = 0.75   # absolute wording should not reliably mark a distractor
 
@@ -39,6 +42,7 @@ class BankStats:
     single_answer: int = 0
     mr_items: int = 0
     longest_is_key: int = 0
+    shortest_is_key: int = 0
     label_counts: Counter = field(default_factory=Counter)
     absolute_options: int = 0
     absolute_wrong: int = 0
@@ -49,6 +53,10 @@ class BankStats:
     @property
     def longest_is_key_rate(self) -> float:
         return self.longest_is_key / self.single_answer if self.single_answer else 0.0
+
+    @property
+    def shortest_is_key_rate(self) -> float:
+        return self.shortest_is_key / self.single_answer if self.single_answer else 0.0
 
     @property
     def max_label_share(self) -> tuple[str, float]:
@@ -77,6 +85,12 @@ class BankStats:
                 f"{self.scope}: key is the uniquely longest option in "
                 f"{self.longest_is_key}/{self.single_answer} single-answer items "
                 f"({self.longest_is_key_rate:.0%} > {MAX_LONGEST_IS_KEY:.0%})"
+            )
+        if self.shortest_is_key_rate > MAX_SHORTEST_IS_KEY:
+            out.append(
+                f"{self.scope}: key is the uniquely shortest option in "
+                f"{self.shortest_is_key}/{self.single_answer} single-answer items "
+                f"({self.shortest_is_key_rate:.0%} > {MAX_SHORTEST_IS_KEY:.0%})"
             )
         label, share = self.max_label_share
         if share > MAX_LABEL_SHARE:
@@ -122,6 +136,8 @@ def _add(stats: BankStats, q: dict) -> None:
     others = [len(o["text"]) for o in options if o is not key]
     if len(key["text"]) > max(others):
         stats.longest_is_key += 1
+    if len(key["text"]) < min(others):
+        stats.shortest_is_key += 1
 
 
 def measure(seed_dir: Path = SEED_DIR) -> tuple[BankStats, list[BankStats]]:
@@ -143,6 +159,7 @@ def _row(s: BankStats) -> str:
     return (
         f"{s.scope:<8}{s.items:>6}{s.single_answer:>6}{s.mr_items:>4}{s.table_items:>6}"
         f"  {s.longest_is_key:>3}/{s.single_answer:<3} {s.longest_is_key_rate:>4.0%}"
+        f"  {s.shortest_is_key:>3}/{s.single_answer:<3} {s.shortest_is_key_rate:>4.0%}"
         f"   {label} {share:>4.0%}"
         f"   {s.absolute_wrong:>3}/{s.absolute_options:<3} {s.absolute_wrong_rate:>4.0%}"
         f"  {s.median_option_length:>6.0f}"
@@ -153,7 +170,7 @@ def main() -> int:
     overall, per_domain = measure()
     print(
         f"{'scope':<8}{'items':>6}{'mcq':>6}{'mr':>4}{'table':>6}"
-        f"  {'longest=key':>13}   {'top label':>8}   {'absolute wrong':>14}  {'median':>6}"
+        f"  {'longest=key':>13}  {'shortest=key':>13}   {'top label':>8}   {'absolute wrong':>14}  {'median':>6}"
     )
     for s in [*per_domain, overall]:
         print(_row(s))

@@ -16,14 +16,38 @@ questions:
       and page numbers. The operator cannot locate two of them. What is the correct
       interpretation?
     options:
-      - {label: A, text: "The reports are behind paywalls and the citations are therefore reliable.", correct: false}
-      - {label: B, text: "Plausible but unverifiable citations must be treated as unsupported until independently confirmed.", correct: true}
-      - {label: C, text: "Specific page numbers indicate the citations were retrieved from a source.", correct: false}
-      - {label: D, text: "Two out of three verifying is an acceptable accuracy rate for published work.", correct: false}
+      - label: A
+        text: >-
+          The two missing reports are most likely behind paywalls or in subscription
+          databases the operator cannot search. Because the citations carry full titles,
+          authors and page numbers, they can be kept, with a note that access was not
+          checked.
+        correct: false
+      - label: B
+        text: >-
+          The page numbers show the citations were taken from real documents rather than
+          generated. The operator should keep them and ask Claude to supply the
+          publisher of each report so the remaining two can be found.
+        correct: false
+      - label: C
+        text: >-
+          Citations that look plausible but cannot be found must be treated as
+          unsupported until someone independently confirms them. Specific detail is not
+          evidence that a source exists, so the claims that rest on those two reports
+          cannot be published until the sources are confirmed or the claims removed.
+        correct: true
+      - label: D
+        text: >-
+          The two unlocated citations should be treated as unsupported and flagged. Since
+          one of the three reports was confirmed, the summary meets a reasonable accuracy
+          bar and can be published with the flag noted in a footnote.
+        correct: false
     explanation: >-
       Fluent, specific-looking citations are exactly the shape a fabricated reference
       takes. Detail is not evidence of provenance. Any citation that cannot be traced to
-      a real source must be treated as unsupported.
+      a real source must be treated as unsupported. The most tempting wrong answer
+      correctly flags the two citations but then publishes anyway: one verified source
+      does nothing for the claims that rest on the other two.
 
   - external_id: CCAO-F-OEV-002
     type: mcq
@@ -32,30 +56,76 @@ questions:
       An operator wants to reduce unsupported claims when Claude answers questions over a
       supplied knowledge base. Which technique most directly enables verification?
     options:
-      - {label: A, text: "Require each claim to quote the specific passage it rests on, so a reviewer can check it against the source.", correct: true}
-      - {label: B, text: "Ask Claude to state that it is confident in its answer.", correct: false}
-      - {label: C, text: "Request longer answers so more context is included.", correct: false}
-      - {label: D, text: "Ask the same question three times and take the most common answer.", correct: false}
+      - label: A
+        text: >-
+          Ask Claude to end each answer with a confidence rating from one to ten and
+          route anything below seven to a reviewer. Low self-rated confidence is a quick
+          way to find the answers most likely to contain unsupported claims.
+        correct: false
+      - label: B
+        text: >-
+          Ask the same question three times at a moderate temperature and keep the claims
+          that appear in every run. Claims that survive repeated sampling can then be
+          treated as grounded without further checking.
+        correct: false
+      - label: C
+        text: >-
+          Ask for longer, more thorough answers that restate the surrounding context from
+          the knowledge base. More context in each answer gives a reviewer more material
+          to compare against.
+        correct: false
+      - label: D
+        text: >-
+          Require each claim to quote the specific passage of the knowledge base it rests
+          on. A reviewer can then check every claim against its quoted source, and a
+          claim with no passage behind it stands out at once.
+        correct: true
     explanation: >-
       Requiring a grounding quote per claim makes verification a mechanical check against
       the source. Self-reported confidence is not calibrated evidence, length does not
       imply support, and repeated sampling reproduces consistent errors as readily as
-      correct answers.
+      correct answers. Repeated sampling is the most tempting wrong answer because
+      agreement feels like evidence, but a consistent hallucination survives every run
+      and is then exempted from checking.
 
   - external_id: CCAO-F-OEV-003
     type: mcq
     difficulty: 2
     stem: >-
-      Which output characteristic should most raise an operator suspicion of hallucination?
+      Which output characteristic should most raise an operator's suspicion of
+      hallucination?
     options:
-      - {label: A, text: "The response hedges and notes that a detail could not be determined from the source.", correct: false}
-      - {label: B, text: "The response supplies confident, highly specific figures on a point the source material does not address.", correct: true}
-      - {label: C, text: "The response is shorter than the operator expected.", correct: false}
-      - {label: D, text: "The response reorders the points relative to the source document.", correct: false}
+      - label: A
+        text: >-
+          The response gives confident, highly specific figures on a point the source
+          material does not address. Precision where the source is silent has to come
+          from somewhere other than the source, and that is the shape invented detail
+          usually takes.
+        correct: true
+      - label: B
+        text: >-
+          The response hedges and says that a particular detail could not be determined
+          from the source provided. Qualifying language in an answer that was meant to be
+          definitive suggests the model was unsure and may have filled a gap.
+        correct: false
+      - label: C
+        text: >-
+          The response is noticeably shorter than the operator expected for the question.
+          A brief answer to a topic the source covers in depth suggests the model drew on
+          general knowledge rather than reading the source.
+        correct: false
+      - label: D
+        text: >-
+          The response presents the source's points in a different order from the
+          document. Reordering shows the model restructured the material itself, which is
+          when invented links between points tend to appear.
+        correct: false
     explanation: >-
       The classic hallucination signature is unwarranted specificity: precise numbers or
       names on a point the source never covered. Hedging is the model correctly signalling
-      a gap, and brevity or reordering are stylistic, not accuracy, signals.
+      a gap, and brevity or reordering are stylistic, not accuracy, signals. Hedging is
+      the most tempting distractor because it looks like uncertainty, but saying a detail
+      is absent is exactly what a grounded answer should do.
 
   - external_id: CCAO-F-OEV-004
     type: mr
@@ -65,14 +135,37 @@ questions:
       Which checks belong in a validation step before Claude-generated financial figures
       are published externally?
     options:
-      - {label: A, text: "Trace every figure back to the underlying source record.", correct: true}
-      - {label: B, text: "Confirm that arithmetic and totals are internally consistent.", correct: true}
-      - {label: C, text: "Have a qualified human reviewer approve the final output.", correct: true}
-      - {label: D, text: "Ask Claude to confirm that its own figures are correct.", correct: false}
+      - label: A
+        text: >-
+          Trace every figure back to the underlying source record, so each published
+          number has a named origin a reviewer can check.
+        correct: true
+      - label: B
+        text: >-
+          Ask Claude, in a second pass, to confirm that each of its own figures is
+          correct and to restate any it is unsure of before release.
+        correct: false
+      - label: C
+        text: >-
+          Confirm that the arithmetic and totals are internally consistent, so subtotals,
+          percentages and grand totals agree with one another.
+        correct: true
+      - label: D
+        text: >-
+          Compare the figures with the previous period's published report and treat any
+          figure within ten percent of last period's as already verified.
+        correct: false
+      - label: E
+        text: >-
+          Have a qualified human reviewer approve the final output before it is
+          published, with the authority to hold it back.
+        correct: true
     explanation: >-
       Source tracing, internal consistency and qualified human sign-off are independent
       checks. Asking the model to self-certify adds no independent evidence, since the
-      same process that produced an error will tend to reaffirm it.
+      same process that produced an error will tend to reaffirm it. The prior-period
+      comparison is the tempting extra: it is a fair sanity check, but treating "close to
+      last time" as verified lets a plausible wrong figure through unexamined.
 
   - external_id: CCAO-F-OEV-005
     type: mcq
@@ -82,15 +175,36 @@ questions:
       reads better. A colleague objects that this is not a sound evaluation. What is the
       strongest basis for that objection?
     options:
-      - {label: A, text: "Ten samples is always statistically insufficient regardless of method.", correct: false}
-      - {label: B, text: "Judging without predefined criteria on a non-representative sample invites confirmation bias and yields no reproducible result.", correct: true}
-      - {label: C, text: "Prompts can only be compared by their token cost.", correct: false}
-      - {label: D, text: "Human judgement should never be used to evaluate model output.", correct: false}
+      - label: A
+        text: >-
+          Ten samples per prompt is too few to support any conclusion. The comparison
+          would become sound if the operator read a hundred outputs from each prompt and
+          judged them in the same way.
+        correct: false
+      - label: B
+        text: >-
+          Human judgement of model output is too subjective to count as evidence. The
+          prompts should be compared on an automated measure such as output length or
+          token cost, which gives the same answer every time.
+        correct: false
+      - label: C
+        text: >-
+          The method lacks a second opinion. If a colleague independently read the same
+          twenty outputs and the two verdicts were averaged, the comparison would be free
+          of individual bias.
+        correct: false
+      - label: D
+        text: >-
+          Judging "which reads better" with no criteria fixed in advance, on a sample not
+          drawn to represent real inputs, invites confirmation bias. It also yields a
+          result no one could reproduce.
+        correct: true
     explanation: >-
       The flaw is method, not sample size alone: with no criteria fixed in advance and no
-      representative input set, reads better is unreproducible and biased toward the
+      representative input set, "reads better" is unreproducible and biased toward the
       prompt the evaluator already favours. Human judgement is valid when it is applied
-      against a defined rubric.
+      against a defined rubric. Reading a hundred samples is the tempting fix, but more
+      outputs judged against no criteria repeat the same bias at greater cost.
 
   - external_id: CCAO-F-OEV-006
     type: mcq
@@ -99,14 +213,36 @@ questions:
       A summarisation workflow is evaluated only on whether the summary is fluent and
       well written. Which failure mode does this evaluation most obviously miss?
     options:
-      - {label: A, text: "A fluent summary that omits or misstates material facts from the source.", correct: true}
-      - {label: B, text: "A summary that is longer than requested.", correct: false}
-      - {label: C, text: "A summary that uses British rather than American spelling.", correct: false}
-      - {label: D, text: "A summary delivered more slowly than expected.", correct: false}
+      - label: A
+        text: >-
+          A summary pitched in a register too casual for its audience. Tone is part of
+          fitness for purpose, and a rubric that rewards polished prose may not separate
+          formal writing from informal writing.
+        correct: false
+      - label: B
+        text: >-
+          A fluent, well-written summary that omits or misstates material facts from the
+          source. Fluency and faithfulness are separate properties, so a fluency-only
+          rubric would score that summary highly.
+        correct: true
+      - label: C
+        text: >-
+          A summary that copies whole sentences from the source rather than paraphrasing
+          them. A fluency rubric rewards polished sentences, so it would score verbatim
+          copying well even though little was summarised.
+        correct: false
+      - label: D
+        text: >-
+          A summary that runs well beyond the requested length. Length limits are part of
+          the brief, and a rubric that only reads for quality of prose never counts the
+          words in what it is scoring.
+        correct: false
     explanation: >-
       Fluency and faithfulness are independent. A polished summary can drop the one
       material fact that mattered, and a fluency-only rubric scores it highly. Faithfulness
-      to the source must be evaluated separately.
+      to the source must be evaluated separately. Over-length is the most tempting
+      distractor because the rubric does miss it too, but an over-long summary is still
+      accurate; a fluent misstatement is the failure that causes harm.
 
   - external_id: CCAO-F-OEV-007
     type: mcq
@@ -115,14 +251,36 @@ questions:
       An operator builds a regression set of 50 representative inputs with known-good
       outputs, run after every prompt change. What is the primary value of this practice?
     options:
-      - {label: A, text: "It proves the prompt will never fail in production.", correct: false}
-      - {label: B, text: "It detects when a change that fixes one case silently breaks cases that previously worked.", correct: true}
-      - {label: C, text: "It removes the need for human review of production output.", correct: false}
-      - {label: D, text: "It reduces the token cost of each production call.", correct: false}
+      - label: A
+        text: >-
+          It shows the prompt will hold up in production, because every change has been
+          checked against representative inputs with known-good outputs before it is
+          released to users.
+        correct: false
+      - label: B
+        text: >-
+          It replaces per-item human review of production output. Any change that would
+          lower quality is caught by the set before release, so reviewing live output
+          adds cost without adding protection.
+        correct: false
+      - label: C
+        text: >-
+          It reveals when a change that fixes one case silently breaks cases that used to
+          work. Rerunning the same known-good inputs after each edit makes that visible
+          before the change ships.
+        correct: true
+      - label: D
+        text: >-
+          It catches regressions before a change ships. Once every case has passed for
+          several releases in a row, the set can be retired and later changes checked by
+          reading a few outputs instead.
+        correct: false
     explanation: >-
       A regression set catches the failure that manual spot-checking misses: a targeted
       fix that quietly degrades unrelated cases. It bounds risk rather than eliminating
-      it, and it neither replaces human review nor changes per-call cost.
+      it, and it neither replaces human review nor changes per-call cost. Retiring the
+      set once it passes is the tempting trap: a passing set is the set doing its job,
+      and the next change is as able to break things as the last.
 
   - external_id: CCAO-F-OEV-008
     type: mr
@@ -131,14 +289,31 @@ questions:
     stem: >-
       Which conditions make an automated LLM-as-judge evaluation more trustworthy?
     options:
-      - {label: A, text: "The judge is given an explicit rubric with concrete criteria rather than a general quality question.", correct: true}
-      - {label: B, text: "Judge scores are periodically calibrated against human ratings on a sample.", correct: true}
-      - {label: C, text: "The judge evaluates output without knowing which prompt variant produced it.", correct: true}
-      - {label: D, text: "The judge is the same prompt and configuration that generated the output.", correct: false}
+      - label: A
+        text: >-
+          The judge uses the same prompt and configuration that generated the output, so
+          it applies exactly the standard the generator was written to meet.
+        correct: false
+      - label: B
+        text: >-
+          The judge is given an explicit rubric with concrete criteria rather than a
+          general question about quality.
+        correct: true
+      - label: C
+        text: >-
+          Judge scores are periodically calibrated against human ratings on a sample of
+          the same outputs.
+        correct: true
+      - label: D
+        text: >-
+          The judge scores each output without knowing which prompt variant produced it.
+        correct: true
     explanation: >-
       A concrete rubric, periodic human calibration and blinding to the variant all reduce
       judge bias and drift. Using the generating configuration as its own judge shares the
-      blind spots that caused the error in the first place.
+      blind spots that caused the error in the first place. It is tempting because the
+      generator "knows the standard", but that shared understanding is exactly what lets
+      its errors pass.
 
   - external_id: CCAO-F-OEV-009
     type: mcq
@@ -148,14 +323,36 @@ questions:
       document does not contain the requested information. The operator knows the
       information exists elsewhere. How should this response be judged?
     options:
-      - {label: A, text: "As a failure, because Claude did not supply the answer.", correct: false}
-      - {label: B, text: "As correct behaviour, because the instruction was to answer only from the supplied document.", correct: true}
-      - {label: C, text: "As a sign the model needs a larger context window.", correct: false}
-      - {label: D, text: "As evidence the document was corrupted.", correct: false}
+      - label: A
+        text: >-
+          As a failure, because the information exists and Claude did not provide it. The
+          prompt should be relaxed so that Claude can fill gaps from general knowledge
+          when the document is silent.
+        correct: false
+      - label: B
+        text: >-
+          As a sign that the context window was too small to hold the document. The
+          operator should split it into chunks and ask the question against each chunk
+          in turn.
+        correct: false
+      - label: C
+        text: >-
+          As acceptable but weaker than a direct answer. In evaluation it should score
+          below an answered response, so the prompt is still rewarded for finding the
+          information whenever it can.
+        correct: false
+      - label: D
+        text: >-
+          As correct behaviour: the instruction was to answer only from the supplied
+          document, which does not contain the answer. An accurate "not found" under a
+          grounding constraint is a success and should be scored as one.
+        correct: true
     explanation: >-
       Correct abstention against a grounding constraint is the desired behaviour and should
       be scored as a success. Penalising it trains the workflow toward exactly the
-      unsupported answers grounding was meant to prevent.
+      unsupported answers grounding was meant to prevent. Scoring abstention as "weaker"
+      is the tempting middle ground, but any penalty pushes the prompt toward answering
+      from outside the document.
 
   - external_id: CCAO-F-OEV-010
     type: mcq
@@ -164,14 +361,36 @@ questions:
       An operator observes that a prompt scores well on their evaluation set but performs
       poorly on live traffic. What is the most likely explanation?
     options:
-      - {label: A, text: "The evaluation set is not representative of the distribution of real inputs.", correct: true}
-      - {label: B, text: "Evaluation sets are inherently unable to predict live behaviour.", correct: false}
-      - {label: C, text: "The model performs worse at higher request volumes.", correct: false}
-      - {label: D, text: "Live traffic uses a different model by default.", correct: false}
+      - label: A
+        text: >-
+          Evaluation sets cannot predict live behaviour, however they are built. Offline
+          scores are a rough guide, and quality after launch is best monitored through
+          user complaints.
+        correct: false
+      - label: B
+        text: >-
+          The evaluation set does not represent the real distribution of inputs; live
+          traffic is messier, longer or more varied. The set should be rebuilt from a
+          sample of real production inputs.
+        correct: true
+      - label: C
+        text: >-
+          The evaluation set is unrepresentative, so the inputs that failed in production
+          should be added to it one at a time and the prompt revised until it passes every
+          one of them.
+        correct: false
+      - label: D
+        text: >-
+          Live traffic is being routed to a different, smaller model than the one used in
+          evaluation. The deployment configuration should be checked and aligned with the
+          evaluation setup.
+        correct: false
     explanation: >-
       A gap between offline and live performance almost always traces to distribution
       mismatch: the evaluation set is cleaner, shorter or less varied than production
-      input. The fix is to resample the evaluation set from real traffic.
+      input. The fix is to resample the evaluation set from real traffic. Adding the
+      failed live inputs one by one is the tempting fix, but tuning to those cases
+      overfits the prompt and leaves the set as unrepresentative as before.
 
   - external_id: CCAO-F-OEV-011
     type: mcq
@@ -180,15 +399,35 @@ questions:
       Which review design best fits a workflow where Claude drafts responses to routine
       customer queries and errors carry moderate cost?
     options:
-      - {label: A, text: "Publish all output automatically with no review.", correct: false}
-      - {label: B, text: "Human review of every draft before it is sent, with sampling used to monitor quality trends over time.", correct: true}
-      - {label: C, text: "Review only the drafts that Claude marks as uncertain.", correct: false}
-      - {label: D, text: "Review a random 1 percent and publish the rest immediately.", correct: false}
+      - label: A
+        text: >-
+          A person reviews every draft before it is sent, and a sample of sent responses
+          is audited over time. Per-item review catches individual errors; the sample
+          shows drift.
+        correct: true
+      - label: B
+        text: >-
+          Claude flags the drafts it is uncertain about and a person reviews those before
+          sending. Drafts Claude is confident in go out directly, so review effort goes
+          where it is most needed.
+        correct: false
+      - label: C
+        text: >-
+          A person reviews a random one percent of drafts after they are sent and feeds
+          problems back into the prompt. The rest go out at once so customers get fast
+          replies.
+        correct: false
+      - label: D
+        text: >-
+          Every draft goes to a person before sending. Once the error rate on reviewed
+          drafts has stayed low for a month, review stops and drafts are sent directly.
+        correct: false
     explanation: >-
       With moderate error cost and customer-facing output, per-item review before sending
       is the appropriate gate, with sampling layered on to track drift. Relying on the
       model to nominate its own uncertain cases misses confident errors, which are the
-      dangerous ones.
+      dangerous ones. Ending review after a good month is the tempting option, but a low
+      error rate under review says nothing about the rate once nobody is looking.
 
   - external_id: CCAO-F-OEV-012
     type: mr
@@ -198,15 +437,34 @@ questions:
       An operator is designing acceptance criteria for a contract-clause extraction task.
       Which criteria are meaningful and checkable?
     options:
-      - {label: A, text: "Every extracted clause must appear verbatim in the source contract.", correct: true}
-      - {label: B, text: "Clauses of the specified types present in the contract must all be captured.", correct: true}
-      - {label: C, text: "The extraction must read professionally.", correct: false}
-      - {label: D, text: "Each extracted clause must record its location in the source document.", correct: true}
+      - label: A
+        text: >-
+          Every extracted clause must appear verbatim in the source contract.
+        correct: true
+      - label: B
+        text: >-
+          Every clause of the specified types present in the contract must be captured.
+        correct: true
+      - label: C
+        text: >-
+          The extraction must read professionally enough to forward to a client without
+          further editing.
+        correct: false
+      - label: D
+        text: >-
+          Each extracted clause must record its location in the source document.
+        correct: true
+      - label: E
+        text: >-
+          Claude must state that it is confident it has found every clause of the
+          specified types.
+        correct: false
     explanation: >-
       Verbatim fidelity, completeness against the target clause types, and recorded source
       location are all objectively verifiable. Reads professionally is a subjective
       property that cannot be consistently checked and does not bear on extraction
-      correctness.
+      correctness. A self-reported completeness statement is the tempting one: it sounds
+      like a completeness check, but it is a claim, not a measurement.
 
   - external_id: CCAO-F-OEV-013
     type: mcq
@@ -215,31 +473,73 @@ questions:
       Two prompt variants are compared on the same 200-input set. Variant A is correct on
       182, variant B on 179. What is the most defensible conclusion?
     options:
-      - {label: A, text: "Variant A is definitively better and should be deployed immediately.", correct: false}
-      - {label: B, text: "The difference is small enough that it may be noise; examine where each fails before deciding.", correct: true}
-      - {label: C, text: "The variants are identical in quality because both exceed 85 percent.", correct: false}
-      - {label: D, text: "The test is invalid because the variants were run on the same inputs.", correct: false}
+      - label: A
+        text: >-
+          Variant A is better and should replace variant B now. Three more correct answers
+          on identical inputs is a measured improvement, and the paired design rules out
+          noise as an explanation.
+        correct: false
+      - label: B
+        text: >-
+          The variants are equivalent because both score above 85 percent. The choice
+          between them can therefore be made on cost alone, without examining where each
+          one fails.
+        correct: false
+      - label: C
+        text: >-
+          A three-case gap on 200 inputs may well be noise. Before choosing, compare which
+          inputs each variant gets wrong; different failure cases matter more than the
+          totals.
+        correct: true
+      - label: D
+        text: >-
+          The test is invalid because running both variants on the same inputs lets one
+          fixed set favour whichever variant happens to suit it. Each variant needs its
+          own separate input set to be compared fairly.
+        correct: false
     explanation: >-
       A three-case gap on 200 inputs is within the range of ordinary variation. The
       informative step is qualitative: inspecting whether the failures are the same cases
       or different ones. Running both variants on identical inputs is correct paired
-      design, not a flaw.
+      design, not a flaw. Calling the paired design proof of improvement is the tempting
+      error: pairing removes input differences, not sampling noise.
 
   - external_id: CCAO-F-OEV-014
     type: mcq
     difficulty: 2
     stem: >-
-      An operator adds the instruction Do not hallucinate to a prompt and sees no
+      An operator adds the instruction "Do not hallucinate" to a prompt and sees no
       measurable change in unsupported claims. What best explains this?
     options:
-      - {label: A, text: "The instruction names an outcome rather than specifying a verifiable behaviour or constraint.", correct: true}
-      - {label: B, text: "The instruction must be placed in the first sentence to take effect.", correct: false}
-      - {label: C, text: "Hallucination cannot be influenced by prompting in any way.", correct: false}
-      - {label: D, text: "The instruction needs to be repeated at least three times.", correct: false}
+      - label: A
+        text: >-
+          The instruction is placed too late to carry weight. Moving it to the first
+          sentence of the system prompt and setting it in capitals would give it enough
+          emphasis to change behaviour.
+        correct: false
+      - label: B
+        text: >-
+          The instruction names an outcome but gives Claude no behaviour to follow or
+          check. Rules such as quoting a source for each claim say what to actually do.
+        correct: true
+      - label: C
+        text: >-
+          Hallucination is a property of the model weights and cannot be influenced by
+          the prompt at all. The operator should switch to a larger model to reduce
+          unsupported claims.
+        correct: false
+      - label: D
+        text: >-
+          The instruction names an outcome rather than a behaviour, so it should also be
+          repeated at the end of the prompt, where its recency gives it more influence on
+          the output.
+        correct: false
     explanation: >-
-      Do not hallucinate describes a desired outcome without giving the model a checkable
-      rule. Grounding constraints, required source quotes and a defined not-found response
-      change behaviour because they specify what to actually do.
+      "Do not hallucinate" describes a desired outcome without giving the model a
+      checkable rule. Grounding constraints, required source quotes and a defined
+      not-found response change behaviour because they specify what to actually do. The
+      most tempting distractor diagnoses the problem correctly and then repeats the same
+      outcome-only instruction, which leaves the model with nothing new to act on.
 
   - external_id: CCAO-F-OEV-015
     type: mcq
@@ -249,14 +549,33 @@ questions:
       finds unsustainable. Investigation shows most flags come from one over-broad rule.
       What is the best response?
     options:
-      - {label: A, text: "Reduce the review rate to a fixed 10 percent sample regardless of flags.", correct: false}
-      - {label: B, text: "Tighten the over-broad rule so it targets the specific failure it was written for, and re-measure.", correct: true}
-      - {label: C, text: "Remove the validation pipeline entirely.", correct: false}
-      - {label: D, text: "Keep the rule and accept the review burden indefinitely.", correct: false}
+      - label: A
+        text: >-
+          Cap human review at a fixed ten percent random sample of outputs and ignore the
+          flags. The workload becomes sustainable and overall quality is still monitored.
+        correct: false
+      - label: B
+        text: >-
+          Remove the validation pipeline and rely on downstream complaints instead. A
+          check that flags 40 percent of outputs is not producing a useful signal for the
+          team.
+        correct: false
+      - label: C
+        text: >-
+          Tighten the over-broad rule, and in the meantime stop routing its flags to
+          reviewers. The workload drops at once while the rule is being rewritten.
+        correct: false
+      - label: D
+        text: >-
+          Tighten the over-broad rule to target the failure it was written for, then
+          re-measure, checking that real failures are still caught.
+        correct: true
     explanation: >-
       A rule firing far beyond its intended failure mode is miscalibrated, and precision
       should be restored at the source. Capping review volume without fixing the rule
-      leaves genuine failures unreviewed while still missing the miscalibration.
+      leaves genuine failures unreviewed while still missing the miscalibration. Muting
+      the rule while it is rewritten is the tempting shortcut, but it removes review from
+      the real failures the rule does catch.
 
   - external_id: CCAO-F-OEV-016
     type: mcq
@@ -264,11 +583,118 @@ questions:
     stem: >-
       What does it mean for Claude output to be grounded in a supplied document?
     options:
-      - {label: A, text: "The output was generated with a low temperature setting.", correct: false}
-      - {label: B, text: "The claims in the output are traceable to and supported by content in that document.", correct: true}
-      - {label: C, text: "The output mentions the document by name.", correct: false}
-      - {label: D, text: "The document was the longest item in the prompt.", correct: false}
+      - label: A
+        text: >-
+          The claims in the output can be traced to, and are supported by, specific
+          content in that document.
+        correct: true
+      - label: B
+        text: >-
+          The output was generated at a low temperature, so it stays close to the most
+          probable wording and adds nothing beyond what the prompt contains.
+        correct: false
+      - label: C
+        text: >-
+          The output names the document and cites its title, which tells the reader where
+          the information came from and shows that the document was used.
+        correct: false
+      - label: D
+        text: >-
+          The document was the largest item in the prompt, so most of the output's
+          content was drawn from it rather than from general knowledge.
+        correct: false
     explanation: >-
       Grounding is about traceable support: each claim can be tied to specific source
       content. Naming the document, or any sampling setting, says nothing about whether
-      the claims actually rest on it.
+      the claims actually rest on it. Citing the title is the tempting answer because it
+      looks like attribution, but a correctly named source can still be misrepresented.
+
+  - external_id: CCAO-F-OEV-017
+    type: mcq
+    difficulty: 2
+    stem: >-
+      An operator is setting the review gate for four Claude workflows. Which row matches
+      the gate to the risk?
+    table:
+      columns: [Row, Workflow, Cost of an error, Gate before release]
+      rows:
+        - ["1", "Internal meeting notes", "Low", "A named owner reviews every item before it is shared"]
+        - ["2", "Customer refund decisions", "High", "Qualified staff approve each decision; a weekly sample is audited"]
+        - ["3", "Public product claims", "High", "A 5% spot-check, made after publishing"]
+        - ["4", "Draft social posts", "Moderate", "No review; a post is removed if complaints arrive"]
+    options:
+      - label: A
+        text: >-
+          Row 1, because a named owner checks every item before it is shared. That is the
+          strongest gate in the table, and the strongest gate is the right choice for any
+          content Claude produces.
+        correct: false
+      - label: B
+        text: >-
+          Row 2, because each high-cost decision is approved by qualified staff before it
+          takes effect, and the weekly sample audit watches for drift across decisions.
+        correct: true
+      - label: C
+        text: >-
+          Row 3, because public claims are high-cost and a spot-check catches problems
+          quickly. Checking after publishing keeps release fast while still giving the
+          risk a check.
+        correct: false
+      - label: D
+        text: >-
+          Row 4, because moderate-cost posts can be corrected after the fact. Acting on
+          complaints lets the people affected decide which posts need to come down.
+        correct: false
+    explanation: >-
+      A gate should be proportionate and should sit before release when errors are
+      costly. Row 2 puts qualified, per-item approval in front of high-cost decisions and
+      adds a sample audit for drift. Row 3 is the most tempting wrong answer: it does
+      check high-risk output, but only after the claim is public, when the harm has
+      already happened. Row 1 over-gates low-risk notes, and row 4 hands the review to
+      the people the errors affect.
+
+  - external_id: CCAO-F-OEV-018
+    type: mcq
+    difficulty: 3
+    stem: >-
+      Four studies compare the same two prompt variants. Which study's result is most
+      trustworthy?
+    table:
+      columns: [Study, Inputs, Criteria, Who scores]
+      rows:
+        - ["1", "30 inputs written by the prompt author", "Fixed rubric", "The prompt author"]
+        - ["2", "300 inputs sampled from last month's traffic", "Which output is better?", "A model judge that can see which variant produced each output"]
+        - ["3", "300 inputs sampled from last month's traffic", "Fixed rubric, calibrated against human ratings", "A model judge that cannot see which variant produced each output"]
+        - ["4", "300 inputs sampled from last month's traffic", "Fixed rubric", "The same configuration that produced the outputs"]
+    options:
+      - label: A
+        text: >-
+          Study 1, because a fixed rubric applied by the person who knows the task best
+          gives consistent scores, and 30 hand-written inputs can be chosen to cover the
+          cases that matter.
+        correct: false
+      - label: B
+        text: >-
+          Study 2, because inputs sampled from real traffic make the result
+          representative, and a model judge applies the same standard to every output
+          without fatigue.
+        correct: false
+      - label: C
+        text: >-
+          Study 3, because its inputs come from real traffic, its rubric is fixed and
+          checked against human ratings, and its judge cannot favour a variant it cannot
+          identify.
+        correct: true
+      - label: D
+        text: >-
+          Study 4, because real-traffic inputs and a fixed rubric make it reproducible,
+          and the generating configuration understands best what each output was meant to
+          achieve.
+        correct: false
+    explanation: >-
+      A trustworthy comparison needs representative inputs, criteria fixed in advance and
+      checked against people, and a scorer that cannot favour either variant. Study 3 has
+      all three. Study 4 is the most tempting wrong answer because its inputs and rubric
+      are sound, but a configuration grading its own output shares the blind spots that
+      produced the errors. Study 2 has no criteria and an unblinded judge, and study 1
+      uses author-written inputs scored by the author.

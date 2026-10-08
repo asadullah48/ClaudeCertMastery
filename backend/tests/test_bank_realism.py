@@ -3,6 +3,9 @@
 Fails a scope (each domain, and the bank overall) if any of these hold:
 
   - the key is the uniquely longest option in more than 35% of single-answer items;
+  - the key is the uniquely shortest option in more than 35% of single-answer items
+    (the mirror rule -- not in the original brief; it stops a rewrite that fixes the
+    longest-option tell from simply inverting it);
   - any authored label holds more than 35% of correct options (pre-shuffle content --
     the runtime shuffle hides this from candidates, but a bank that needs the shuffle
     to be fair is one export or one fallback away from leaking again);
@@ -29,9 +32,9 @@ SCOPES = {s.scope: s for s in [*PER_DOMAIN, OVERALL]}
 
 # Measured 2026-10-08 on the bank at commit 5725c39 (after step 2), before any
 # distractor rewrite. Remove a scope's entry once its rewrite passes the gate.
+# Rewritten and passing (entry removed): OEV.
 KNOWN_GAPS = {
     "PTE": "longest=key 13/13 (100%); label B 50%; absolute-word wrong 8/10 (80%)",
-    "OEV": "longest=key 13/13 (100%); label B 55%",
     "PMS": "longest=key 12/13 (92%); label B 59%; absolute-word wrong 3/3 (100%)",
     "WISD": "longest=key 10/13 (77%); label A 55%; absolute-word wrong 7/9 (78%)",
     "CKM": "longest=key 13/13 (100%); label A 59%; absolute-word wrong 5/6 (83%)",

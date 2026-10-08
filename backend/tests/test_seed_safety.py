@@ -19,8 +19,17 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 import seed  # noqa: E402
+import yaml  # noqa: E402
 from app import models as _models  # noqa: E402,F401  registers metadata
 from app.database import Base  # noqa: E402
+
+
+def _authored_question_count() -> int:
+    """Questions in the CCAO-F YAML -- the seed must load every one, no more."""
+    return sum(
+        len(yaml.safe_load(p.read_text(encoding="utf-8"))["questions"])
+        for p in (ROOT / "seed_data" / "ccao_f").glob("*.yaml")
+    )
 from app.models import AnswerOption, AttemptItem, ExamAttempt, Question, Track, User  # noqa: E402
 
 
@@ -154,5 +163,5 @@ class TestSeedSafetyGuard:
         with seed_db() as db:
             tracks = {t.code for t in db.scalars(select(Track)).all()}
             assert tracks == {"CCAO-F", "CCDV-F", "CCAR-F", "CCAR-P"}
-            assert len(db.scalars(select(Question)).all()) == 112
+            assert len(db.scalars(select(Question)).all()) == _authored_question_count()
             assert db.scalar(select(User).where(User.email == seed.DEV_USER_EMAIL)) is not None
