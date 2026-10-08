@@ -16,14 +16,34 @@ questions:
       An operator wants to paste a customer support transcript containing names, addresses
       and payment details into Claude to draft a reply. What is the correct first step?
     options:
-      - {label: A, text: "Paste the transcript as is, since the reply needs full context.", correct: false}
-      - {label: B, text: "Remove or mask the personal data that the drafting task does not require.", correct: true}
-      - {label: C, text: "Paste it and instruct Claude to delete the personal data afterwards.", correct: false}
-      - {label: D, text: "Paste it but avoid saving the conversation.", correct: false}
+      - label: A
+        text: >-
+          Paste the full transcript so the reply reflects every detail, then delete the
+          conversation from the history once the reply has been drafted and checked.
+        correct: false
+      - label: B
+        text: >-
+          Paste the full transcript and tell Claude in the prompt to ignore the payment
+          details and not repeat any personal data in its draft.
+        correct: false
+      - label: C
+        text: >-
+          Remove the payment details before pasting, since they carry the most risk, and
+          keep the names and postal addresses so that the reply can be personalised and
+          posted to the right customer.
+        correct: false
+      - label: D
+        text: >-
+          Remove or mask the personal data the drafting task does not need before anything
+          is pasted. Minimisation has to happen before disclosure; nothing done afterwards
+          can undo it.
+        correct: true
     explanation: >-
       Data minimisation is applied before the data is sent. Once personal data has been
       transmitted, instructions to delete it or avoid saving the conversation do not undo
-      the disclosure.
+      the disclosure. Masking only the payment details is the most tempting answer
+      because it removes the riskiest field, but a drafted reply does not need the
+      customer's address, so sending it is still disclosure without purpose.
 
   - external_id: CCAO-F-GRR-002
     type: mcq
@@ -32,14 +52,35 @@ questions:
       Claude drafts a hiring shortlist summary. Who holds accountability for the resulting
       decision?
     options:
-      - {label: A, text: "The model vendor, since the model produced the summary.", correct: false}
-      - {label: B, text: "The organisation and the named decision-maker, who remain accountable for the decision and its basis.", correct: true}
-      - {label: C, text: "No one, because the decision was automated.", correct: false}
-      - {label: D, text: "The candidate, for the information they supplied.", correct: false}
+      - label: A
+        text: >-
+          The model vendor, because the summary that shaped the decision was produced by
+          its model, and the vendor's terms govern how the output may be used.
+        correct: false
+      - label: B
+        text: >-
+          The person who wrote the prompt, because they configured how the summary was
+          produced; the decision-maker who relied on it answers only for the final choice
+          between the shortlisted candidates.
+        correct: false
+      - label: C
+        text: >-
+          The organisation and the named decision-maker, who stay accountable for the
+          decision and its basis. Using Claude to prepare the summary does not move that
+          responsibility.
+        correct: true
+      - label: D
+        text: >-
+          The organisation as an entity. Because the summary was automated, no individual
+          decision-maker carries personal accountability for how candidates were
+          shortlisted.
+        correct: false
     explanation: >-
       Accountability for a consequential decision stays with the organisation and the human
       decision-maker. Using a tool to prepare analysis does not transfer responsibility, and
-      this is especially firm in employment contexts.
+      this is especially firm in employment contexts. Splitting accountability onto the
+      prompt author is the tempting wrong answer: the author shaped the tool, but the
+      person who relied on it to decide is the one who answers for the decision.
 
   - external_id: CCAO-F-GRR-003
     type: mcq
@@ -48,15 +89,36 @@ questions:
       An operator notices that a Claude-assisted screening workflow produces systematically
       different outcomes for two demographic groups. What is the appropriate response?
     options:
-      - {label: A, text: "Halt reliance on the workflow for consequential decisions, investigate the cause, and remediate before resuming.", correct: true}
-      - {label: B, text: "Continue, since the difference may reflect genuine variation in the data.", correct: false}
-      - {label: C, text: "Adjust the outputs after the fact to equalise the rates.", correct: false}
-      - {label: D, text: "Document the difference and take no further action.", correct: false}
+      - label: A
+        text: >-
+          Keep the workflow running while the cause is investigated, since the difference
+          may reflect real variation in the applicant data, and pause only if the
+          investigation confirms bias.
+        correct: false
+      - label: B
+        text: >-
+          Stop relying on the workflow for consequential decisions, investigate what is
+          causing the difference, and fix it before the workflow is used again. A
+          systematic disparity in a consequential process cannot be left running while
+          its cause is unknown.
+        correct: true
+      - label: C
+        text: >-
+          Pause reliance on the workflow, then adjust its outputs after the fact so the two
+          groups' outcome rates match, and resume once the rates are equal.
+        correct: false
+      - label: D
+        text: >-
+          Record the difference in the risk register, notify the workflow owner, and keep
+          using the workflow, since the disparity is now documented and being tracked.
+        correct: false
     explanation: >-
       A systematic disparity in a consequential workflow requires pausing reliance and
       investigating causation before resuming. Assuming it is legitimate, papering over it
       with post-hoc adjustment, or merely noting it all leave a potentially discriminatory
-      process running.
+      process running. Investigating while the workflow keeps running is the tempting
+      answer, but every decision made during the investigation carries the same unexplained
+      disparity.
 
   - external_id: CCAO-F-GRR-004
     type: mr
@@ -66,14 +128,37 @@ questions:
       Which uses of Claude require particular caution and usually a human decision-maker in
       the loop?
     options:
-      - {label: A, text: "Decisions materially affecting a person employment.", correct: true}
-      - {label: B, text: "Decisions affecting access to credit or essential services.", correct: true}
-      - {label: C, text: "Content that will be published as authoritative medical or legal guidance.", correct: true}
-      - {label: D, text: "Drafting an internal meeting agenda.", correct: false}
+      - label: A
+        text: >-
+          Decisions that materially affect a person's employment, such as hiring,
+          promotion or dismissal.
+        correct: true
+      - label: B
+        text: >-
+          Drafting an internal meeting agenda that the team will edit together before the
+          meeting.
+        correct: false
+      - label: C
+        text: >-
+          Decisions that affect a person's access to credit, housing or other essential
+          services.
+        correct: true
+      - label: D
+        text: >-
+          Content that will be published as authoritative medical or legal guidance to the
+          public.
+        correct: true
+      - label: E
+        text: >-
+          Summarising a public product announcement for an internal newsletter that a
+          colleague edits.
+        correct: false
     explanation: >-
       Employment, access to essential services and authoritative professional guidance all
       carry high individual impact and regulatory exposure. A routine internal agenda has low
-      consequence and does not need the same control.
+      consequence and does not need the same control. The newsletter summary is the
+      tempting extra because it is published, but it is internal, already public in
+      substance and edited by a colleague, so its consequence is low.
 
   - external_id: CCAO-F-GRR-005
     type: mcq
@@ -82,30 +167,67 @@ questions:
       A team wants to publish Claude-drafted content externally under the company name.
       Which governance step is most important?
     options:
-      - {label: A, text: "A named human reviews and approves the content, taking responsibility for its accuracy.", correct: true}
-      - {label: B, text: "Adding a disclaimer that the content was AI-assisted.", correct: false}
-      - {label: C, text: "Running the draft through Claude a second time to check it.", correct: false}
-      - {label: D, text: "Publishing quickly so errors can be corrected by readers.", correct: false}
+      - label: A
+        text: >-
+          Add a clear notice that the content was AI-assisted, so readers can weigh it
+          accordingly, and publish once the notice is in place.
+        correct: false
+      - label: B
+        text: >-
+          Run the draft back through Claude with instructions to check every claim, and
+          publish once the second pass reports no errors.
+        correct: false
+      - label: C
+        text: >-
+          A named person approves publication, with their review limited to tone and brand
+          style, since accuracy was handled when Claude drafted the content.
+        correct: false
+      - label: D
+        text: >-
+          A named person reviews and approves the content before it is published and takes
+          responsibility for its accuracy.
+        correct: true
     explanation: >-
       External publication under the company name requires human accountability for accuracy.
       A disclaimer may be appropriate for transparency but does not discharge responsibility,
-      and self-review by the same system is not independent verification.
+      and self-review by the same system is not independent verification. A named approver
+      who checks only tone is the tempting answer because it has the right shape, but an
+      approver who does not check accuracy is not accountable for it in any real sense.
 
   - external_id: CCAO-F-GRR-006
     type: mcq
     difficulty: 3
     stem: >-
-      An operator is asked to use Claude to infer employees likely health conditions from
+      An operator is asked to use Claude to infer employees' likely health conditions from
       their absence patterns. How should the operator respond?
     options:
-      - {label: A, text: "Proceed, since the absence data is already held by the employer.", correct: false}
-      - {label: B, text: "Decline and escalate, since inferring sensitive health information about identified individuals raises serious legal and ethical issues regardless of data ownership.", correct: true}
-      - {label: C, text: "Proceed but anonymise the output.", correct: false}
-      - {label: D, text: "Proceed if the employees are informed afterwards.", correct: false}
+      - label: A
+        text: >-
+          Decline and escalate to legal, privacy and HR governance. Inferring sensitive
+          health information about identified individuals raises serious legal and ethical
+          issues whoever holds the source data, and it is not the operator's call to make.
+        correct: true
+      - label: B
+        text: >-
+          Proceed, since the employer already holds the absence data lawfully, and limit
+          access to the resulting inferences to HR staff who already see employee records.
+        correct: false
+      - label: C
+        text: >-
+          Proceed, but anonymise the output so that no inferred condition can be tied back
+          to a named employee in the report that is shared.
+        correct: false
+      - label: D
+        text: >-
+          Proceed only after informing the affected employees in writing that their
+          absence patterns will be analysed for possible health conditions.
+        correct: false
     explanation: >-
       Lawful possession of source data does not authorise deriving sensitive inferences about
       identified people. This is a use-legitimacy question that belongs with legal, privacy
-      and HR governance, not one an operator should resolve unilaterally.
+      and HR governance, not one an operator should resolve unilaterally. Anonymising the
+      output is the tempting answer, but the inference is still made about identified
+      people; hiding names in the report does not make the processing legitimate.
 
   - external_id: CCAO-F-GRR-007
     type: mcq
@@ -114,14 +236,32 @@ questions:
       Which record is most valuable for demonstrating responsible governance of a
       Claude-assisted decision process to an auditor?
     options:
-      - {label: A, text: "An end-to-end trail showing inputs, output, the human reviewer and the basis for the final decision.", correct: true}
-      - {label: B, text: "A statement that the organisation uses a reputable AI provider.", correct: false}
-      - {label: C, text: "The total number of requests made during the period.", correct: false}
-      - {label: D, text: "A copy of the model technical documentation.", correct: false}
+      - label: A
+        text: >-
+          A statement from the AI provider describing its safety practices, together with
+          the contract showing that a reputable vendor supplies the model.
+        correct: false
+      - label: B
+        text: >-
+          Monthly totals of requests made to Claude, broken down by department, showing how
+          heavily each team relied on the workflow over the period.
+        correct: false
+      - label: C
+        text: >-
+          An end-to-end trail for each decision: the inputs, Claude's output, who reviewed
+          it, and the basis for the final decision.
+        correct: true
+      - label: D
+        text: >-
+          A full log of every prompt and Claude output for each decision, so an auditor can
+          see exactly what the model was asked and what it said in reply.
+        correct: false
     explanation: >-
       Auditors need to reconstruct how a specific decision was reached and who was
       accountable. Vendor reputation, request volume and product documentation say nothing
-      about any individual decision.
+      about any individual decision. The prompt-and-output log is the tempting answer
+      because it is detailed, but it stops at the model: it shows neither who reviewed the
+      output nor why the final decision was made.
 
   - external_id: CCAO-F-GRR-008
     type: mr
@@ -130,14 +270,29 @@ questions:
     stem: >-
       Which considerations belong in an organisational policy on operator use of Claude?
     options:
-      - {label: A, text: "What categories of data may and may not be submitted.", correct: true}
-      - {label: B, text: "Which decisions require human review before action.", correct: true}
-      - {label: C, text: "How outputs used in regulated processes must be recorded.", correct: true}
-      - {label: D, text: "A requirement that staff never disclose that Claude was used internally.", correct: false}
+      - label: A
+        text: >-
+          Which categories of data may, and may not, be submitted to Claude.
+        correct: true
+      - label: B
+        text: >-
+          Which decisions require human review before anyone acts on the output.
+        correct: true
+      - label: C
+        text: >-
+          A requirement that staff never disclose, inside or outside the organisation,
+          that Claude was used.
+        correct: false
+      - label: D
+        text: >-
+          How outputs used in regulated processes must be recorded and retained.
+        correct: true
     explanation: >-
       Data boundaries, review requirements and record-keeping are core policy content.
       Requiring concealment of tool use works against the transparency that governance and
-      audit depend on.
+      audit depend on. It can look like a confidentiality rule, but hiding the use of the
+      tool from the organisation itself makes the other three policies impossible to
+      enforce.
 
   - external_id: CCAO-F-GRR-009
     type: mcq
@@ -146,14 +301,33 @@ questions:
       An operator receives Claude output that confidently states a regulatory requirement the
       operator believes is outdated. What is the correct action?
     options:
-      - {label: A, text: "Verify the requirement against the authoritative regulatory source before acting or advising.", correct: true}
-      - {label: B, text: "Accept the output, since it is stated with confidence.", correct: false}
-      - {label: C, text: "Ask Claude whether it is certain, and accept the answer.", correct: false}
-      - {label: D, text: "Discard the entire output as unreliable.", correct: false}
+      - label: A
+        text: >-
+          Accept the output, since it states the requirement precisely and with confidence,
+          and note in the case file that Claude was the source of the requirement in case
+          it is queried later.
+        correct: false
+      - label: B
+        text: >-
+          Check the requirement against the authoritative regulatory source before acting
+          on it or advising anyone. Confident wording is not evidence a rule is current.
+        correct: true
+      - label: C
+        text: >-
+          Ask Claude whether the requirement is still current, and act on its answer if it
+          confirms the rule after being asked to reconsider it.
+        correct: false
+      - label: D
+        text: >-
+          Discard the whole output and redo the task by hand, since one outdated claim
+          means none of the other content can be trusted at all.
+        correct: false
     explanation: >-
       Regulatory claims must be checked against the authoritative source. Confidence in
       phrasing is not evidence of currency, and asking the model to self-assess does not
-      provide independent verification. Discarding everything overcorrects.
+      provide independent verification. Discarding everything overcorrects. Asking Claude
+      to reconsider is the most tempting wrong answer because it feels like a check, but
+      the same model rechecking itself adds no independent evidence.
 
   - external_id: CCAO-F-GRR-010
     type: mcq
@@ -162,14 +336,33 @@ questions:
       A department wants to deploy a Claude workflow that will affect customers in multiple
       jurisdictions with differing data-protection regimes. What should happen before launch?
     options:
-      - {label: A, text: "Assess the workflow against the requirements of each jurisdiction involved and design to the strictest applicable constraint.", correct: true}
-      - {label: B, text: "Apply the rules of the jurisdiction where the company is headquartered.", correct: false}
-      - {label: C, text: "Launch first and address jurisdictional issues if a complaint arises.", correct: false}
-      - {label: D, text: "Apply the least restrictive regime to avoid limiting functionality.", correct: false}
+      - label: A
+        text: >-
+          Design to the rules of the jurisdiction where the company is headquartered, since
+          that regulator has primary oversight of the organisation's data processing.
+        correct: false
+      - label: B
+        text: >-
+          Launch in every market at once and deal with jurisdiction-specific requirements
+          if a regulator or a customer raises a complaint.
+        correct: false
+      - label: C
+        text: >-
+          Assess each jurisdiction's requirements and design to the least restrictive
+          regime, so that customers in every market get the same full feature set.
+        correct: false
+      - label: D
+        text: >-
+          Assess the workflow against the requirements of each jurisdiction it touches and
+          design to the strictest constraint that applies. Obligations from several regimes
+          add up; meeting one of them does not excuse the others.
+        correct: true
     explanation: >-
       Where multiple regimes apply, obligations are cumulative and the design must satisfy
       the strictest applicable constraint. Defaulting to the headquarters jurisdiction or the
-      most permissive regime leaves the organisation exposed in the others.
+      most permissive regime leaves the organisation exposed in the others. The
+      least-restrictive option is tempting because it starts with the right assessment,
+      but it then designs to the wrong end of what that assessment found.
 
   - external_id: CCAO-F-GRR-011
     type: mcq
@@ -178,14 +371,31 @@ questions:
       Which statement best describes appropriate transparency when Claude assists in
       producing customer-facing analysis?
     options:
-      - {label: A, text: "Disclosure practice should follow organisational policy and applicable regulation, with human accountability for the content maintained regardless.", correct: true}
-      - {label: B, text: "AI involvement should never be disclosed, to preserve confidence.", correct: false}
-      - {label: C, text: "Disclosure removes the need for human review.", correct: false}
-      - {label: D, text: "Disclosure is only required if the customer asks directly.", correct: false}
+      - label: A
+        text: >-
+          AI involvement should not be disclosed, because customers may lose confidence in
+          analysis they know was produced with Claude's help.
+        correct: false
+      - label: B
+        text: >-
+          AI involvement should be disclosed on every item, and that disclosure means the
+          content no longer needs a person to stand behind its accuracy.
+        correct: false
+      - label: C
+        text: >-
+          Disclosure should follow organisational policy and applicable regulation, and a
+          person stays accountable for the content either way.
+        correct: true
+      - label: D
+        text: >-
+          Disclosure is needed when a customer asks directly whether Claude was involved;
+          otherwise the analysts' usual accountability for the content is enough.
+        correct: false
     explanation: >-
       Transparency obligations are set by policy and regulation and vary by context, but
       accountability for the content is constant. Disclosure and review are complementary,
-      not alternatives.
+      not alternatives. Disclosing on every item is the tempting answer because it is the
+      most transparent, but it then treats disclosure as a substitute for accountability.
 
   - external_id: CCAO-F-GRR-012
     type: mcq
@@ -194,14 +404,31 @@ questions:
       An operator is unsure whether a proposed use of Claude is permitted under company
       policy. What is the appropriate action?
     options:
-      - {label: A, text: "Escalate to the relevant governance or compliance function before proceeding.", correct: true}
-      - {label: B, text: "Proceed, since the policy does not explicitly prohibit it.", correct: false}
-      - {label: C, text: "Ask Claude whether the use is permitted and rely on the answer.", correct: false}
-      - {label: D, text: "Proceed on a small scale first without informing anyone.", correct: false}
+      - label: A
+        text: >-
+          Escalate to the governance or compliance function that owns the policy, and wait
+          for its answer before proceeding.
+        correct: true
+      - label: B
+        text: >-
+          Proceed, since the policy does not explicitly prohibit this use, and record the
+          reasoning in case the use is questioned later on.
+        correct: false
+      - label: C
+        text: >-
+          Ask Claude to read the policy and say whether the use is permitted, and proceed if
+          its reading is that the use is allowed.
+        correct: false
+      - label: D
+        text: >-
+          Run a small pilot first to see whether any problems arise, and raise the question
+          with compliance if the pilot shows a problem.
+        correct: false
     explanation: >-
       Ambiguity in policy is resolved by the function that owns the policy. Absence of an
       explicit prohibition is not permission, and the model has no authority over the
-      organisation own rules.
+      organisation's own rules. The small pilot is the tempting middle path, but it
+      performs the very use whose permission is in doubt before anyone has answered.
 
   - external_id: CCAO-F-GRR-013
     type: mcq
@@ -210,14 +437,33 @@ questions:
       A workflow summarises employee performance reviews. Which risk most warrants a control
       beyond ordinary accuracy checking?
     options:
-      - {label: A, text: "Summaries may systematically emphasise or omit themes in ways that disadvantage particular groups.", correct: true}
-      - {label: B, text: "Summaries may be longer than the original reviews.", correct: false}
-      - {label: C, text: "Summaries may use different vocabulary from the reviewer.", correct: false}
-      - {label: D, text: "Summaries may take longer to generate at peak times.", correct: false}
+      - label: A
+        text: >-
+          Summaries may come out longer than the original reviews, burying the main points
+          and making it harder for managers to act on them.
+        correct: false
+      - label: B
+        text: >-
+          Summaries may systematically emphasise or drop themes in ways that disadvantage
+          particular groups. That calls for fairness monitoring, not only accuracy checks.
+        correct: true
+      - label: C
+        text: >-
+          Summaries may paraphrase reviewers in different vocabulary, so a manager reading
+          the summary loses the tone and nuance of the original wording.
+        correct: false
+      - label: D
+        text: >-
+          Summaries may contain factual errors about individual reviews, which need to be
+          caught before the summaries are used in any decision about pay, promotion or a
+          performance plan.
+        correct: false
     explanation: >-
       In a consequential HR context the material risk is systematic bias in what gets
       emphasised or dropped, which fairness monitoring is designed to detect. Length,
-      vocabulary and latency are quality or operational matters, not equity risks.
+      vocabulary and latency are quality or operational matters, not equity risks. Factual
+      errors are the tempting answer because they matter, but they are exactly what
+      ordinary accuracy checking already catches; a pattern across groups is not.
 
   - external_id: CCAO-F-GRR-014
     type: mr
@@ -227,29 +473,68 @@ questions:
       Which are legitimate reasons to keep a human in the loop even when a Claude workflow
       performs well in testing?
     options:
-      - {label: A, text: "The consequences of an undetected error are severe or irreversible.", correct: true}
-      - {label: B, text: "Regulation or policy requires a human decision-maker.", correct: true}
-      - {label: C, text: "Live inputs may drift away from the conditions covered in testing.", correct: true}
-      - {label: D, text: "Human review is always required for every use of AI without exception.", correct: false}
+      - label: A
+        text: >-
+          Human review is required for every use of AI in the organisation, whatever the
+          consequence of an error would be.
+        correct: false
+      - label: B
+        text: >-
+          The consequences of an undetected error would be severe or irreversible.
+        correct: true
+      - label: C
+        text: >-
+          Regulation or policy requires a human decision-maker for this kind of decision.
+        correct: true
+      - label: D
+        text: >-
+          A reviewer in the loop moves accountability for any error away from the
+          organisation and onto that reviewer.
+        correct: false
+      - label: E
+        text: >-
+          Live inputs may drift away from the conditions that testing covered.
+        correct: true
     explanation: >-
       Severity, regulatory requirement and distribution drift are all sound reasons to retain
       a human gate. A blanket rule that every use requires review is not a risk-based
-      approach and is impractical for low-consequence tasks.
+      approach and is impractical for low-consequence tasks. Shifting accountability onto
+      the reviewer is the tempting extra, but the organisation stays accountable; a
+      reviewer adds a check, not a scapegoat.
 
   - external_id: CCAO-F-GRR-015
     type: mcq
     difficulty: 2
     stem: >-
-      What is the most accurate characterisation of Claude confidence in its own outputs?
+      What is the most accurate characterisation of Claude's confidence in its own outputs?
     options:
-      - {label: A, text: "Expressed confidence is a language feature and is not a calibrated probability of correctness.", correct: true}
-      - {label: B, text: "Expressed confidence reliably indicates the likelihood the answer is correct.", correct: false}
-      - {label: C, text: "Claude never expresses confidence.", correct: false}
-      - {label: D, text: "Confidence can be trusted for factual claims but not for opinions.", correct: false}
+      - label: A
+        text: >-
+          Expressed confidence reliably tracks how likely the answer is to be correct, so
+          confident answers can skip review while hedged answers are checked.
+        correct: false
+      - label: B
+        text: >-
+          Expressed confidence is trustworthy for factual claims, which Claude can check
+          against what it learned in training, but not for opinions, predictions or
+          recommendations.
+        correct: false
+      - label: C
+        text: >-
+          Claude does not express confidence in its answers, so any certainty an operator
+          reads into a response has been projected onto neutral text.
+        correct: false
+      - label: D
+        text: >-
+          Expressed confidence is a feature of the language, not a calibrated probability
+          that the answer is correct. Verification has to come from independent checks.
+        correct: true
     explanation: >-
       Confident phrasing does not carry a calibrated error rate, which is precisely why
       confident hallucinations are dangerous. Verification must come from grounding and
-      independent checks, not from tone.
+      independent checks, not from tone. Trusting confidence for facts but not opinions is
+      the tempting distinction, but confident factual errors are the very hallucinations
+      grounding exists to catch.
 
   - external_id: CCAO-F-GRR-016
     type: mcq
@@ -258,11 +543,113 @@ questions:
       An operator wants to use Claude to help draft an internal policy about Claude use.
       Is this appropriate?
     options:
-      - {label: A, text: "Yes, provided the draft is reviewed and approved by the accountable governance function before adoption.", correct: true}
-      - {label: B, text: "No, a tool may never contribute to policy about itself.", correct: false}
-      - {label: C, text: "Yes, and it can be adopted directly without review.", correct: false}
-      - {label: D, text: "Only if no human contributes to the draft.", correct: false}
+      - label: A
+        text: >-
+          Yes, provided the accountable governance function reviews and approves the draft
+          before it is adopted.
+        correct: true
+      - label: B
+        text: >-
+          No. A tool should not contribute to a policy governing its own use, so the draft
+          must be written without Claude's involvement at any stage.
+        correct: false
+      - label: C
+        text: >-
+          Yes, and because the policy is internal, the draft can be adopted as written once
+          the operator who produced it is satisfied with it.
+        correct: false
+      - label: D
+        text: >-
+          Yes, provided Claude writes the whole draft without human edits, so the policy
+          reflects one consistent view rather than a mix of authors.
+        correct: false
     explanation: >-
       Drafting assistance is a legitimate use; what matters is that the accountable function
       reviews and approves before adoption. The same human-accountability principle applies
-      here as to any other consequential output.
+      here as to any other consequential output. Adopting on the drafting operator's say-so
+      is the tempting answer because the policy is internal, but the operator is not the
+      function accountable for organisational policy.
+
+  - external_id: CCAO-F-GRR-017
+    type: mcq
+    difficulty: 2
+    stem: >-
+      An operator reviews four planned uses of Claude. Which row handles the data correctly?
+    table:
+      columns: [Row, Data in the task, Handling before sending to Claude, Who approves the use]
+      rows:
+        - ["1", "Customer emails with names and addresses", "Sent in full", "The operator"]
+        - ["2", "Support tickets with payment details", "Payment details masked; only the fields the task needs are sent", "The data owner, under the data-handling policy"]
+        - ["3", "Employee health records", "Names removed", "The team lead"]
+        - ["4", "Contract drafts marked confidential", "Sent in full; Claude is told to keep them confidential", "The operator"]
+    options:
+      - label: A
+        text: >-
+          Row 1, because the operator knows what the reply needs, and sending the emails in
+          full gives Claude the context to draft an accurate, personal response.
+        correct: false
+      - label: B
+        text: >-
+          Row 2, because only the fields the task needs are sent, payment details are
+          masked, and the use is approved by the data owner under policy.
+        correct: true
+      - label: C
+        text: >-
+          Row 3, because removing names makes the health records anonymous enough to
+          share, and the team lead understands the purpose of the task.
+        correct: false
+      - label: D
+        text: >-
+          Row 4, because Claude is told to keep the drafts confidential, and the operator,
+          who knows the contracts best, has approved sending them in full.
+        correct: false
+    explanation: >-
+      Correct handling minimises the data before it is sent and has the use approved by
+      whoever owns that data under policy. Row 2 does both. Row 3 is the most tempting
+      wrong answer: removing names feels like anonymisation, but health records usually
+      remain identifiable from what is left, and a team lead is not the owner of that data.
+      Rows 1 and 4 send everything, and an instruction to Claude to keep something
+      confidential does not undo sending it.
+
+  - external_id: CCAO-F-GRR-018
+    type: mcq
+    difficulty: 3
+    stem: >-
+      Four Claude-assisted decisions are set up as below. Which row places accountability
+      where it belongs?
+    table:
+      columns: [Row, Decision, Claude's role, Final decision made by]
+      rows:
+        - ["1", "Loan approval", "Recommends approve or decline", "Claude, automatically, when its stated confidence is high"]
+        - ["2", "Job shortlist", "Ranks the candidates", "The prompt engineer who built the ranking"]
+        - ["3", "Insurance claim payout", "Summarises the evidence", "A named claims handler, who records the reason"]
+        - ["4", "Medical guidance published online", "Drafts the article", "Published automatically; a reader-reported error triggers review"]
+    options:
+      - label: A
+        text: >-
+          Row 1, because high-confidence recommendations are the least likely to be wrong,
+          and keeping people for low-confidence cases puts review where it is needed.
+        correct: false
+      - label: B
+        text: >-
+          Row 2, because the person who built the ranking understands best how candidates
+          were scored, which makes them best placed to own the shortlist.
+        correct: false
+      - label: C
+        text: >-
+          Row 3, because a named claims handler makes the decision and records the reason,
+          while Claude only summarises the evidence. A person stays accountable for a
+          consequential outcome, and the record shows why it was decided.
+        correct: true
+      - label: D
+        text: >-
+          Row 4, because reader reports catch errors quickly, and a review triggered by
+          those reports keeps a person involved in what is published.
+        correct: false
+    explanation: >-
+      Accountability belongs with a named person who makes the consequential decision and
+      records its basis, with Claude in a supporting role. Row 3 is the only such design.
+      Row 1 is the most tempting wrong answer because it does keep people for the hard
+      cases, but stated confidence is not calibrated, so the confident errors go out with
+      no one accountable. Row 2 gives the decision to the tool's builder, and row 4 reviews
+      only after harm is reported.

@@ -32,13 +32,12 @@ SCOPES = {s.scope: s for s in [*PER_DOMAIN, OVERALL]}
 
 # Measured 2026-10-08 on the bank at commit 5725c39 (after step 2), before any
 # distractor rewrite. Remove a scope's entry once its rewrite passes the gate.
-# Rewritten and passing (entry removed): OEV.
+# Rewritten and passing (entry removed): OEV, GRR.
 KNOWN_GAPS = {
     "PTE": "longest=key 13/13 (100%); label B 50%; absolute-word wrong 8/10 (80%)",
     "PMS": "longest=key 12/13 (92%); label B 59%; absolute-word wrong 3/3 (100%)",
     "WISD": "longest=key 10/13 (77%); label A 55%; absolute-word wrong 7/9 (78%)",
     "CKM": "longest=key 13/13 (100%); label A 59%; absolute-word wrong 5/6 (83%)",
-    "GRR": "longest=key 13/13 (100%); label A 59%; absolute-word wrong 7/7 (100%)",
     "TRO": "longest=key 12/13 (92%); label A 73%; absolute-word wrong 8/8 (100%)",
     "overall": (
         "longest=key 86/91 (95%); labels A75 B58 C18 D3 (A 49%); "
