@@ -115,6 +115,8 @@ export interface ExamQuestion {
   question_type: "mcq" | "mr";
   difficulty: number;
   domain_code: string;
+  /** MR only: exactly how many options to select. Null for MCQ. */
+  select_count?: number | null;
   /** Never carries is_correct: the answer key does not leave the server. */
   options: ExamOption[];
 }

@@ -62,10 +62,11 @@ questions:
 
   - external_id: CCAO-F-PTE-004
     type: mr
+    select_count: 3
     difficulty: 2
     stem: >-
       Which practices meaningfully improve the reliability of a production prompt that
-      classifies incoming support tickets? Select all that apply.
+      classifies incoming support tickets?
     options:
       - {label: A, text: "Define each category explicitly, including how to handle edge cases and ambiguous tickets.", correct: true}
       - {label: B, text: "Provide a small set of representative labelled examples covering the harder distinctions.", correct: true}
@@ -128,10 +129,11 @@ questions:
 
   - external_id: CCAO-F-PTE-008
     type: mr
+    select_count: 3
     difficulty: 2
     stem: >-
       An operator is writing a prompt that will be reused daily by a team. Which elements
-      belong in the reusable prompt rather than being left to each run? Select all that apply.
+      belong in the reusable prompt rather than being left to each run?
     options:
       - {label: A, text: "The role and task framing that stays constant across runs.", correct: true}
       - {label: B, text: "The required output format and its constraints.", correct: true}
@@ -210,11 +212,12 @@ questions:
 
   - external_id: CCAO-F-PTE-013
     type: mr
+    select_count: 3
     difficulty: 3
     stem: >-
       A prompt reliably produces correct content but in an inconsistent structure, making
       downstream automation brittle. Which changes directly address structural
-      inconsistency? Select all that apply.
+      inconsistency?
     options:
       - {label: A, text: "Define the output structure explicitly, field by field.", correct: true}
       - {label: B, text: "State what to emit for a field whose value is absent or unknown.", correct: true}

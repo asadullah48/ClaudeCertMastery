@@ -61,10 +61,11 @@ questions:
 
   - external_id: CCAO-F-WISD-004
     type: mr
+    select_count: 3
     difficulty: 2
     stem: >-
       Which characteristics make a task a strong candidate for Claude automation within an
-      existing workflow? Select all that apply.
+      existing workflow?
     options:
       - {label: A, text: "The task is repetitive and consumes significant human time.", correct: true}
       - {label: B, text: "Output quality can be objectively checked before it is acted upon.", correct: true}
@@ -125,10 +126,11 @@ questions:
 
   - external_id: CCAO-F-WISD-008
     type: mr
+    select_count: 3
     difficulty: 3
     stem: >-
       A Claude-assisted workflow will hand cases to a human when confidence is low. Which
-      elements should the handoff include? Select all that apply.
+      elements should the handoff include?
     options:
       - {label: A, text: "The reason the case was escalated.", correct: true}
       - {label: B, text: "The work already completed and the intermediate findings.", correct: true}
@@ -189,9 +191,10 @@ questions:
 
   - external_id: CCAO-F-WISD-012
     type: mr
+    select_count: 3
     difficulty: 2
     stem: >-
-      Which signals should trigger a review of a production Claude workflow? Select all that apply.
+      Which signals should trigger a review of a production Claude workflow?
     options:
       - {label: A, text: "A measurable change in the rate of human corrections.", correct: true}
       - {label: B, text: "A change in the format or nature of incoming inputs.", correct: true}

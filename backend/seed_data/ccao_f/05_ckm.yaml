@@ -59,9 +59,10 @@ questions:
 
   - external_id: CCAO-F-CKM-004
     type: mr
+    select_count: 3
     difficulty: 2
     stem: >-
-      Which practices keep a shared knowledge source reliable over time? Select all that apply.
+      Which practices keep a shared knowledge source reliable over time?
     options:
       - {label: A, text: "A named owner responsible for each document.", correct: true}
       - {label: B, text: "A review cadence with recorded review dates.", correct: true}
@@ -123,10 +124,11 @@ questions:
 
   - external_id: CCAO-F-CKM-008
     type: mr
+    select_count: 3
     difficulty: 3
     stem: >-
       Which items should be version-controlled when a prompt is used in a production
-      workflow? Select all that apply.
+      workflow?
     options:
       - {label: A, text: "The prompt text itself.", correct: true}
       - {label: B, text: "The model and configuration the prompt was validated against.", correct: true}
@@ -187,10 +189,11 @@ questions:
 
   - external_id: CCAO-F-CKM-012
     type: mr
+    select_count: 3
     difficulty: 2
     stem: >-
       A shared knowledge source will contain material of differing sensitivity. Which
-      controls are appropriate? Select all that apply.
+      controls are appropriate?
     options:
       - {label: A, text: "Restricting access to the source based on who needs it.", correct: true}
       - {label: B, text: "Excluding material that the task does not require.", correct: true}

@@ -58,10 +58,11 @@ questions:
 
   - external_id: CCAO-F-PMS-004
     type: mr
+    select_count: 3
     difficulty: 2
     stem: >-
       Which factors legitimately belong in a model-selection decision for a production
-      workflow? Select all that apply.
+      workflow?
     options:
       - {label: A, text: "Measured accuracy on a task-representative evaluation set.", correct: true}
       - {label: B, text: "Latency requirements of the workflow the output feeds.", correct: true}
@@ -123,10 +124,11 @@ questions:
 
   - external_id: CCAO-F-PMS-008
     type: mr
+    select_count: 3
     difficulty: 3
     stem: >-
       An operator is deciding whether to adopt a newly released, more capable model for an
-      existing production workflow. Which steps should precede the switch? Select all that apply.
+      existing production workflow. Which steps should precede the switch?
     options:
       - {label: A, text: "Run the existing regression and evaluation set against the new model.", correct: true}
       - {label: B, text: "Re-check cost at production volume under the new pricing.", correct: true}
@@ -221,10 +223,11 @@ questions:
 
   - external_id: CCAO-F-PMS-014
     type: mr
+    select_count: 3
     difficulty: 2
     stem: >-
       Which situations suggest the chat interface is a better fit than building an API
-      integration? Select all that apply.
+      integration?
     options:
       - {label: A, text: "The task is exploratory and the questions change as the operator learns.", correct: true}
       - {label: B, text: "The work is occasional and does not need to run unattended.", correct: true}

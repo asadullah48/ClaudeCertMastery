@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useExam } from "@/lib/store";
+import { incompleteMultiResponse, useExam } from "@/lib/store";
 
 /** mm:ss, or h:mm:ss once an hour or more remains. */
 function formatClock(ms: number): string {
@@ -114,6 +114,7 @@ export function ExamRunner() {
   const answeredCount = questions.filter((q) => (answers[q.id] ?? []).length > 0).length;
   const unanswered = questions.length - answeredCount;
   const flaggedCount = Object.keys(flagged).length;
+  const incomplete = incompleteMultiResponse(questions, answers);
 
   return (
     <div className="pb-24">
@@ -146,7 +147,9 @@ export function ExamRunner() {
         <p className="text-base leading-relaxed">{question.stem}</p>
         <p className="mt-2 text-xs text-[var(--color-muted)]">
           {question.question_type === "mr"
-            ? "Select all that apply."
+            ? question.select_count != null
+              ? `Select ${question.select_count}.`
+              : "Select all that apply."
             : "Select one answer."}
         </p>
 
@@ -262,13 +265,19 @@ export function ExamRunner() {
 
       <div className="fixed inset-x-0 bottom-0 border-t border-[var(--color-edge)] bg-[var(--color-ink)]/95 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-6 py-3">
-          <span className="text-xs text-[var(--color-muted)]">
-            {unanswered === 0 ? "All questions answered." : `${unanswered} unanswered.`}
+          <span className="text-xs text-[var(--color-muted)]" aria-live="polite">
+            {incomplete.length > 0
+              ? `Question${incomplete.length === 1 ? "" : "s"} ${incomplete
+                  .map((i) => i + 1)
+                  .join(", ")} need${incomplete.length === 1 ? "s" : ""} the stated number of selections.`
+              : unanswered === 0
+                ? "All questions answered."
+                : `${unanswered} unanswered.`}
           </span>
           <button
             type="button"
             onClick={() => setConfirming(true)}
-            disabled={status === "submitting"}
+            disabled={status === "submitting" || incomplete.length > 0}
             className="rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-[var(--color-ink)] disabled:opacity-50"
           >
             {status === "submitting" ? "Submitting..." : "Submit exam"}

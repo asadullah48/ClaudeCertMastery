@@ -60,10 +60,11 @@ questions:
 
   - external_id: CCAO-F-GRR-004
     type: mr
+    select_count: 3
     difficulty: 2
     stem: >-
       Which uses of Claude require particular caution and usually a human decision-maker in
-      the loop? Select all that apply.
+      the loop?
     options:
       - {label: A, text: "Decisions materially affecting a person employment.", correct: true}
       - {label: B, text: "Decisions affecting access to credit or essential services.", correct: true}
@@ -124,10 +125,10 @@ questions:
 
   - external_id: CCAO-F-GRR-008
     type: mr
+    select_count: 3
     difficulty: 3
     stem: >-
       Which considerations belong in an organisational policy on operator use of Claude?
-      Select all that apply.
     options:
       - {label: A, text: "What categories of data may and may not be submitted.", correct: true}
       - {label: B, text: "Which decisions require human review before action.", correct: true}
@@ -220,10 +221,11 @@ questions:
 
   - external_id: CCAO-F-GRR-014
     type: mr
+    select_count: 3
     difficulty: 2
     stem: >-
       Which are legitimate reasons to keep a human in the loop even when a Claude workflow
-      performs well in testing? Select all that apply.
+      performs well in testing?
     options:
       - {label: A, text: "The consequences of an undetected error are severe or irreversible.", correct: true}
       - {label: B, text: "Regulation or policy requires a human decision-maker.", correct: true}

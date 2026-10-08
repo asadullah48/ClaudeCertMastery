@@ -257,6 +257,31 @@ class TestOptionShuffle:
             )
 
 
+class TestSelectCountInPayload:
+    def test_mr_items_carry_select_count_and_mcq_items_do_not(self, client):
+        gen = client.post("/exams/generate", json={"track_code": "CCAO-F", "seed": 401}).json()
+        kinds = {q["question_type"] for q in gen["questions"]}
+        assert kinds == {"mcq", "mr"}
+        for q in gen["questions"]:
+            if q["question_type"] == "mr":
+                assert q["select_count"] >= 2
+            else:
+                assert q["select_count"] is None
+
+    def test_selecting_fewer_than_n_on_an_mr_item_scores_zero(self, client):
+        # All-or-nothing (D-4): a partial MR set earns no score credit.
+        gen = client.post("/exams/generate", json={"track_code": "CCAO-F", "seed": 402}).json()
+        answers = _answer_key(client, gen["questions"], 60)
+        mr_ids = {q["id"] for q in gen["questions"] if q["question_type"] == "mr"}
+        for a in answers:
+            if a["question_id"] in mr_ids:
+                a["selected_option_ids"] = a["selected_option_ids"][:-1]
+        body = client.post(
+            f"/attempts/{gen['attempt_id']}/submit", json={"answers": answers}
+        ).json()
+        assert body["raw_correct"] == 60 - len(mr_ids)
+
+
 class TestSubmission:
     def test_exactly_42_correct_scores_exactly_the_pass_line(self, client):
         # The end-to-end assertion: 42/60 is exactly 70% raw, which must map to 720.

@@ -99,3 +99,38 @@ class TestQuestionValidity:
     def test_difficulty_is_not_uniform_across_the_bank(self):
         difficulties = {q.get("difficulty", 2) for _, q in ALL_QUESTIONS}
         assert len(difficulties) > 1
+
+
+class TestSelectCount:
+    """MR items state how many to select; the stem never says 'select all that apply'."""
+
+    @pytest.mark.parametrize(
+        "code,q",
+        [(c, q) for c, q in ALL_QUESTIONS if q["type"] == "mr"],
+        ids=lambda v: v["external_id"] if isinstance(v, dict) else v,
+    )
+    def test_mr_select_count_equals_its_correct_options(self, code, q):
+        assert q.get("select_count") == sum(1 for o in q["options"] if o.get("correct"))
+
+    def test_mcq_items_carry_no_select_count(self):
+        assert not [q["external_id"] for _, q in ALL_QUESTIONS
+                    if q["type"] == "mcq" and "select_count" in q]
+
+    def test_no_stem_says_select_all_that_apply(self):
+        assert not [q["external_id"] for _, q in ALL_QUESTIONS
+                    if "select all that apply" in q["stem"].lower()]
+
+    def test_the_seed_rejects_a_mismatched_select_count(self):
+        import seed
+
+        bad = {
+            "external_id": "CCAO-F-OEV-999", "type": "mr", "select_count": 3,
+            "stem": "Which?", "explanation": "Because.",
+            "options": [
+                {"label": "A", "text": "a", "correct": True},
+                {"label": "B", "text": "b", "correct": True},
+                {"label": "C", "text": "c", "correct": False},
+            ],
+        }
+        with pytest.raises(ValueError, match="select_count"):
+            seed.validate_bank("OEV", [bad])

@@ -58,10 +58,11 @@ questions:
 
   - external_id: CCAO-F-TRO-004
     type: mr
+    select_count: 3
     difficulty: 2
     stem: >-
       A workflow cost has risen sharply with no increase in volume. Which causes are worth
-      investigating? Select all that apply.
+      investigating?
     options:
       - {label: A, text: "Growth in the size of context being sent with each request.", correct: true}
       - {label: B, text: "Retries triggered by a rise in failures.", correct: true}
@@ -121,10 +122,11 @@ questions:
 
   - external_id: CCAO-F-TRO-008
     type: mr
+    select_count: 3
     difficulty: 3
     stem: >-
       A prompt performs well in testing but poorly in production. Which explanations are
-      worth investigating? Select all that apply.
+      worth investigating?
     options:
       - {label: A, text: "Production inputs are messier or more varied than the test inputs.", correct: true}
       - {label: B, text: "Production sends the prompt with different configuration or a different model.", correct: true}
@@ -233,10 +235,10 @@ questions:
 
   - external_id: CCAO-F-TRO-015
     type: mr
+    select_count: 3
     difficulty: 2
     stem: >-
       Which steps form a sound approach to diagnosing an intermittent quality problem?
-      Select all that apply.
     options:
       - {label: A, text: "Collect a set of failing cases and look for what they share.", correct: true}
       - {label: B, text: "Change one variable at a time and re-measure.", correct: true}

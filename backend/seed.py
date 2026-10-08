@@ -141,6 +141,7 @@ def upsert_question(db: Session, domain: Domain, spec: dict) -> Question:
     question.stem = spec["stem"].strip()
     question.question_type = QuestionType(spec["type"])
     question.difficulty = spec.get("difficulty", 2)
+    question.select_count = spec.get("select_count") if spec["type"] == "mr" else None
     question.static_explanation = spec.get("explanation", "").strip()
     question.is_active = spec.get("active", True)
     db.flush()
@@ -179,6 +180,18 @@ def validate_bank(domain_code: str, questions: list[dict]) -> None:
         if q["type"] == "mr" and len(correct) < 2:
             raise ValueError(
                 f"{qid}: MR must have at least 2 correct options, found {len(correct)}."
+            )
+        if q["type"] == "mr" and q.get("select_count") != len(correct):
+            raise ValueError(
+                f"{qid}: MR select_count must equal its {len(correct)} correct options, "
+                f"found {q.get('select_count')!r}."
+            )
+        if q["type"] == "mcq" and "select_count" in q:
+            raise ValueError(f"{qid}: select_count applies to MR items only.")
+        if "select all that apply" in q["stem"].lower():
+            raise ValueError(
+                f"{qid}: stem says 'select all that apply'; state the count via "
+                "select_count instead."
             )
         if len(q["options"]) < 3:
             raise ValueError(f"{qid}: needs at least 3 options.")

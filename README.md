@@ -282,6 +282,30 @@ kinder to a mis-paced sitting, and each would corrupt the one signal the product
 to give. The review screen labels an expired sitting, so it is never mistaken for one
 finished in time.
 
+### Multi-response items
+
+Every multi-response (MR) item states how many options to select ("Select 3."), as the
+real exam does, and the runner will not submit an MR item holding some but not exactly
+that many selections. A blank MR item stays submittable and scores 0.
+
+MR items are graded **all-or-nothing**: the selected set must equal the correct set.
+Partial credit is still computed per item for the mastery dashboard, but it never
+enters the scaled score (D-4).
+
+> **Assumption, not verified.** The CCAO-F Exam Guide v1.0 was not available in this
+> repository when this was written, so whether the real exam awards partial credit on
+> MR items could not be checked against it. The one third-party guide found that
+> addresses the point says Anthropic does not publish it. All-or-nothing is kept as the
+> conservative choice: it can only understate a candidate's score, never inflate it.
+> Re-check against the official guide and change `grade_item` if it says otherwise.
+
+### Option order
+
+Options are shuffled per attempt from the attempt's seed and re-lettered A&ndash;D for
+display, so the letter carries no information about the key. The presented order is
+stored on each attempt item, and the review screen shows exactly the order and letters
+the candidate saw. Grading uses option ids, never letters.
+
 ---
 
 ## Deployment

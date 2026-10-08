@@ -78,4 +78,7 @@ class QuestionOut(BaseModel):
     question_type: str
     difficulty: int
     domain_code: str = ""
+    # MR only: the exact number of options to select. Not an answer leak -- the real
+    # exam prints it on every multi-response item.
+    select_count: int | None = None
     options: list[AnswerOptionOut] = Field(default_factory=list)

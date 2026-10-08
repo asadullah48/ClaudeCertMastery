@@ -74,6 +74,24 @@ const initial = {
   locked: null as string | null,
 };
 
+/**
+ * MR items holding some, but not exactly N, selections. Submission is blocked while any
+ * exist: the item states "Select N.", and a partial set can only ever grade as wrong.
+ * Blank items are not included -- they stay submittable (scored 0), as on the real
+ * exam, and timer expiry must always be able to submit.
+ */
+export function incompleteMultiResponse(
+  questions: ExamQuestion[],
+  answers: Record<number, number[]>,
+): number[] {
+  return questions.flatMap((q, i) => {
+    const n = (answers[q.id] ?? []).length;
+    return q.question_type === "mr" && q.select_count != null && n > 0 && n !== q.select_count
+      ? [i]
+      : [];
+  });
+}
+
 export const useExam = create<ExamState>((set, get) => ({
   ...initial,
 
@@ -123,7 +141,9 @@ export const useExam = create<ExamState>((set, get) => ({
           : [optionId]
         : current.includes(optionId)
           ? current.filter((id) => id !== optionId)
-          : [...current, optionId].sort((a, b) => a - b);
+          : question.select_count != null && current.length >= question.select_count
+            ? current // already holds N: deselect one before choosing another
+            : [...current, optionId].sort((a, b) => a - b);
 
     set({ answers: { ...answers, [questionId]: next } });
   },

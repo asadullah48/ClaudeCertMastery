@@ -134,6 +134,7 @@ def generate(
                 else str(q.question_type),
                 difficulty=q.difficulty,
                 domain_code=exam.domain_of_question[qid],
+                select_count=q.select_count,
                 # AnswerOptionOut omits is_correct, so the answer key never leaves the
                 # server with the exam payload. Options go out in this attempt's
                 # shuffled order, re-lettered A.. by position; grading uses ids only.

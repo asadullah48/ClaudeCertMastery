@@ -59,10 +59,11 @@ questions:
 
   - external_id: CCAO-F-OEV-004
     type: mr
+    select_count: 3
     difficulty: 2
     stem: >-
       Which checks belong in a validation step before Claude-generated financial figures
-      are published externally? Select all that apply.
+      are published externally?
     options:
       - {label: A, text: "Trace every figure back to the underlying source record.", correct: true}
       - {label: B, text: "Confirm that arithmetic and totals are internally consistent.", correct: true}
@@ -125,10 +126,10 @@ questions:
 
   - external_id: CCAO-F-OEV-008
     type: mr
+    select_count: 3
     difficulty: 3
     stem: >-
       Which conditions make an automated LLM-as-judge evaluation more trustworthy?
-      Select all that apply.
     options:
       - {label: A, text: "The judge is given an explicit rubric with concrete criteria rather than a general quality question.", correct: true}
       - {label: B, text: "Judge scores are periodically calibrated against human ratings on a sample.", correct: true}
@@ -191,10 +192,11 @@ questions:
 
   - external_id: CCAO-F-OEV-012
     type: mr
+    select_count: 3
     difficulty: 2
     stem: >-
       An operator is designing acceptance criteria for a contract-clause extraction task.
-      Which criteria are meaningful and checkable? Select all that apply.
+      Which criteria are meaningful and checkable?
     options:
       - {label: A, text: "Every extracted clause must appear verbatim in the source contract.", correct: true}
       - {label: B, text: "Clauses of the specified types present in the contract must all be captured.", correct: true}

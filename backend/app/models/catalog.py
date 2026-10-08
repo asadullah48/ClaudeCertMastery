@@ -119,6 +119,12 @@ class Question(Base):
     question_type: Mapped[QuestionType] = mapped_column(String(8))
     difficulty: Mapped[int] = mapped_column(Integer, default=2)  # 1 easy .. 3 hard
 
+    # MR only: how many options the candidate must select ("Select 3."). The real exam
+    # states the count on every multi-response item; "select all that apply" without
+    # it turns each MR item into a guessing game about arity. Always equal to the number
+    # of correct options -- seed.py refuses content where it is not. NULL for MCQ.
+    select_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     # Always present. The AI engine augments this; it does not replace it, so the
     # platform explains every answer even with no ANTHROPIC_API_KEY set.
     static_explanation: Mapped[str] = mapped_column(Text, default="")
