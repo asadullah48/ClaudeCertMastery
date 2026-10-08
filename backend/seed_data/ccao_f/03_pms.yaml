@@ -16,14 +16,32 @@ questions:
       matters little, but per-item cost matters a great deal. Which selection approach is
       most appropriate?
     options:
-      - {label: A, text: "Use the most capable available model to maximise accuracy regardless of cost.", correct: false}
-      - {label: B, text: "Evaluate a smaller, faster model on a representative sample and adopt it if accuracy meets the task bar.", correct: true}
-      - {label: C, text: "Choose whichever model has the largest context window.", correct: false}
-      - {label: D, text: "Split each ticket across two models and compare.", correct: false}
+      - label: A
+        text: >-
+          Use the most capable model available, since higher accuracy on each ticket
+          outweighs per-item cost even at nightly volumes of 50,000.
+        correct: false
+      - label: B
+        text: >-
+          Adopt a smaller, faster model directly, since classifying short tickets is a
+          simple task that any model tier will handle well enough.
+        correct: false
+      - label: C
+        text: >-
+          Choose the model with the largest context window, so that several tickets can be
+          sent in each request and the per-item cost falls.
+        correct: false
+      - label: D
+        text: >-
+          Evaluate a smaller, faster model on a representative sample of tickets, and adopt
+          it if its measured accuracy meets the task's bar.
+        correct: true
     explanation: >-
       High-volume, low-complexity classification is the canonical case for validating a
       smaller model against the required accuracy bar. Capability should be bought where it
-      is needed; context window is irrelevant for short tickets.
+      is needed; context window is irrelevant for short tickets. Adopting the smaller model
+      without evaluating it is the tempting shortcut: the choice may well be right, but
+      nothing shows it meets the bar.
 
   - external_id: CCAO-F-PMS-002
     type: mcq
@@ -32,14 +50,33 @@ questions:
       A team must analyse a 400-page regulatory filing in a single pass, reasoning across
       sections that reference one another. Which factor should dominate model selection?
     options:
-      - {label: A, text: "The lowest available per-token price.", correct: false}
-      - {label: B, text: "A context window large enough to hold the document, together with strong long-context reasoning.", correct: true}
-      - {label: C, text: "The fastest time to first token.", correct: false}
-      - {label: D, text: "Availability of a streaming response.", correct: false}
+      - label: A
+        text: >-
+          The lowest per-token price, because a 400-page filing means a very large number of
+          input tokens on every pass through the document.
+        correct: false
+      - label: B
+        text: >-
+          A context window large enough to hold the filing, using the cheapest model that
+          fits it, since fitting the document is the hard requirement.
+        correct: false
+      - label: C
+        text: >-
+          A context window large enough to hold the whole filing, together with strong
+          long-context reasoning. Cross-references between sections can be followed only
+          when the document is in context and the model can reason across it.
+        correct: true
+      - label: D
+        text: >-
+          The fastest time to first token, so that analysts see the start of the analysis
+          quickly while the rest of the filing is still being processed.
+        correct: false
     explanation: >-
       Cross-referential reasoning over a very long document requires the whole document in
       context and the reasoning capability to use it. Price, latency and streaming are
       secondary when the task is infeasible without sufficient context and capability.
+      The cheapest model that fits is the tempting answer because fitting is necessary,
+      but fitting the filing does not mean the model can reason across it.
 
   - external_id: CCAO-F-PMS-003
     type: mcq
@@ -47,14 +84,32 @@ questions:
     stem: >-
       Which scenario most clearly favours the Claude API over a chat interface?
     options:
-      - {label: A, text: "A analyst exploring a dataset conversationally and refining questions as they go.", correct: false}
-      - {label: B, text: "An automated nightly job that must process records and write results into another system.", correct: true}
-      - {label: C, text: "A one-off request to summarise a single document.", correct: false}
-      - {label: D, text: "A manager reviewing a draft and asking follow-up questions.", correct: false}
+      - label: A
+        text: >-
+          An automated nightly job that processes records and writes the results into
+          another system, with no one present while it runs.
+        correct: true
+      - label: B
+        text: >-
+          An analyst exploring a dataset conversationally, refining their questions as they
+          learn more about what the data shows.
+        correct: false
+      - label: C
+        text: >-
+          A manager reviewing a draft report and asking follow-up questions about the
+          sections that need clarifying before sign-off.
+        correct: false
+      - label: D
+        text: >-
+          A weekly request to summarise one new document, which an analyst pastes in and
+          reads through carefully each Monday morning.
+        correct: false
     explanation: >-
       Programmatic, scheduled, system-integrated work is the API case. Interactive
       exploration and one-off human requests are served well by the chat interface, where
-      no integration code is needed.
+      no integration code is needed. The weekly summary is the tempting distractor because
+      it recurs, but a person still pastes and reads it, so nothing needs to run
+      unattended.
 
   - external_id: CCAO-F-PMS-004
     type: mr
@@ -64,14 +119,32 @@ questions:
       Which factors legitimately belong in a model-selection decision for a production
       workflow?
     options:
-      - {label: A, text: "Measured accuracy on a task-representative evaluation set.", correct: true}
-      - {label: B, text: "Latency requirements of the workflow the output feeds.", correct: true}
-      - {label: C, text: "Cost per completed task at the expected volume.", correct: true}
-      - {label: D, text: "The model with the most recent release date, on principle.", correct: false}
+      - label: A
+        text: >-
+          Measured accuracy on a task-representative evaluation set.
+        correct: true
+      - label: B
+        text: >-
+          Choosing the model with the most recent release date, on principle.
+        correct: false
+      - label: C
+        text: >-
+          The latency requirements of the workflow the output feeds into.
+        correct: true
+      - label: D
+        text: >-
+          The model's ranking on a public leaderboard for general chat quality.
+        correct: false
+      - label: E
+        text: >-
+          Cost per completed task at the expected production volume.
+        correct: true
     explanation: >-
       Measured task accuracy, latency fit and cost at real volume are the substantive
       criteria. Recency alone is not a selection criterion: a newer model must still be
-      validated against the specific task before it is adopted.
+      validated against the specific task before it is adopted. The leaderboard ranking is
+      the tempting extra because it is a measurement, but it measures general chat, not
+      this workflow's task.
 
   - external_id: CCAO-F-PMS-005
     type: mcq
@@ -81,30 +154,67 @@ questions:
       fails on the most complex 5 percent, which carry the highest business impact. What
       is the most cost-effective sound design?
     options:
-      - {label: A, text: "Use the smaller model for everything and accept the failures.", correct: false}
-      - {label: B, text: "Route by complexity, sending the identifiable hard cases to the more capable model.", correct: true}
-      - {label: C, text: "Use the larger model for everything regardless of case complexity.", correct: false}
-      - {label: D, text: "Alternate between models on a fixed schedule.", correct: false}
+      - label: A
+        text: >-
+          Use the smaller model for every case and accept the failures on the hardest 5
+          percent, since 95 percent agreement is a strong result.
+        correct: false
+      - label: B
+        text: >-
+          Route by complexity: send the identifiable hard cases to the more capable model
+          and the rest to the smaller one. Capability is then spent only where it changes
+          the outcome, including on the high-impact cases.
+        correct: true
+      - label: C
+        text: >-
+          Use the larger model for every case, since the hard cases carry the highest impact
+          and the extra cost protects them along with the rest.
+        correct: false
+      - label: D
+        text: >-
+          Route by complexity, but assign each case's route at random in proportion to the
+          split, so that about 5 percent go to the larger model.
+        correct: false
     explanation: >-
       Routing spends capability only where it changes the outcome, which is the point of
       tiering. Uniformly using either model either accepts high-impact failures or
-      overpays on the easy majority; alternating ignores case difficulty entirely.
+      overpays on the easy majority; alternating ignores case difficulty entirely. Random
+      proportional routing is the tempting near-miss: it gets the ratio right but sends
+      most of the hard cases to the model that fails on them.
 
   - external_id: CCAO-F-PMS-006
     type: mcq
     difficulty: 2
     stem: >-
       A workflow needs Claude to read files from a repository, run commands and edit code
-      on the operator machine. Which Claude surface is designed for this?
+      on the operator's machine. Which Claude surface is designed for this?
     options:
-      - {label: A, text: "The chat interface with files pasted into the conversation.", correct: false}
-      - {label: B, text: "Claude Code, which operates as an agentic coding tool in the terminal and IDE with direct access to the working environment.", correct: true}
-      - {label: C, text: "A single Messages API call with the repository contents inlined.", correct: false}
-      - {label: D, text: "The batch processing endpoint.", correct: false}
+      - label: A
+        text: >-
+          The chat interface, with the relevant files pasted into the conversation and
+          Claude's suggested edits copied back by hand.
+        correct: false
+      - label: B
+        text: >-
+          A single Messages API call with the repository contents inlined, returning a list
+          of edits for a script to apply afterwards.
+        correct: false
+      - label: C
+        text: >-
+          The batch processing endpoint, sending one request per file so the whole
+          repository can be processed at a lower cost.
+        correct: false
+      - label: D
+        text: >-
+          Claude Code, an agentic coding tool that works in the terminal and IDE with direct
+          access to the working environment.
+        correct: true
     explanation: >-
       Reading, running and editing in a real working environment is what an agentic coding
       surface provides. Pasting files into chat or inlining a repository into one API call
-      gives no ability to act on the environment.
+      gives no ability to act on the environment. The inlined API call is the tempting
+      answer because a script can apply its edits, but it still cannot run commands or see
+      what those edits do.
 
   - external_id: CCAO-F-PMS-007
     type: mcq
@@ -113,14 +223,31 @@ questions:
       A large volume of non-urgent requests can tolerate results arriving hours later.
       Which capability most directly reduces cost for this pattern?
     options:
-      - {label: A, text: "Streaming responses.", correct: false}
-      - {label: B, text: "Batch processing, which trades immediate delivery for a substantially lower rate.", correct: true}
-      - {label: C, text: "A larger context window.", correct: false}
-      - {label: D, text: "Increasing the maximum output tokens.", correct: false}
+      - label: A
+        text: >-
+          Streaming responses, so each result begins arriving immediately and the requests
+          finish sooner across the whole volume.
+        correct: false
+      - label: B
+        text: >-
+          A larger context window, so several requests can be combined into one call and the
+          per-request overhead is shared between them.
+        correct: false
+      - label: C
+        text: >-
+          Batch processing, which trades immediate delivery for a lower rate.
+        correct: true
+      - label: D
+        text: >-
+          Raising the maximum output tokens, so each response completes in one call rather
+          than needing a follow-up request.
+        correct: false
     explanation: >-
       Batch processing is designed exactly for latency-tolerant bulk work and is priced
       well below synchronous calls. Streaming improves perceived responsiveness but does
-      not reduce cost, and context or output limits are unrelated.
+      not reduce cost, and context or output limits are unrelated. Combining requests in a
+      larger context is the tempting answer because it sounds like batching, but it changes
+      nothing about the rate charged.
 
   - external_id: CCAO-F-PMS-008
     type: mr
@@ -130,15 +257,29 @@ questions:
       An operator is deciding whether to adopt a newly released, more capable model for an
       existing production workflow. Which steps should precede the switch?
     options:
-      - {label: A, text: "Run the existing regression and evaluation set against the new model.", correct: true}
-      - {label: B, text: "Re-check cost at production volume under the new pricing.", correct: true}
-      - {label: C, text: "Verify that prompts tuned for the previous model still behave as intended.", correct: true}
-      - {label: D, text: "Switch immediately, since a more capable model cannot perform worse.", correct: false}
+      - label: A
+        text: >-
+          Switch at once, since a more capable model cannot perform worse on an existing
+          task.
+        correct: false
+      - label: B
+        text: >-
+          Run the existing regression and evaluation set against the new model.
+        correct: true
+      - label: C
+        text: >-
+          Re-check cost at production volume under the new model's pricing.
+        correct: true
+      - label: D
+        text: >-
+          Check that prompts tuned for the previous model still behave as intended.
+        correct: true
     explanation: >-
       Capability gains do not transfer automatically: evaluation, cost re-checking and
       prompt re-validation are all required, because prompts tuned to one model can behave
       differently on another. Assuming a newer model cannot regress is exactly the
-      assumption a regression set exists to test.
+      assumption a regression set exists to test. It is tempting because "more capable"
+      sounds like a guarantee, but capability is measured in general, not on this task.
 
   - external_id: CCAO-F-PMS-009
     type: mcq
@@ -148,14 +289,32 @@ questions:
       persist across many conversations for a recurring body of work. Which capability
       fits best?
     options:
-      - {label: A, text: "Projects, which retain shared context and custom instructions across conversations.", correct: true}
-      - {label: B, text: "Starting a fresh conversation and re-pasting the documents each time.", correct: false}
-      - {label: C, text: "Increasing the maximum output tokens.", correct: false}
-      - {label: D, text: "Batch processing.", correct: false}
+      - label: A
+        text: >-
+          Starting a fresh conversation each time and re-pasting the documents and
+          instructions, so each session begins from the latest version.
+        correct: false
+      - label: B
+        text: >-
+          Projects, which keep shared documents and standing instructions across
+          conversations.
+        correct: true
+      - label: C
+        text: >-
+          Batch processing, which runs the recurring work as a set of requests against the
+          documents and returns the results together.
+        correct: false
+      - label: D
+        text: >-
+          One long conversation the whole team shares, so documents pasted at the start stay
+          in its history for later questions.
+        correct: false
     explanation: >-
       Persistent shared context and standing instructions across a body of related work is
       exactly what Projects provide. Re-pasting is the manual workaround it removes, and
-      the other options address unrelated concerns.
+      the other options address unrelated concerns. The single shared conversation is the
+      tempting answer because the documents persist, but it is one ever-growing thread,
+      not a workspace for many conversations.
 
   - external_id: CCAO-F-PMS-010
     type: mcq
@@ -165,14 +324,33 @@ questions:
       bill is higher than a colleague using a more expensive model. What is the most likely
       cause?
     options:
-      - {label: A, text: "Per-request price is being billed incorrectly.", correct: false}
-      - {label: B, text: "The cheaper model needs more retries and follow-up turns, so cost per completed task exceeds the colleague cost.", correct: true}
-      - {label: C, text: "More expensive models are billed monthly rather than per token.", correct: false}
-      - {label: D, text: "Cheaper models have hidden subscription fees.", correct: false}
+      - label: A
+        text: >-
+          The cheaper model needs more retries and follow-up turns to finish each task, so
+          its cost per completed task is higher than the colleague's. Price per request is
+          not the unit that matters; cost per completed task is.
+        correct: true
+      - label: B
+        text: >-
+          The per-request price is being billed incorrectly, so the operator should raise a
+          billing query before drawing any conclusion about the model.
+        correct: false
+      - label: C
+        text: >-
+          More expensive models are billed as a flat monthly subscription rather than per
+          token, which makes heavy use of them cheaper overall.
+        correct: false
+      - label: D
+        text: >-
+          The cheaper model carries a monthly platform fee on top of its per-request price,
+          which pushes the operator's total above the colleague's.
+        correct: false
     explanation: >-
       The meaningful unit is cost per completed task, not per request. A weaker model that
       requires retries, corrections and extra turns can easily cost more in total than a
-      stronger model that succeeds first time.
+      stronger model that succeeds first time. A hidden fee is the tempting explanation
+      because it would account for the gap, but nothing in the pricing model supports it,
+      while extra turns are exactly what weaker output produces.
 
   - external_id: CCAO-F-PMS-011
     type: mcq
@@ -180,14 +358,32 @@ questions:
     stem: >-
       Which requirement most strongly indicates that a workflow needs streaming responses?
     options:
-      - {label: A, text: "The output is long and a human is reading it as it is produced.", correct: true}
-      - {label: B, text: "The output is written directly into a database with no human present.", correct: false}
-      - {label: C, text: "The workflow runs overnight on a schedule.", correct: false}
-      - {label: D, text: "The request must be as cheap as possible.", correct: false}
+      - label: A
+        text: >-
+          The output is written straight into a database with no one present, and the write
+          should begin as early as possible.
+        correct: false
+      - label: B
+        text: >-
+          The workflow runs overnight on a schedule, and the job should hand results to the
+          next stage as soon as they exist.
+        correct: false
+      - label: C
+        text: >-
+          The output is long and a person is reading it as it is produced, so seeing the
+          text appear early matters to that reader.
+        correct: true
+      - label: D
+        text: >-
+          Each request must cost as little as possible, and streamed output is billed at a
+          lower rate than output delivered all at once.
+        correct: false
     explanation: >-
       Streaming exists to improve perceived responsiveness for a human watching output
       appear. With no human waiting, as in an unattended write or a scheduled job, it adds
-      complexity without benefit.
+      complexity without benefit. The database write is the tempting answer because
+      starting early sounds useful, but a database gains nothing from receiving half a
+      response.
 
   - external_id: CCAO-F-PMS-012
     type: mcq
@@ -196,14 +392,32 @@ questions:
       An operator must justify model choice to a governance board. Which form of evidence
       is strongest?
     options:
-      - {label: A, text: "Published benchmark scores for the model family.", correct: false}
-      - {label: B, text: "Measured accuracy, latency and cost on the organisation own task-representative evaluation set.", correct: true}
-      - {label: C, text: "The vendor recommendation for general use.", correct: false}
-      - {label: D, text: "The preference of the engineer who built the prototype.", correct: false}
+      - label: A
+        text: >-
+          Published benchmark scores for the model family, since they compare models on the
+          same standard tests under controlled conditions.
+        correct: false
+      - label: B
+        text: >-
+          The vendor's recommendation for general use, since the vendor knows the strengths
+          of each model better than any single team can.
+        correct: false
+      - label: C
+        text: >-
+          Measured accuracy on the organisation's own task-representative set, with latency
+          and cost taken from the vendor's published figures.
+        correct: false
+      - label: D
+        text: >-
+          Measured accuracy, latency and cost on the organisation's own task-representative
+          evaluation set, at the volume it expects to run.
+        correct: true
     explanation: >-
       Governance decisions should rest on measurements taken on the actual task. Public
       benchmarks and vendor guidance are useful starting points but do not establish
-      fitness for a specific workflow.
+      fitness for a specific workflow. Measured accuracy with published latency and cost is
+      the tempting near-miss: those figures describe typical requests, not this task's
+      inputs and volume.
 
   - external_id: CCAO-F-PMS-013
     type: mcq
@@ -212,14 +426,32 @@ questions:
       A workflow sends the same large policy document as context on every one of thousands
       of daily requests. Which optimisation most directly reduces input cost?
     options:
-      - {label: A, text: "Prompt caching, so the repeated document prefix is billed at a reduced rate on subsequent requests.", correct: true}
-      - {label: B, text: "Switching from streaming to non-streaming responses.", correct: false}
-      - {label: C, text: "Reducing the maximum output tokens.", correct: false}
-      - {label: D, text: "Sending the requests in a different time zone.", correct: false}
+      - label: A
+        text: >-
+          Switching from streaming to non-streaming responses, so each request is billed as
+          a single completed exchange rather than in parts.
+        correct: false
+      - label: B
+        text: >-
+          Prompt caching on the policy document, so the repeated prefix is billed at a
+          reduced rate on each later request that reuses it.
+        correct: true
+      - label: C
+        text: >-
+          Reducing the maximum output tokens, so each response is shorter and the total
+          billed per request falls across the day.
+        correct: false
+      - label: D
+        text: >-
+          Prompt caching, with the document placed after each request's changing question
+          so that the cached part is as large as possible.
+        correct: false
     explanation: >-
       A large, unchanging prefix repeated across many requests is the exact case prompt
       caching addresses. Output limits and streaming settings affect the output side, which
-      is not where this cost sits.
+      is not where this cost sits. Caching with the question first is the tempting trap:
+      caching reuses a prefix, so if the changing question comes first, no two requests
+      share one.
 
   - external_id: CCAO-F-PMS-014
     type: mr
@@ -229,14 +461,32 @@ questions:
       Which situations suggest the chat interface is a better fit than building an API
       integration?
     options:
-      - {label: A, text: "The task is exploratory and the questions change as the operator learns.", correct: true}
-      - {label: B, text: "The work is occasional and does not need to run unattended.", correct: true}
-      - {label: C, text: "A non-technical team member needs to do the work themselves.", correct: true}
-      - {label: D, text: "Results must be written automatically into a downstream system every night.", correct: false}
+      - label: A
+        text: >-
+          The task is exploratory, and the questions change as the operator learns.
+        correct: true
+      - label: B
+        text: >-
+          The work is occasional and does not need to run unattended.
+        correct: true
+      - label: C
+        text: >-
+          Results must be written automatically into a downstream system each night.
+        correct: false
+      - label: D
+        text: >-
+          A non-technical team member needs to do the work themselves.
+        correct: true
+      - label: E
+        text: >-
+          Thousands of records must be processed with identical instructions every day.
+        correct: false
     explanation: >-
       Exploratory, occasional and non-technical work is well served without integration
       overhead. Unattended, scheduled writes into another system require programmatic
-      access.
+      access. The daily volume of identical records is the tempting extra because the
+      instructions never change, but thousands of repetitions a day is the case for an
+      integration, not for manual chat.
 
   - external_id: CCAO-F-PMS-015
     type: mcq
@@ -245,14 +495,32 @@ questions:
       An operator asks whether to use the largest context window available for a task whose
       inputs are consistently under two pages. What is the best guidance?
     options:
-      - {label: A, text: "Always choose the largest context window available as a safety margin.", correct: false}
-      - {label: B, text: "Context window should be sized to the task; a large window provides no benefit when inputs are small.", correct: true}
-      - {label: C, text: "A larger context window automatically improves reasoning quality.", correct: false}
-      - {label: D, text: "Context window and input size are unrelated.", correct: false}
+      - label: A
+        text: >-
+          Choose the largest context window available as a safety margin, since unused
+          capacity costs nothing and guards against unusual inputs.
+        correct: false
+      - label: B
+        text: >-
+          Choose the largest context window, because a larger window improves the model's
+          reasoning even when the input itself is short.
+        correct: false
+      - label: C
+        text: >-
+          Context window and input size are unrelated, so the choice should rest on other
+          factors without checking whether the inputs fit.
+        correct: false
+      - label: D
+        text: >-
+          Size the context window to the task. Once inputs that are under two pages fit
+          comfortably, a larger window adds nothing to the result.
+        correct: true
     explanation: >-
       Context window is a capacity constraint, not a quality dial. Once inputs comfortably
       fit, additional capacity changes nothing about the result and should not drive the
-      decision.
+      decision. The safety-margin answer is the tempting one because headroom sounds
+      prudent, but inputs that are consistently under two pages leave no gap for it to
+      fill.
 
   - external_id: CCAO-F-PMS-016
     type: mcq
@@ -261,11 +529,110 @@ questions:
       What is the most accurate description of the relationship between Claude models and
       the Claude API?
     options:
-      - {label: A, text: "Each model requires a separate API with its own request format.", correct: false}
-      - {label: B, text: "The API provides a common interface through which different models can be selected per request.", correct: true}
-      - {label: C, text: "The API supports only the single most recent model.", correct: false}
-      - {label: D, text: "Models can only be changed by opening a support request.", correct: false}
+      - label: A
+        text: >-
+          The API is one common interface, and the model is chosen per request.
+        correct: true
+      - label: B
+        text: >-
+          Each model has its own separate API with its own request format, so switching
+          models means rewriting the integration code.
+        correct: false
+      - label: C
+        text: >-
+          The API serves the most recent model, and earlier models are reached through a
+          separate legacy interface with its own format.
+        correct: false
+      - label: D
+        text: >-
+          The model is fixed when an API key is created, so moving to another model means
+          issuing a new key and redeploying.
+        correct: false
     explanation: >-
       The API exposes a consistent interface across models, with the model chosen per
       request. This is what makes evaluating and switching models a configuration change
-      rather than a rewrite.
+      rather than a rewrite. The key-bound model is the tempting answer because keys are
+      per-deployment, but the model is a parameter of each request, not of the key.
+
+  - external_id: CCAO-F-PMS-017
+    type: mcq
+    difficulty: 2
+    stem: >-
+      Four teams chose a model tier for their workload. Which choice is best supported?
+    table:
+      columns: [Row, Workload, Model tier chosen, Basis for the choice]
+      rows:
+        - ["1", "Nightly classification of 50,000 short tickets", "Most capable tier", "Highest scores on public benchmarks"]
+        - ["2", "Nightly classification of 50,000 short tickets", "Smaller, faster tier", "Met the accuracy bar on 500 sampled real tickets; cost measured at volume"]
+        - ["3", "Cross-referenced analysis of a 400-page filing", "Smaller, faster tier", "Cheapest per token"]
+        - ["4", "Long report read live by analysts", "Most capable tier, through batch processing", "Lowest cost for the most capable tier"]
+    options:
+      - label: A
+        text: >-
+          Row 1, because the most capable tier scores highest on benchmarks, and accuracy
+          matters most when tickets are routed automatically.
+        correct: false
+      - label: B
+        text: >-
+          Row 2, because the smaller tier met the accuracy bar on a sample of real tickets,
+          and its cost was measured at the actual volume.
+        correct: true
+      - label: C
+        text: >-
+          Row 3, because a 400-page filing is a very large input, so the cheapest per-token
+          tier keeps the cost of each pass under control.
+        correct: false
+      - label: D
+        text: >-
+          Row 4, because the most capable tier suits a long report, and batch processing
+          lowers its cost for the analysts who read it each day.
+        correct: false
+    explanation: >-
+      A model choice is best supported by measurements on the actual task at the actual
+      volume. Row 2 has exactly that. Row 4 is the most tempting wrong answer because the
+      tier fits the task, but batch processing delivers hours later, and the analysts are
+      reading live. Row 1 relies on general benchmarks, and row 3 picks on price for a
+      task that needs long-context reasoning.
+
+  - external_id: CCAO-F-PMS-018
+    type: mcq
+    difficulty: 3
+    stem: >-
+      A workflow sends the same 80-page policy with every question, thousands of times a
+      day, and users wait for each answer. Which configuration best reduces input cost
+      while meeting that need?
+    table:
+      columns: [Row, Prompt order, Caching, Delivery]
+      rows:
+        - ["1", "Question first, then the policy", "None", "Streaming"]
+        - ["2", "Question first, then the policy", "Prompt caching enabled", "Synchronous"]
+        - ["3", "Policy first, then the question", "Prompt caching on the policy prefix", "Synchronous"]
+        - ["4", "Policy first, then the question", "None", "Batch processing"]
+    options:
+      - label: A
+        text: >-
+          Row 1, because streaming sends each answer as it is generated, which lowers the
+          cost of every request that repeats the same policy.
+        correct: false
+      - label: B
+        text: >-
+          Row 2, because prompt caching is enabled, so the repeated policy text is billed at
+          a reduced rate on every later request.
+        correct: false
+      - label: C
+        text: >-
+          Row 3, because the unchanging policy comes first and forms a stable prefix that
+          caching can reuse, with only the question changing between requests. Users
+          still get each answer while they wait.
+        correct: true
+      - label: D
+        text: >-
+          Row 4, because batch processing gives a much lower rate on each request, and the
+          policy-first order keeps every request consistent.
+        correct: false
+    explanation: >-
+      Caching pays off when the repeated content forms an identical prefix, and users who
+      are waiting need synchronous answers. Row 3 meets both. Row 2 is the most tempting
+      wrong answer because caching is switched on, but with the changing question first,
+      no two requests share a prefix, so nothing is reused. Row 4 is cheaper per request
+      but returns answers hours later, and streaming in row 1 does not change cost.
