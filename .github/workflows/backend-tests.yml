@@ -1,0 +1,24 @@
+name: backend-tests
+
+# Runs the backend suite, which includes the bank realism gate
+# (tests/test_bank_realism.py). Self-contained: SQLite, dev auth mode, no secrets.
+on:
+  push:
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -r requirements.txt
+      - name: Bank realism gate
+        run: python -m pytest tests/test_bank_realism.py -rxX
+      - name: Full suite
+        run: python -m pytest
