@@ -31,6 +31,10 @@ MAX_LONGEST_IS_KEY = 0.35   # chance with 4 options is 0.25
 MAX_SHORTEST_IS_KEY = 0.35
 MAX_LABEL_SHARE = 0.35      # chance with 4 labels is 0.25
 MAX_ABSOLUTE_WRONG = 0.75   # absolute wording should not reliably mark a distractor
+# MR items whose correct set is exactly the N shortest (or N longest) options, strictly:
+# every correct option shorter (or longer) than every wrong one. "Pick the N shortest"
+# then scores full marks without reading the item.
+MAX_MR_SET_BY_LENGTH = 0.35
 
 ABSOLUTE_WORDS = re.compile(r"\b(always|never|only|all)\b", re.IGNORECASE)
 
@@ -49,6 +53,11 @@ class BankStats:
     mr_missing_select_count: list[str] = field(default_factory=list)
     option_lengths: list[int] = field(default_factory=list)
     table_items: int = 0
+    mr_set_by_length: int = 0
+
+    @property
+    def mr_set_by_length_rate(self) -> float:
+        return self.mr_set_by_length / self.mr_items if self.mr_items else 0.0
 
     @property
     def longest_is_key_rate(self) -> float:
@@ -104,6 +113,12 @@ class BankStats:
                 f"{self.absolute_wrong}/{self.absolute_options} "
                 f"({self.absolute_wrong_rate:.0%} > {MAX_ABSOLUTE_WRONG:.0%})"
             )
+        if self.mr_set_by_length_rate > MAX_MR_SET_BY_LENGTH:
+            out.append(
+                f"{self.scope}: MR correct set is exactly the shortest or longest options in "
+                f"{self.mr_set_by_length}/{self.mr_items} MR items "
+                f"({self.mr_set_by_length_rate:.0%} > {MAX_MR_SET_BY_LENGTH:.0%})"
+            )
         if self.mr_missing_select_count:
             out.append(
                 f"{self.scope}: MR items without select_count: "
@@ -129,6 +144,10 @@ def _add(stats: BankStats, q: dict) -> None:
         stats.mr_items += 1
         if not q.get("select_count"):
             stats.mr_missing_select_count.append(q["external_id"])
+        right = [len(o["text"]) for o in options if o.get("correct")]
+        wrong = [len(o["text"]) for o in options if not o.get("correct")]
+        if right and wrong and (max(right) < min(wrong) or min(right) > max(wrong)):
+            stats.mr_set_by_length += 1
         return
 
     stats.single_answer += 1
@@ -162,6 +181,7 @@ def _row(s: BankStats) -> str:
         f"  {s.shortest_is_key:>3}/{s.single_answer:<3} {s.shortest_is_key_rate:>4.0%}"
         f"   {label} {share:>4.0%}"
         f"   {s.absolute_wrong:>3}/{s.absolute_options:<3} {s.absolute_wrong_rate:>4.0%}"
+        f"  {s.mr_set_by_length:>3}/{s.mr_items:<3} {s.mr_set_by_length_rate:>4.0%}"
         f"  {s.median_option_length:>6.0f}"
     )
 
@@ -170,7 +190,7 @@ def main() -> int:
     overall, per_domain = measure()
     print(
         f"{'scope':<8}{'items':>6}{'mcq':>6}{'mr':>4}{'table':>6}"
-        f"  {'longest=key':>13}  {'shortest=key':>13}   {'top label':>8}   {'absolute wrong':>14}  {'median':>6}"
+        f"  {'longest=key':>13}  {'shortest=key':>13}   {'top label':>8}   {'absolute wrong':>14}  {'mr set=length':>13}  {'median':>6}"
     )
     for s in [*per_domain, overall]:
         print(_row(s))
