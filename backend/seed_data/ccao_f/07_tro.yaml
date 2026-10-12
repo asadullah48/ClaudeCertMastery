@@ -502,11 +502,13 @@ questions:
     options:
       - label: A
         text: >-
-          Collect a set of failing cases and look for what they have in common.
+          Collect a set of failing cases and look for what they have in common, such as
+          input type or length.
         correct: true
       - label: B
         text: >-
-          Change one variable at a time, and re-measure after each change.
+          Change one variable at a time and re-measure after each change, so any effect can
+          be attributed.
         correct: true
       - label: C
         text: >-
@@ -515,7 +517,8 @@ questions:
         correct: false
       - label: D
         text: >-
-          Compare the failing cases against similar cases that succeeded.
+          Compare the failing cases against similar cases that succeeded under the same
+          setup.
         correct: true
       - label: E
         text: >-
