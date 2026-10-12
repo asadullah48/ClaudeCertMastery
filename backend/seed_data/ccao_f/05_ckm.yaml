@@ -122,8 +122,7 @@ questions:
     options:
       - label: A
         text: >-
-          Adding every document the organisation produces, so that no question can come up
-          that the source cannot answer.
+          Adding every document the organisation produces, so no question goes unanswered.
         correct: false
       - label: B
         text: >-
