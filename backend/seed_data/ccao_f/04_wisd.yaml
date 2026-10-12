@@ -127,12 +127,12 @@ questions:
     options:
       - label: A
         text: >-
-          The task carries final legal accountability that the organisation cannot
-          delegate to anyone else.
+          The task carries final legal accountability that the organisation cannot delegate.
         correct: false
       - label: B
         text: >-
-          The task is repetitive and takes up a significant amount of staff time.
+          The task is repetitive and takes up a significant amount of skilled staff time
+          every week.
         correct: true
       - label: C
         text: >-
@@ -144,7 +144,8 @@ questions:
         correct: false
       - label: E
         text: >-
-          Errors can be detected and recovered from within the existing process.
+          Errors can be detected and recovered from within the existing process, before they
+          reach a customer.
         correct: true
     explanation: >-
       Good automation candidates are repetitive, verifiable and error-tolerant. Where legal
@@ -266,11 +267,12 @@ questions:
     options:
       - label: A
         text: >-
-          The reason the case was escalated to a person.
+          The reason the case was escalated, including which check produced the low
+          confidence.
         correct: true
       - label: B
         text: >-
-          The work already completed and any intermediate findings.
+          The work already completed and any intermediate findings, so nothing is redone.
         correct: true
       - label: C
         text: >-
@@ -279,7 +281,8 @@ questions:
         correct: false
       - label: D
         text: >-
-          The source material needed to make the decision.
+          The source material the reviewer needs to make the decision, attached rather than
+          summarised.
         correct: true
     explanation: >-
       An effective handoff preserves context so the human resumes rather than restarts:
@@ -400,19 +403,21 @@ questions:
     options:
       - label: A
         text: >-
-          A measurable change in how often people correct the workflow's output.
+          A measurable change in how often reviewers correct the workflow's output.
         correct: true
       - label: B
         text: >-
-          A calendar month passing with no operational changes of any kind.
+          A calendar month passing with no operational changes of any kind to the workflow.
         correct: false
       - label: C
         text: >-
-          A change in the format or nature of the inputs arriving at the workflow.
+          A change in the format or nature of the inputs arriving at the workflow from
+          upstream systems.
         correct: true
       - label: D
         text: >-
-          A change to the model or the prompt that the workflow uses.
+          A change to the model or the prompt that the workflow uses, however small the
+          edit.
         correct: true
       - label: E
         text: >-
