@@ -15,14 +15,32 @@ questions:
       A prompt that worked reliably now fails intermittently. Nothing in the prompt has
       changed. What should the operator investigate first?
     options:
-      - {label: A, text: "Whether the inputs being sent have changed in format, length or content.", correct: true}
-      - {label: B, text: "Whether the prompt should be rewritten from scratch.", correct: false}
-      - {label: C, text: "Whether more examples should be added immediately.", correct: false}
-      - {label: D, text: "Whether to switch to a different provider.", correct: false}
+      - label: A
+        text: >-
+          Whether the prompt should be rewritten from scratch, since a prompt that fails
+          intermittently is no longer fit for the task it serves.
+        correct: false
+      - label: B
+        text: >-
+          Whether the inputs being sent have changed in format, length or content, since the
+          prompt is the one part known to be unchanged.
+        correct: true
+      - label: C
+        text: >-
+          Whether more worked examples should be added to the prompt straight away, so the
+          model has more guidance on the cases that fail.
+        correct: false
+      - label: D
+        text: >-
+          Whether to move the workflow to a different provider, since intermittent failure
+          suggests that the current service is unreliable.
+        correct: false
     explanation: >-
-      When the prompt is unchanged but behaviour changed, the variable is the input. Checking
-      what is actually being sent isolates the cause before any rewriting begins. Rewriting
-      first discards a working artefact without a diagnosis.
+      When the prompt is unchanged but behaviour changed, the input is the first variable to
+      check. Looking at what is actually being sent isolates the cause before any rewriting
+      begins, and rewriting or switching provider discards a working artefact without a
+      diagnosis. Adding examples is the tempting distractor because it feels constructive,
+      but it changes the prompt before anyone knows which cases fail or why.
 
   - external_id: CCAO-F-TRO-002
     type: mcq
@@ -31,14 +49,32 @@ questions:
       A multi-part prompt produces good results for the first two requirements and poor
       results for the last two. What is the most effective diagnostic step?
     options:
-      - {label: A, text: "Split the requirements into separate calls to determine whether the issue is capability or prompt overload.", correct: true}
-      - {label: B, text: "Add emphasis to the last two requirements.", correct: false}
-      - {label: C, text: "Reorder the requirements at random and retest.", correct: false}
-      - {label: D, text: "Accept partial success as the expected outcome.", correct: false}
+      - label: A
+        text: >-
+          Add emphasis to the last two requirements, marking them as important so that the
+          model gives them the same attention as the first two.
+        correct: false
+      - label: B
+        text: >-
+          Reorder the requirements at random and retest, so that any effect of their position
+          in the prompt averages out across the runs.
+        correct: false
+      - label: C
+        text: >-
+          Accept partial success as the expected outcome, since a prompt that asks for four
+          things will rarely deliver every one of them.
+        correct: false
+      - label: D
+        text: >-
+          Split the requirements into separate calls, to find out whether the failures come
+          from a capability limit or from prompt overload.
+        correct: true
     explanation: >-
       Isolating the failing requirements into their own calls distinguishes an inability to
-      do the task from too much being asked at once. That distinction determines whether the
-      fix is decomposition or a different approach entirely.
+      do the task from too much being asked at once. That distinction decides whether the
+      fix is decomposition or a different approach entirely. Random reordering blurs the
+      evidence rather than isolating it. Adding emphasis is the tempting distractor because
+      it targets the failing parts, but it is a fix applied before the cause is known.
 
   - external_id: CCAO-F-TRO-003
     type: mcq
@@ -47,31 +83,72 @@ questions:
       An operator wants to reduce latency in a workflow where a human waits for a long
       generated report. Which change most improves perceived responsiveness?
     options:
-      - {label: A, text: "Stream the response so content appears as it is generated.", correct: true}
-      - {label: B, text: "Increase the maximum output tokens.", correct: false}
-      - {label: C, text: "Add more context to the prompt.", correct: false}
-      - {label: D, text: "Request the output in a more complex format.", correct: false}
+      - label: A
+        text: >-
+          Increase the maximum output tokens, so that the full report is produced in a single
+          response rather than in several shorter parts.
+        correct: false
+      - label: B
+        text: >-
+          Add more background context to the prompt, so the model needs fewer reasoning steps
+          and the finished report is ready sooner.
+        correct: false
+      - label: C
+        text: >-
+          Stream the response, so the report's content appears on screen as it is generated
+          rather than after the whole of it is complete.
+        correct: true
+      - label: D
+        text: >-
+          Switch the output to a structured format such as JSON, so the report can be parsed
+          and displayed as soon as the response arrives.
+        correct: false
     explanation: >-
-      Streaming addresses perceived latency directly by removing the blank wait. The other
-      options increase the work required and would make both actual and perceived latency
-      worse.
+      Streaming addresses perceived latency directly by removing the blank wait. Raising the
+      output limit and adding context increase the work and make both actual and perceived
+      latency worse. The structured format is the tempting distractor because parsing
+      sounds fast, but the reader still sees nothing until the complete response has
+      arrived.
 
   - external_id: CCAO-F-TRO-004
     type: mr
     select_count: 3
     difficulty: 2
     stem: >-
-      A workflow cost has risen sharply with no increase in volume. Which causes are worth
+      A workflow's cost has risen sharply with no increase in volume. Which causes are worth
       investigating?
     options:
-      - {label: A, text: "Growth in the size of context being sent with each request.", correct: true}
-      - {label: B, text: "Retries triggered by a rise in failures.", correct: true}
-      - {label: C, text: "A change in the model the workflow is calling.", correct: true}
-      - {label: D, text: "An increase in the number of people who can see the output.", correct: false}
+      - label: A
+        text: >-
+          An increase in the number of people who read the output, since each extra reader
+          adds to the billed usage.
+        correct: false
+      - label: B
+        text: >-
+          Growth in the size of the context sent with each request, such as longer histories
+          or larger attachments.
+        correct: true
+      - label: C
+        text: >-
+          A switch from streaming to non-streaming responses, which changes how each request
+          is billed.
+        correct: false
+      - label: D
+        text: >-
+          Retries triggered by a rise in failures, so that each piece of work is billed more
+          than once.
+        correct: true
+      - label: E
+        text: >-
+          A change in the model the workflow calls, moving the same requests onto a higher
+          rate per token.
+        correct: true
     explanation: >-
-      Cost per request is driven by tokens in and out, how often calls repeat, and the model
-      rate. Context growth, retry loops and a model change all move those levers. Output
-      readership does not affect billing.
+      Cost is driven by tokens in and out, how often calls repeat, and the model's rate.
+      Context growth, retry loops and a model change all move those levers; readership of
+      the output does not affect billing. The streaming switch is the tempting extra because
+      it is a change in how responses are delivered, but delivery mode does not change the
+      tokens billed.
 
   - external_id: CCAO-F-TRO-005
     type: mcq
@@ -80,14 +157,32 @@ questions:
       An operator changes three things at once to fix a quality problem, and the problem
       resolves. What is the main weakness of this approach?
     options:
-      - {label: A, text: "It is unknown which change was responsible, so the other two may be unnecessary or harmful later.", correct: true}
-      - {label: B, text: "Making three changes always causes new problems.", correct: false}
-      - {label: C, text: "The fix will stop working after a fixed period.", correct: false}
-      - {label: D, text: "Changes must always be made one per calendar day.", correct: false}
+      - label: A
+        text: >-
+          It is unknown which change fixed the problem, so the other two may be unnecessary,
+          or harmful in cases that have not yet been seen.
+        correct: true
+      - label: B
+        text: >-
+          Three simultaneous changes are certain to introduce new problems, so the fix will
+          need to be reversed before the next release.
+        correct: false
+      - label: C
+        text: >-
+          The fix will wear off after a period of use, because changes made together tend to
+          interfere with one another as time passes.
+        correct: false
+      - label: D
+        text: >-
+          It took longer than one change would have, since each of the three changes had to
+          be written, tested and deployed in turn.
+        correct: false
     explanation: >-
-      Bundled changes give a result without an explanation. Two of the three may be inert or
-      actively harmful in cases not yet observed, and nothing has been learned that
-      generalises to the next problem.
+      Bundled changes give a result without an explanation. Two of the three may be inert
+      or actively harmful in cases not yet observed, and nothing has been learned that
+      generalises to the next problem. Fixes do not wear off, and effort is not the issue.
+      The new-problems answer is the tempting distractor because the risk is real, but it
+      is a risk, not a certainty; the certain loss is knowing which change mattered.
 
   - external_id: CCAO-F-TRO-006
     type: mcq
@@ -95,14 +190,32 @@ questions:
     stem: >-
       Output is being truncated mid-sentence. What is the most likely cause?
     options:
-      - {label: A, text: "The response reached the configured maximum output token limit.", correct: true}
-      - {label: B, text: "The input context window was exceeded.", correct: false}
-      - {label: C, text: "The prompt contained too many examples.", correct: false}
-      - {label: D, text: "The network connection was slow.", correct: false}
+      - label: A
+        text: >-
+          The prompt was too long for the context window, so part of the input was dropped
+          and the model lost track of the sentence it was writing.
+        correct: false
+      - label: B
+        text: >-
+          The prompt contained many short examples, so the model copied their length and
+          ended its answer where the examples tended to end.
+        correct: false
+      - label: C
+        text: >-
+          The network connection was slow, so part of the response was lost in transit
+          before it reached the application that displays it.
+        correct: false
+      - label: D
+        text: >-
+          The response reached the configured maximum output token limit, so generation
+          stopped at that point, even in mid-sentence.
+        correct: true
     explanation: >-
-      Truncation mid-sentence is the signature of hitting the output token cap. Exceeding the
-      input context produces an error rather than a clean cut-off, and network slowness
-      delays delivery without truncating content.
+      Truncation mid-sentence is the signature of hitting the output token cap, and the
+      API reports it as the stop reason. Short examples shape length but do not cut a
+      sentence in half, and a slow connection delays delivery without removing content.
+      The context-window answer is the tempting distractor because length is the problem,
+      but an oversized prompt is rejected with an error rather than silently trimmed.
 
   - external_id: CCAO-F-TRO-007
     type: mcq
@@ -111,14 +224,32 @@ questions:
       An operator wants to reduce cost on a workflow that repeatedly sends the same lengthy
       instructions and reference material. Which optimisation applies most directly?
     options:
-      - {label: A, text: "Prompt caching for the stable prefix, so repeated content is billed at a reduced rate.", correct: true}
-      - {label: B, text: "Asking for shorter answers.", correct: false}
-      - {label: C, text: "Sending requests less frequently.", correct: false}
-      - {label: D, text: "Removing all examples from the prompt.", correct: false}
+      - label: A
+        text: >-
+          Ask for shorter answers in the instructions, so that each response uses fewer
+          output tokens and the total bill falls each day.
+        correct: false
+      - label: B
+        text: >-
+          Prompt caching on the stable prefix of instructions and reference material, so
+          the repeated content is billed at a reduced rate.
+        correct: true
+      - label: C
+        text: >-
+          Remove the worked examples from the instructions, since examples make up a large
+          share of the repeated text sent on each request.
+        correct: false
+      - label: D
+        text: >-
+          Switch to streaming responses, so that the repeated instructions are processed
+          while the answer is already being sent back.
+        correct: false
     explanation: >-
-      A large, unchanging prefix repeated across requests is exactly the prompt-caching case.
-      Shortening answers addresses output tokens, which is not where this cost concentrates,
-      and stripping examples risks quality to save comparatively little.
+      A large, unchanging prefix repeated across requests is exactly the prompt-caching
+      case. Shorter answers address output tokens, which is not where this cost sits, and
+      streaming changes delivery, not price. Removing the examples is the tempting
+      distractor because it does cut repeated text, but it risks quality to save part of
+      the prefix, while caching reduces the cost of all of it without changing a word.
 
   - external_id: CCAO-F-TRO-008
     type: mr
@@ -128,14 +259,35 @@ questions:
       A prompt performs well in testing but poorly in production. Which explanations are
       worth investigating?
     options:
-      - {label: A, text: "Production inputs are messier or more varied than the test inputs.", correct: true}
-      - {label: B, text: "Production sends the prompt with different configuration or a different model.", correct: true}
-      - {label: C, text: "The production integration alters the prompt before sending, for example by trimming content.", correct: true}
-      - {label: D, text: "Model quality is inherently lower outside testing environments.", correct: false}
+      - label: A
+        text: >-
+          Production inputs are messier or more varied than the inputs in the test set.
+        correct: true
+      - label: B
+        text: >-
+          Model quality is inherently lower outside testing, so some loss on release is to
+          be expected.
+        correct: false
+      - label: C
+        text: >-
+          Production sends the prompt with a different configuration or a different model.
+        correct: true
+      - label: D
+        text: >-
+          The model has remembered the test cases from repeated runs, and answers them from
+          memory rather than by reasoning.
+        correct: false
+      - label: E
+        text: >-
+          The production integration alters the prompt before sending it, for example by
+          trimming content.
+        correct: true
     explanation: >-
-      Input distribution, configuration drift and silent modification by the integration layer
-      are the usual causes of a test-to-production gap. There is no separate lower-quality
-      production mode; the difference always traces to something that actually changed.
+      Input distribution, configuration drift and silent modification by the integration
+      layer are the usual causes of a test-to-production gap. There is no separate
+      lower-quality production mode. The remembered test cases are the tempting extra
+      because overfitting to a test set is a real risk, but that risk lives in how the
+      prompt was tuned, not in the model learning from the test runs.
 
   - external_id: CCAO-F-TRO-009
     type: mcq
@@ -144,14 +296,32 @@ questions:
       Claude begins ignoring a formatting rule that it previously followed, after the operator
       added several new instructions. What is the most likely cause?
     options:
-      - {label: A, text: "The new instructions conflict with or dilute the original rule.", correct: true}
-      - {label: B, text: "Formatting rules expire after a period of use.", correct: false}
-      - {label: C, text: "The rule must be the only instruction in the prompt.", correct: false}
-      - {label: D, text: "Adding instructions always disables earlier ones.", correct: false}
+      - label: A
+        text: >-
+          Formatting rules lose force after a period of use, so the rule needs restating now
+          that it has been in place for some time.
+        correct: false
+      - label: B
+        text: >-
+          The model follows newer instructions in preference to older ones, so any rule that
+          was written before the additions is set aside.
+        correct: false
+      - label: C
+        text: >-
+          The new instructions conflict with the original rule or dilute it, so it now
+          competes with them for the model's attention.
+        correct: true
+      - label: D
+        text: >-
+          The rule is worded in a different style from the new instructions, and mixing
+          styles leads the model to skip some of the rules.
+        correct: false
     explanation: >-
-      Instructions compete for attention, and newly added ones can contradict or crowd out an
-      existing rule. Auditing the instruction set for conflict is the diagnostic step; rules
-      do not expire and additions do not automatically void what came before.
+      Instructions compete for attention, and newly added ones can contradict or crowd out
+      an existing rule. Auditing the instruction set for conflict is the diagnostic step;
+      rules do not expire, and style differences do not void them. Newest-wins is the
+      tempting distractor because the trouble started with the additions, but order alone
+      does not set a rule aside; conflict with the new instructions does.
 
   - external_id: CCAO-F-TRO-010
     type: mcq
@@ -160,14 +330,32 @@ questions:
       An operator must decide whether a quality problem stems from the prompt or from the
       underlying task being too hard. Which test best distinguishes these?
     options:
-      - {label: A, text: "Have a skilled human attempt the same task with the same information and see whether they succeed.", correct: true}
-      - {label: B, text: "Run the prompt more times and average the results.", correct: false}
-      - {label: C, text: "Increase the maximum output tokens.", correct: false}
-      - {label: D, text: "Switch to a shorter prompt.", correct: false}
+      - label: A
+        text: >-
+          Have a skilled person attempt the same task with exactly the same information, and
+          see whether they are able to succeed at it.
+        correct: true
+      - label: B
+        text: >-
+          Run the prompt many more times and average the results, so the true quality level
+          shows through the run-to-run variation.
+        correct: false
+      - label: C
+        text: >-
+          Raise the maximum output tokens, so that the model has room to work through the
+          task fully before it gives its final answer.
+        correct: false
+      - label: D
+        text: >-
+          Switch to a much shorter prompt, so that any confusion caused by the original
+          wording is removed before the task is judged.
+        correct: false
     explanation: >-
-      If a skilled human cannot do the task from the same information, the information is
-      insufficient and no prompt will fix it. This cleanly separates a prompt problem from an
-      underspecified task, which repeated sampling cannot.
+      If a skilled person cannot do the task from the same information, the information is
+      insufficient and no prompt will fix it. This cleanly separates a prompt problem from
+      an underspecified task. Output limits and prompt length change the attempt rather
+      than test it. Averaging more runs is the tempting distractor because it measures
+      quality more precisely, but it shows how bad the result is, not why.
 
   - external_id: CCAO-F-TRO-011
     type: mcq
@@ -176,14 +364,32 @@ questions:
       Which practice most improves the speed of diagnosing future failures in a production
       workflow?
     options:
-      - {label: A, text: "Logging the exact prompt, model, configuration and output for each run.", correct: true}
-      - {label: B, text: "Keeping prompts as short as possible.", correct: false}
-      - {label: C, text: "Avoiding changes to the workflow once deployed.", correct: false}
-      - {label: D, text: "Reducing the number of people who can view the output.", correct: false}
+      - label: A
+        text: >-
+          Keep prompts as short as possible, so that there is less text to read through when
+          a failure has to be investigated later on.
+        correct: false
+      - label: B
+        text: >-
+          Freeze the workflow once it is deployed, so that no change to it can be the cause
+          when a failure eventually needs diagnosing.
+        correct: false
+      - label: C
+        text: >-
+          Limit the number of people who can view the output, so that reports of failure
+          arrive from fewer and more reliable sources.
+        correct: false
+      - label: D
+        text: >-
+          Log the exact prompt, model, configuration and output for each run, so that any
+          failure can be reconstructed exactly as it ran.
+        correct: true
     explanation: >-
       Diagnosis depends on being able to reconstruct exactly what ran. Without that record,
-      investigation degenerates into guesswork about which of several possible changes caused
-      the failure.
+      investigation degenerates into guesswork about which of several possible changes
+      caused the failure. Short prompts and fewer viewers do not supply that record.
+      Freezing the workflow is the tempting distractor because it removes one source of
+      change, but inputs keep changing, and nothing records what actually ran.
 
   - external_id: CCAO-F-TRO-012
     type: mcq
@@ -192,14 +398,32 @@ questions:
       An optimisation reduces cost by 40 percent but increases the human correction rate from
       2 percent to 15 percent. How should this be judged?
     options:
-      - {label: A, text: "Evaluate the total cost including the added human time; the saving may be more than offset.", correct: true}
-      - {label: B, text: "Adopt it, since the cost reduction is substantial.", correct: false}
-      - {label: C, text: "Reject it, since correction rate is the only metric that matters.", correct: false}
-      - {label: D, text: "Adopt it only if the correction rate falls below 10 percent.", correct: false}
+      - label: A
+        text: >-
+          Adopt it, since a 40 percent cut in cost is substantial and the corrections are
+          handled by staff who are already employed.
+        correct: false
+      - label: B
+        text: >-
+          Reject it, since the correction rate is the measure that matters most, and any rise
+          in it outweighs a saving of this size.
+        correct: false
+      - label: C
+        text: >-
+          Evaluate the total cost of the work, including the added human correction time,
+          since that time may more than offset the saving.
+        correct: true
+      - label: D
+        text: >-
+          Adopt it on condition that the correction rate falls below 10 percent within a
+          month, since that is a typical and acceptable level.
+        correct: false
     explanation: >-
-      An optimisation must be judged on total cost to complete the work, not on the API line
-      alone. A sevenfold rise in corrections can easily consume more in human time than the
-      inference saving, and that comparison is the decision.
+      An optimisation must be judged on the total cost of completing the work, not on the
+      API line alone. A sevenfold rise in corrections can easily consume more human time
+      than the inference saving, and that comparison is the decision. Rejecting on one
+      metric or adopting against an arbitrary threshold skips it. Adopting because staff
+      are already employed is the tempting distractor, but their time is still a cost.
 
   - external_id: CCAO-F-TRO-013
     type: mcq
@@ -208,14 +432,32 @@ questions:
       A workflow intermittently returns rate limit errors during peak hours. Which response is
       most appropriate?
     options:
-      - {label: A, text: "Implement retry with exponential backoff, and smooth demand by queueing non-urgent work outside peak.", correct: true}
-      - {label: B, text: "Retry immediately in a tight loop until the request succeeds.", correct: false}
-      - {label: C, text: "Ignore the errors and drop the affected records.", correct: false}
-      - {label: D, text: "Send every request twice so at least one succeeds.", correct: false}
+      - label: A
+        text: >-
+          Retry immediately in a tight loop until each request succeeds, so that no record
+          is delayed for longer than it needs to be.
+        correct: false
+      - label: B
+        text: >-
+          Retry with exponential backoff, and smooth demand by queueing non-urgent work so
+          that it runs outside the peak hours.
+        correct: true
+      - label: C
+        text: >-
+          Skip the requests that hit the limit and drop the affected records, so that
+          peak-hour processing keeps moving without delay.
+        correct: false
+      - label: D
+        text: >-
+          Send each request twice in parallel during peak hours, so that at least one copy of
+          every request has a chance to succeed.
+        correct: false
     explanation: >-
-      Backoff plus demand smoothing addresses both the symptom and the cause. Tight retry
-      loops and duplicate sends increase the load that triggered the limit, and dropping
-      records loses work silently.
+      Backoff plus demand smoothing addresses both the symptom and the cause. Duplicate
+      sends increase the load that triggered the limit, and dropping records loses work
+      silently. The tight retry loop is the tempting distractor because it retries, which
+      is the right instinct, but retrying without waiting adds load at exactly the moment
+      the limit is being hit.
 
   - external_id: CCAO-F-TRO-014
     type: mcq
@@ -224,14 +466,32 @@ questions:
       An operator reduces prompt length to cut cost, and accuracy falls. What does this most
       likely indicate?
     options:
-      - {label: A, text: "Content removed from the prompt was carrying necessary task information.", correct: true}
-      - {label: B, text: "Shorter prompts are always less accurate.", correct: false}
-      - {label: C, text: "Cost and accuracy are unrelated.", correct: false}
-      - {label: D, text: "The model requires a minimum prompt length.", correct: false}
+      - label: A
+        text: >-
+          Content removed from the prompt was carrying task information the model needed,
+          and the next step is to find and restore it.
+        correct: true
+      - label: B
+        text: >-
+          Shorter prompts are less accurate as a rule, so the original length should be
+          restored in full before anything else is tried.
+        correct: false
+      - label: C
+        text: >-
+          Cost and accuracy are directly linked, so a reduction in the cost of a prompt is
+          bound to reduce its accuracy by a similar amount.
+        correct: false
+      - label: D
+        text: >-
+          The model needs a minimum prompt length to work well, and the trimmed prompt has
+          fallen below that length for this task.
+        correct: false
     explanation: >-
-      The trimming removed something load-bearing. The useful next step is to identify which
-      part carried the weight and restore only that, rather than concluding that brevity is
-      inherently harmful.
+      The trimming removed something load-bearing. The useful next step is to identify
+      which part carried the weight and restore only that. Cost and accuracy are not
+      locked together, and there is no minimum length. Restoring the full prompt is the
+      tempting distractor because it would bring accuracy back, but it treats brevity as
+      the cause and gives up the saving instead of finding what was lost.
 
   - external_id: CCAO-F-TRO-015
     type: mr
@@ -240,14 +500,34 @@ questions:
     stem: >-
       Which steps form a sound approach to diagnosing an intermittent quality problem?
     options:
-      - {label: A, text: "Collect a set of failing cases and look for what they share.", correct: true}
-      - {label: B, text: "Change one variable at a time and re-measure.", correct: true}
-      - {label: C, text: "Compare failing cases against similar cases that succeeded.", correct: true}
-      - {label: D, text: "Rewrite the prompt completely before examining the failures.", correct: false}
+      - label: A
+        text: >-
+          Collect a set of failing cases and look for what they have in common.
+        correct: true
+      - label: B
+        text: >-
+          Change one variable at a time, and re-measure after each change.
+        correct: true
+      - label: C
+        text: >-
+          Rewrite the prompt completely before examining the failures, to start from a
+          clean base.
+        correct: false
+      - label: D
+        text: >-
+          Compare the failing cases against similar cases that succeeded.
+        correct: true
+      - label: E
+        text: >-
+          Raise the sampling temperature, so that the failures appear more often and are
+          easier to catch.
+        correct: false
     explanation: >-
-      Gathering failures, isolating single variables and contrasting failures with successes
-      build an evidence-based diagnosis. Rewriting before investigating destroys the artefact
-      under study and teaches nothing about the cause.
+      Gathering failures, isolating single variables and contrasting failures with
+      successes build an evidence-based diagnosis. Rewriting before investigating destroys
+      the artefact under study. Raising the temperature is the tempting extra because more
+      failures sound easier to study, but it changes the system being diagnosed, so the
+      failures it produces may not be the ones that occur in production.
 
   - external_id: CCAO-F-TRO-016
     type: mcq
@@ -256,11 +536,111 @@ questions:
       What is the most useful first question when a Claude workflow produces an unexpected
       result?
     options:
-      - {label: A, text: "What exactly was sent, and what exactly came back?", correct: true}
-      - {label: B, text: "Should the workflow be rebuilt on a different platform?", correct: false}
-      - {label: C, text: "Which team member is responsible?", correct: false}
-      - {label: D, text: "How much did the request cost?", correct: false}
+      - label: A
+        text: >-
+          Should the workflow be rebuilt on a different platform, given that it has produced
+          a result nobody on the team expected?
+        correct: false
+      - label: B
+        text: >-
+          Which team member is responsible for the workflow, so that the unexpected result
+          can be passed to them to investigate?
+        correct: false
+      - label: C
+        text: >-
+          How much did the request cost, so that the impact of the unexpected result on this
+          month's budget can be assessed?
+        correct: false
+      - label: D
+        text: >-
+          What exactly was sent to the model, and what exactly came back, as recorded for
+          this run rather than as anyone assumes?
+        correct: true
     explanation: >-
       Troubleshooting starts with establishing ground truth about the actual request and
       response. Assumptions about what was sent are the most common source of wasted
-      investigation.
+      investigation, and rebuilding or costing the run comes later, if at all. Finding the
+      owner is the tempting distractor because ownership matters, but handing the problem
+      on does not answer what actually happened.
+
+  - external_id: CCAO-F-TRO-017
+    type: mcq
+    difficulty: 2
+    stem: >-
+      Four operators investigated the same intermittent drop in output quality. Whose
+      approach is the soundest?
+    table:
+      columns: [Row, Cases examined, Changes made, Evidence used]
+      rows:
+        - ["1", "None; rewrote the prompt first", "Three changes at once", "Spot checks after the rewrite"]
+        - ["2", "40 failing cases", "Three changes at once", "Failure rate before and after"]
+        - ["3", "40 failing cases and 40 similar successes", "One change at a time", "Failure rate measured after each change"]
+        - ["4", "40 failing cases and 40 similar successes", "One change at a time", "Impressions from a few new runs"]
+    options:
+      - label: A
+        text: >-
+          Row 1, because rewriting the prompt first gives a clean base, and spot checks after
+          the rewrite are quick enough to repeat often.
+        correct: false
+      - label: B
+        text: >-
+          Row 2, because it starts from real failing cases, and comparing the failure rate
+          before and after shows that the fix has worked.
+        correct: false
+      - label: C
+        text: >-
+          Row 3, because it contrasts failures with successes, changes one thing at a time,
+          and measures the failure rate after each step.
+        correct: true
+      - label: D
+        text: >-
+          Row 4, because it contrasts failures with successes and changes one thing at a
+          time, and new runs show how each change behaves.
+        correct: false
+    explanation: >-
+      A sound diagnosis contrasts failures with successes, changes one variable at a time
+      and measures after each change. Row 3 does all three. Row 4 is the most tempting
+      wrong answer because its method is right, but impressions from a few runs cannot
+      detect an intermittent problem. Row 2 measures, but bundled changes leave the cause
+      unknown, and row 1 rewrites before looking at any evidence.
+
+  - external_id: CCAO-F-TRO-018
+    type: mcq
+    difficulty: 3
+    stem: >-
+      A workflow's monthly cost doubled while its request volume stayed flat. The operator
+      compares four metrics across the two months. Which most likely explains the rise?
+    table:
+      columns: [Row, Metric, Last month, This month]
+      rows:
+        - ["1", "Requests per day", "10,000", "10,000"]
+        - ["2", "Average input tokens per request", "3,000", "6,500"]
+        - ["3", "People who read the output", "12", "30"]
+        - ["4", "Streaming enabled", "No", "Yes"]
+    options:
+      - label: A
+        text: >-
+          Row 1, because requests per day are the main driver of cost, and a workflow at
+          this volume will see its bill move from month to month.
+        correct: false
+      - label: B
+        text: >-
+          Row 2, because input tokens per request have more than doubled while volume held
+          steady, and input tokens are billed directly.
+        correct: true
+      - label: C
+        text: >-
+          Row 3, because more readers of the output means more use of the workflow, and
+          that additional use is reflected in the monthly bill.
+        correct: false
+      - label: D
+        text: >-
+          Row 4, because streamed responses are billed differently from complete ones, so
+          turning streaming on changes what each request costs.
+        correct: false
+    explanation: >-
+      Cost follows billed tokens, and input tokens per request more than doubled while
+      volume held flat. Row 2 explains the rise. Row 4 is the most tempting wrong answer
+      because it is a real configuration change made in the same period, but streaming
+      changes how output is delivered, not the tokens billed. Row 1 did not change, and
+      readers of the output in row 3 do not generate requests.
