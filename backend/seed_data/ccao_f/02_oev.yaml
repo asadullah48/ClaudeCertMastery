@@ -142,23 +142,23 @@ questions:
         correct: true
       - label: B
         text: >-
-          Ask Claude, in a second pass, to confirm that each of its own figures is
-          correct and to restate any it is unsure of before release.
+          Ask Claude, in a second pass, to confirm each of its own figures and restate any
+          it is unsure of.
         correct: false
       - label: C
         text: >-
-          Confirm that the arithmetic and totals are internally consistent, so subtotals,
-          percentages and grand totals agree with one another.
+          Confirm the arithmetic is internally consistent, so subtotals, percentages and
+          grand totals agree with one another.
         correct: true
       - label: D
         text: >-
-          Compare the figures with the previous period's published report and treat any
-          figure within ten percent of last period's as already verified.
+          Compare the figures with last period's report and treat any figure within ten
+          percent of it as already verified.
         correct: false
       - label: E
         text: >-
-          Have a qualified human reviewer approve the final output before it is
-          published, with the authority to hold it back.
+          Have a qualified human reviewer approve the output before publication, with
+          authority to hold it back.
         correct: true
     explanation: >-
       Source tracing, internal consistency and qualified human sign-off are independent
@@ -291,8 +291,8 @@ questions:
     options:
       - label: A
         text: >-
-          The judge uses the same prompt and configuration that generated the output, so
-          it applies exactly the standard the generator was written to meet.
+          The judge reuses the prompt and configuration that generated the output, so it
+          applies the same standard.
         correct: false
       - label: B
         text: >-
@@ -306,7 +306,8 @@ questions:
         correct: true
       - label: D
         text: >-
-          The judge scores each output without knowing which prompt variant produced it.
+          The judge scores each output blind, without knowing which prompt variant produced
+          it.
         correct: true
     explanation: >-
       A concrete rubric, periodic human calibration and blinding to the variant all reduce
@@ -439,11 +440,13 @@ questions:
     options:
       - label: A
         text: >-
-          Every extracted clause must appear verbatim in the source contract.
+          Every extracted clause must appear verbatim in the source contract, with no
+          paraphrasing.
         correct: true
       - label: B
         text: >-
-          Every clause of the specified types present in the contract must be captured.
+          Every clause of the specified types that is present in the contract must be
+          captured, with none skipped.
         correct: true
       - label: C
         text: >-
@@ -452,12 +455,13 @@ questions:
         correct: false
       - label: D
         text: >-
-          Each extracted clause must record its location in the source document.
+          Each extracted clause must record its location in the source document, such as
+          section and page.
         correct: true
       - label: E
         text: >-
-          Claude must state that it is confident it has found every clause of the
-          specified types.
+          Claude must state that it is confident it found every clause of the specified
+          types.
         correct: false
     explanation: >-
       Verbatim fidelity, completeness against the target clause types, and recorded source

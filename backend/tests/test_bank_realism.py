@@ -41,7 +41,6 @@ SCOPES = {s.scope: s for s in [*PER_DOMAIN, OVERALL]}
 # MR length rule, measured 2026-10-12 at commit 5d2b854 before the MR rewrite.
 # PTE, CKM and TRO pass at 1/3 (33%). Remove an entry once its MR rewrite passes.
 KNOWN_GAPS: dict[str, str] = {
-    "OEV": "MR correct set length-ordered 2/3 (67%)",
     "PMS": "MR correct set length-ordered 3/3 (100%)",
     "WISD": "MR correct set length-ordered 2/3 (67%)",
     "GRR": "MR correct set length-ordered 2/3 (67%)",
