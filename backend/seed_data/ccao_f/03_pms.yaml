@@ -121,23 +121,27 @@ questions:
     options:
       - label: A
         text: >-
-          Measured accuracy on a task-representative evaluation set.
+          Measured accuracy on an evaluation set that is representative of the task the
+          workflow performs.
         correct: true
       - label: B
         text: >-
-          Choosing the model with the most recent release date, on principle.
+          Choosing the model with the most recent release date, on the principle that newer
+          is better.
         correct: false
       - label: C
         text: >-
-          The latency requirements of the workflow the output feeds into.
+          The latency requirements of the workflow that the model's output feeds into.
         correct: true
       - label: D
         text: >-
-          The model's ranking on a public leaderboard for general chat quality.
+          The model's ranking on a public leaderboard that measures general chat quality
+          across many topics.
         correct: false
       - label: E
         text: >-
-          Cost per completed task at the expected production volume.
+          Cost per completed task at the volume the workflow is expected to run in
+          production.
         correct: true
     explanation: >-
       Measured task accuracy, latency fit and cost at real volume are the substantive
@@ -264,15 +268,17 @@ questions:
         correct: false
       - label: B
         text: >-
-          Run the existing regression and evaluation set against the new model.
+          Run the existing regression and evaluation set against the new model first.
         correct: true
       - label: C
         text: >-
-          Re-check cost at production volume under the new model's pricing.
+          Re-check cost at production volume under the new model's pricing, which may differ
+          per token.
         correct: true
       - label: D
         text: >-
-          Check that prompts tuned for the previous model still behave as intended.
+          Check that prompts tuned for the previous model still behave as intended on the
+          new one.
         correct: true
     explanation: >-
       Capability gains do not transfer automatically: evaluation, cost re-checking and
@@ -463,11 +469,12 @@ questions:
     options:
       - label: A
         text: >-
-          The task is exploratory, and the questions change as the operator learns.
+          The task is exploratory, and the questions change as the operator learns more
+          about the problem.
         correct: true
       - label: B
         text: >-
-          The work is occasional and does not need to run unattended.
+          The work is occasional and does not need to run unattended or on a fixed schedule.
         correct: true
       - label: C
         text: >-
@@ -475,11 +482,13 @@ questions:
         correct: false
       - label: D
         text: >-
-          A non-technical team member needs to do the work themselves.
+          A non-technical team member needs to do the work themselves, without writing any
+          code.
         correct: true
       - label: E
         text: >-
-          Thousands of records must be processed with identical instructions every day.
+          Thousands of records must be processed every day, each with identical instructions
+          and the same output format.
         correct: false
     explanation: >-
       Exploratory, occasional and non-technical work is well served without integration
