@@ -129,13 +129,12 @@ questions:
         correct: true
       - label: B
         text: >-
-          Leave the category list open, so Claude can create a new label whenever a ticket
-          does not fit.
+          Leave the label set open so Claude can invent a new category for any odd ticket.
         correct: false
       - label: C
         text: >-
           Provide a small set of representative labelled examples that cover the harder
-          distinctions.
+          distinctions, such as billing versus refunds.
         correct: true
       - label: D
         text: >-
@@ -266,19 +265,22 @@ questions:
     options:
       - label: A
         text: >-
-          The specific record being processed on a given day.
+          The specific customer record being processed that day, pasted into the template
+          text itself.
         correct: false
       - label: B
         text: >-
-          The role and task framing that stays the same across runs.
+          The role and task framing, which stays the same from one run to the next.
         correct: true
       - label: C
         text: >-
-          The required output format and its constraints.
+          The required output format and its constraints, so every run returns the same
+          shape to the team.
         correct: true
       - label: D
         text: >-
-          Handling rules for known edge cases the team has met.
+          Handling rules for the known edge cases the team has already met, written down
+          once and reused on every run.
         correct: true
     explanation: >-
       Stable framing, output contract and accumulated edge-case handling belong in the
@@ -436,23 +438,28 @@ questions:
     options:
       - label: A
         text: >-
-          Define the output structure explicitly, field by field.
+          Define the output structure explicitly, field by field, with the type each field
+          must hold.
         correct: true
       - label: B
         text: >-
-          State what to emit for a field whose value is absent or unknown.
+          State exactly what to emit for a field whose value is absent or unknown in the
+          input.
         correct: true
       - label: C
         text: >-
-          Increase the level of detail requested in each field.
+          Increase the level of detail requested in each field, so that every answer is more
+          complete.
         correct: false
       - label: D
         text: >-
-          Provide an example of a complete output in the required structure.
+          Provide an example of a complete output in the required structure, including how
+          an empty field should look.
         correct: true
       - label: E
         text: >-
-          Let Claude choose whichever structure best suits each individual input.
+          Let Claude choose whichever structure best suits each individual input it
+          receives.
         correct: false
     explanation: >-
       Structural consistency comes from specifying the shape, covering the missing-value
