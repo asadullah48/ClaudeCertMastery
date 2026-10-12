@@ -12,17 +12,36 @@ questions:
     type: mcq
     difficulty: 1
     stem: >-
-      A team repeatedly pastes the same style guide into every conversation. Which
+      A team of eight repeatedly pastes the same style guide into every conversation. Which
       configuration approach removes this repetition?
     options:
-      - {label: A, text: "Store the style guide as persistent context in a Project so it applies across conversations.", correct: true}
-      - {label: B, text: "Ask Claude to memorise the style guide for future sessions.", correct: false}
-      - {label: C, text: "Shorten the style guide until pasting it is quick.", correct: false}
-      - {label: D, text: "Paste it only in the first message of each week.", correct: false}
+      - label: A
+        text: >-
+          Ask Claude at the end of one conversation to remember the guide, and rely on that
+          request to carry it into the team's later conversations.
+        correct: false
+      - label: B
+        text: >-
+          Shorten the style guide to its key rules, so that pasting it into each
+          conversation becomes quick enough not to matter to the team.
+        correct: false
+      - label: C
+        text: >-
+          Add the style guide to a shared Project as standing knowledge, so every team
+          conversation started in that Project begins with it present.
+        correct: true
+      - label: D
+        text: >-
+          Paste the guide into one conversation at the start of each week and keep that
+          thread open, so later questions that week can draw on it.
+        correct: false
     explanation: >-
-      Persistent shared context is the intended mechanism for material every conversation
-      needs. Claude does not retain content between separate conversations on its own, so
-      asking it to memorise the guide does not work.
+      Material that every conversation needs belongs in shared, persistent configuration: a
+      Project that the whole team works in carries the guide into each conversation started
+      there. Shortening the guide or keeping one weekly thread still leaves the work tied to
+      manual pasting. Asking Claude to remember the guide is the tempting answer, but
+      whatever such a request achieves depends on one person's account and settings; it is
+      not a shared configuration that all eight people's conversations start from.
 
   - external_id: CCAO-F-CKM-002
     type: mcq
@@ -32,14 +51,33 @@ questions:
       months ago. The old policy is still present in the shared knowledge source. What is the
       root cause?
     options:
-      - {label: A, text: "The knowledge source has no process for retiring outdated material.", correct: true}
-      - {label: B, text: "The model context window is too small.", correct: false}
-      - {label: C, text: "The policy was written in the wrong file format.", correct: false}
-      - {label: D, text: "Claude prefers older documents by default.", correct: false}
+      - label: A
+        text: >-
+          The context window is too small to hold both versions, so the model falls back on
+          whichever policy document it happened to read first.
+        correct: false
+      - label: B
+        text: >-
+          The new policy was uploaded as a scanned PDF rather than as text, so the model
+          reads it less reliably than the older policy document.
+        correct: false
+      - label: C
+        text: >-
+          The change was not announced to the team, so people keep asking questions that
+          are phrased around the older policy's terms and its headings.
+        correct: false
+      - label: D
+        text: >-
+          The knowledge source has no process for retiring superseded material, so the old
+          policy stays available and keeps being drawn on in answers.
+        correct: true
     explanation: >-
       A knowledge base is only as accurate as its retirement process. If superseded material
-      remains available, it will be used. Currency is a maintenance discipline, not a model
-      capability.
+      remains available, it will be used; currency is a maintenance discipline, not a model
+      capability. Window size and file format do not explain why a retired policy is still
+      there to be found. The unannounced change is the tempting distractor because poor
+      communication is real, but even perfectly phrased questions would still reach a
+      document that should no longer be in the source.
 
   - external_id: CCAO-F-CKM-003
     type: mcq
@@ -48,14 +86,32 @@ questions:
       Which content is most appropriate to place in custom instructions rather than in an
       individual prompt?
     options:
-      - {label: A, text: "The specific document to be analysed today.", correct: false}
-      - {label: B, text: "Standing preferences about tone, format and terminology that apply to all work in this context.", correct: true}
-      - {label: C, text: "A one-off question about a single record.", correct: false}
-      - {label: D, text: "The list of people to email with the result.", correct: false}
+      - label: A
+        text: >-
+          The specific contract to be analysed in today's session, so that it is ready to
+          hand whenever a later question in the session needs it.
+        correct: false
+      - label: B
+        text: >-
+          Standing preferences about tone, format and terminology that apply to every piece
+          of work done in this context, whatever the task.
+        correct: true
+      - label: C
+        text: >-
+          A detailed checklist for one quarterly report, so that each time the report comes
+          round the steps for producing it are already in place.
+        correct: false
+      - label: D
+        text: >-
+          The list of people who should receive the result of this week's analysis, so the
+          output can be addressed to each of them directly.
+        correct: false
     explanation: >-
       Custom instructions carry stable, cross-cutting preferences. Task-specific inputs and
-      one-off questions belong in the individual prompt, where they can vary without
-      changing the standing configuration.
+      one-off details belong in the individual prompt, where they can vary without changing
+      the standing configuration. The quarterly checklist is the tempting distractor because
+      it recurs, but it applies to one task, and placing it in standing instructions adds it
+      to every other piece of work done in that context.
 
   - external_id: CCAO-F-CKM-004
     type: mr
@@ -64,14 +120,37 @@ questions:
     stem: >-
       Which practices keep a shared knowledge source reliable over time?
     options:
-      - {label: A, text: "A named owner responsible for each document.", correct: true}
-      - {label: B, text: "A review cadence with recorded review dates.", correct: true}
-      - {label: C, text: "A defined process for removing superseded content.", correct: true}
-      - {label: D, text: "Adding every document the organisation produces, for completeness.", correct: false}
+      - label: A
+        text: >-
+          Adding every document the organisation produces, so that no question can come up
+          that the source cannot answer.
+        correct: false
+      - label: B
+        text: >-
+          A named owner for each document, who is accountable for keeping it accurate and
+          current.
+        correct: true
+      - label: C
+        text: >-
+          A review cadence, with the date of each document's most recent review recorded
+          alongside it.
+        correct: true
+      - label: D
+        text: >-
+          Keeping superseded versions beside the current ones, so that answers can draw on
+          the full history of each policy.
+        correct: false
+      - label: E
+        text: >-
+          A defined process for removing superseded content once its replacement has been
+          published.
+        correct: true
     explanation: >-
       Ownership, scheduled review and retirement keep a corpus trustworthy. Indiscriminate
       accumulation degrades it, because volume without curation increases the chance of
-      surfacing stale or contradictory material.
+      surfacing stale or contradictory material. Keeping superseded versions is the tempting
+      extra because history sounds thorough, but old versions sitting beside current ones
+      are exactly how outdated guidance ends up in answers.
 
   - external_id: CCAO-F-CKM-005
     type: mcq
@@ -81,14 +160,32 @@ questions:
       question, and Claude answers inconsistently across conversations. What is the most
       effective remedy?
     options:
-      - {label: A, text: "Resolve the conflict at the source so a single authoritative version remains.", correct: true}
-      - {label: B, text: "Instruct Claude to pick whichever document is longer.", correct: false}
-      - {label: C, text: "Add a third document summarising both positions.", correct: false}
-      - {label: D, text: "Accept the variation as normal model behaviour.", correct: false}
+      - label: A
+        text: >-
+          Resolve the conflict at the source, so that one authoritative version remains and
+          the superseded or mistaken guidance is removed from it.
+        correct: true
+      - label: B
+        text: >-
+          Add an instruction telling Claude to prefer the longer of the two documents, since
+          it probably treats the question in more depth.
+        correct: false
+      - label: C
+        text: >-
+          Add a third document that summarises both positions, so that Claude can see the
+          disagreement laid out side by side when it answers.
+        correct: false
+      - label: D
+        text: >-
+          Add an instruction to prefer the more recently uploaded document, since the newer
+          upload is likely to be the current guidance.
+        correct: false
     explanation: >-
-      Inconsistent answers here reflect genuinely inconsistent source material. The fix
-      belongs upstream, in the knowledge base. Adding a third document leaves the original
-      contradiction in place and gives the model more conflicting material, not less.
+      Inconsistent answers here reflect genuinely inconsistent source material, so the fix
+      belongs upstream, in the knowledge base. A third document leaves the contradiction in
+      place and adds more conflicting material, and length says nothing about authority. The
+      recency rule is the tempting distractor because it often picks the right document, but
+      upload order is not authority, and the contradiction stays in the source.
 
   - external_id: CCAO-F-CKM-006
     type: mcq
@@ -97,14 +194,33 @@ questions:
       An operator adds 400 documents to a Project to ensure nothing is missing. Answer
       quality drops. What is the most likely explanation?
     options:
-      - {label: A, text: "Relevant content now competes with a large volume of unrelated material, diluting the context that matters.", correct: true}
-      - {label: B, text: "Projects support a maximum of 100 documents.", correct: false}
-      - {label: C, text: "Document count has no relationship to answer quality.", correct: false}
-      - {label: D, text: "Adding documents automatically disables custom instructions.", correct: false}
+      - label: A
+        text: >-
+          Many of the new documents were added without checking their format, so they cannot
+          be read and the reading errors are degrading answers.
+        correct: false
+      - label: B
+        text: >-
+          Document count has no effect on answer quality, so the drop must come from a change
+          in the questions the team has been asking.
+        correct: false
+      - label: C
+        text: >-
+          Relevant passages now compete with a large volume of unrelated material, which
+          dilutes the context that should be driving each answer.
+        correct: true
+      - label: D
+        text: >-
+          The documents should have been added gradually over several weeks, because one
+          large upload is harder to use than a series of small ones.
+        correct: false
     explanation: >-
       More context is not automatically better context. Indiscriminate inclusion raises the
       proportion of irrelevant material and makes it harder for the genuinely relevant
-      passage to drive the answer. Curation beats accumulation.
+      passage to drive the answer; curation beats accumulation. The pace of uploading does
+      not change what ends up in the Project. Unreadable files are the tempting explanation
+      because they sound technical and specific, but nothing in the scenario points to them,
+      while the proportion of irrelevant material plainly changed.
 
   - external_id: CCAO-F-CKM-007
     type: mcq
@@ -113,14 +229,32 @@ questions:
       Which approach best supports a team where different functions need different standing
       context for their Claude work?
     options:
-      - {label: A, text: "One shared configuration containing the union of every function requirements.", correct: false}
-      - {label: B, text: "Separate Projects per function, each scoped to that function documents and instructions.", correct: true}
-      - {label: C, text: "Each individual keeping their own notes and pasting them manually.", correct: false}
-      - {label: D, text: "Rotating a single configuration on a weekly schedule.", correct: false}
+      - label: A
+        text: >-
+          One shared configuration that holds the union of every function's requirements,
+          so that no function is missing context it needs.
+        correct: false
+      - label: B
+        text: >-
+          Each person keeping their own notes on their function's context and pasting the
+          relevant parts into conversations as the need arises.
+        correct: false
+      - label: C
+        text: >-
+          One shared configuration that is rotated weekly between the functions, so that
+          each function gets a turn with context scoped to its work.
+        correct: false
+      - label: D
+        text: >-
+          Separate Projects for each function, each one scoped to the documents and standing
+          instructions that this function's work needs.
+        correct: true
     explanation: >-
       Scoping configuration to the function that needs it keeps each context relevant and
-      maintainable. A union configuration burdens every function with everyone else
-      material, which is the dilution problem in another form.
+      maintainable. Personal notes drift apart, and a rotating configuration leaves most
+      functions without their context most of the time. The union configuration is the
+      tempting answer because nothing is missing from it, but it burdens every function
+      with everyone else's material, which is the dilution problem in another form.
 
   - external_id: CCAO-F-CKM-008
     type: mr
@@ -130,15 +264,37 @@ questions:
       Which items should be version-controlled when a prompt is used in a production
       workflow?
     options:
-      - {label: A, text: "The prompt text itself.", correct: true}
-      - {label: B, text: "The model and configuration the prompt was validated against.", correct: true}
-      - {label: C, text: "The evaluation set and results used to approve the prompt.", correct: true}
-      - {label: D, text: "The output of every production run.", correct: false}
+      - label: A
+        text: >-
+          The prompt text itself, so that any change to its wording can be traced, reviewed
+          and reverted.
+        correct: true
+      - label: B
+        text: >-
+          The model and configuration the prompt was validated against, since its behaviour
+          depends on both.
+        correct: true
+      - label: C
+        text: >-
+          The full output of every production run, kept in the same repository as the
+          prompt that produced it.
+        correct: false
+      - label: D
+        text: >-
+          The evaluation set and its results, which are the evidence used to approve the
+          prompt for production use.
+        correct: true
+      - label: E
+        text: >-
+          The chat transcripts in which the prompt was first drafted, so each exploratory
+          attempt is kept for reference.
+        correct: false
     explanation: >-
       Reproducing and auditing a decision requires the prompt, the configuration it was
-      validated against, and the evidence used to approve it. Production outputs should be
-      logged for traceability, but they are operational records rather than version-
-      controlled configuration.
+      validated against, and the evidence used to approve it. Drafting transcripts record
+      how the prompt was explored, not what was approved. Production outputs are the
+      tempting extra because they matter for traceability, but they belong in operational
+      logs, not in version-controlled configuration.
 
   - external_id: CCAO-F-CKM-009
     type: mcq
@@ -147,14 +303,33 @@ questions:
       A new team member joins and produces noticeably different Claude output from the rest
       of the team on the same tasks. What is the most likely configuration cause?
     options:
-      - {label: A, text: "They are working outside the shared Project and its standing instructions.", correct: true}
-      - {label: B, text: "Their account uses a fundamentally different model.", correct: false}
-      - {label: C, text: "Output naturally varies by user identity.", correct: false}
-      - {label: D, text: "They have not used Claude for long enough for it to learn their style.", correct: false}
+      - label: A
+        text: >-
+          They phrase their requests more casually than the rest of the team, and casual
+          phrasing on its own makes Claude's output less reliable.
+        correct: false
+      - label: B
+        text: >-
+          They are working outside the shared Project, so their conversations lack the
+          standing instructions and documents the team relies on.
+        correct: true
+      - label: C
+        text: >-
+          Output varies from run to run, and a new member has not yet run enough tasks for
+          their results to settle into the team's usual pattern.
+        correct: false
+      - label: D
+        text: >-
+          They use a different browser from the rest of the team, and that browser renders
+          Claude's formatted output in a noticeably different way.
+        correct: false
     explanation: >-
       Divergent output on identical tasks usually means divergent context. Someone working
       outside the shared configuration lacks the standing instructions and documents that
-      shape everyone else results.
+      shape everyone else's results. Phrasing and rendering differences do not explain a
+      consistent gap in content. Run-to-run variation is the tempting answer because it is
+      real, but it does not settle with experience, and it does not produce a systematic
+      difference across tasks.
 
   - external_id: CCAO-F-CKM-010
     type: mcq
@@ -163,14 +338,32 @@ questions:
       An operator wants standing instructions that will not be overridden by casual phrasing
       in individual prompts. Which formulation is most robust?
     options:
-      - {label: A, text: "Try to use formal language where possible.", correct: false}
-      - {label: B, text: "State the requirement as a firm constraint with its scope and the handling for exceptions.", correct: true}
-      - {label: C, text: "Repeat the same soft suggestion several times.", correct: false}
-      - {label: D, text: "Write the instruction entirely in capital letters.", correct: false}
+      - label: A
+        text: >-
+          State the requirement as a firm constraint, say which work it applies to, and say
+          how exceptions should be handled when they arise.
+        correct: true
+      - label: B
+        text: >-
+          Phrase the requirement politely as a preference, so that it reads as a sensible
+          default that a single prompt will rarely want to change.
+        correct: false
+      - label: C
+        text: >-
+          Repeat the same requirement several times in different places within the
+          instructions, so it carries more weight than any prompt.
+        correct: false
+      - label: D
+        text: >-
+          Write the requirement in capital letters with an urgent warning attached, so that
+          it stands out from the rest of the standing text.
+        correct: false
     explanation: >-
       Robust instructions are specific about what is required, where it applies and what
-      happens at the edges. Hedged phrasing invites override, and repetition or capitals do
-      not add the missing precision.
+      happens at the edges. Hedged phrasing invites override, and capitals add emphasis but
+      no precision. Repetition is the tempting distractor because it seems to add weight,
+      but restating a vague requirement several times leaves its scope and its exceptions
+      just as undefined.
 
   - external_id: CCAO-F-CKM-011
     type: mcq
@@ -179,13 +372,32 @@ questions:
       Which is the strongest reason to document why a particular instruction exists in a
       shared configuration?
     options:
-      - {label: A, text: "So that a future maintainer can tell whether the instruction is still needed.", correct: true}
-      - {label: B, text: "So that the configuration file reaches a required length.", correct: false}
-      - {label: C, text: "So that Claude follows the instruction more closely.", correct: false}
-      - {label: D, text: "So that the instruction cannot be edited.", correct: false}
+      - label: A
+        text: >-
+          So that the instruction is protected from edits, since a rule with a recorded
+          reason should stay fixed once the team has agreed it.
+        correct: false
+      - label: B
+        text: >-
+          So that new team members can read the configuration as a guide to the team's
+          working practices and to how those practices developed.
+        correct: false
+      - label: C
+        text: >-
+          So that the configuration shows who wrote each instruction, which lets any dispute
+          about its wording be settled quickly by asking them.
+        correct: false
+      - label: D
+        text: >-
+          So that a future maintainer can tell whether the instruction is still needed, and
+          can then retire it safely once its reason has gone.
+        correct: true
     explanation: >-
       Undocumented rules accumulate and become untouchable, because nobody knows what
-      removing them would break. Recording the reason is what makes later pruning possible.
+      removing them would break. Recording the reason is what makes later pruning possible,
+      which is the opposite of freezing the rule; authorship is a different record. The
+      onboarding guide is the tempting distractor because it is a real side benefit, but
+      the lasting value of a recorded reason is deciding when the rule can go.
 
   - external_id: CCAO-F-CKM-012
     type: mr
@@ -195,14 +407,37 @@ questions:
       A shared knowledge source will contain material of differing sensitivity. Which
       controls are appropriate?
     options:
-      - {label: A, text: "Restricting access to the source based on who needs it.", correct: true}
-      - {label: B, text: "Excluding material that the task does not require.", correct: true}
-      - {label: C, text: "Recording the sensitivity classification of each document.", correct: true}
-      - {label: D, text: "Including all sensitive material but instructing Claude not to reveal it.", correct: false}
+      - label: A
+        text: >-
+          Restricting access to the source according to which people and roles actually
+          need its material.
+        correct: true
+      - label: B
+        text: >-
+          Including the sensitive material in full, with an instruction telling Claude not
+          to reveal it to the wrong users.
+        correct: false
+      - label: C
+        text: >-
+          Merging documents of every sensitivity level into one large file, so that access
+          is managed in a single place.
+        correct: false
+      - label: D
+        text: >-
+          Excluding material that the task does not require, so that sensitive content the
+          work never needs is not exposed at all.
+        correct: true
+      - label: E
+        text: >-
+          Recording the sensitivity classification of each document, so that handling rules
+          can follow from it.
+        correct: true
     explanation: >-
-      Access control, minimisation and classification are the substantive controls. An
-      instruction not to reveal material that has already been made available is not an
-      access control and does not reduce exposure.
+      Access control, minimisation and classification are the substantive controls. Merging
+      everything into one file removes the distinctions that access decisions depend on.
+      The instruction not to reveal is the tempting extra because it addresses the risk
+      directly, but an instruction is not an access control: the material has already been
+      made available, and exposure is not reduced.
 
   - external_id: CCAO-F-CKM-013
     type: mcq
@@ -211,14 +446,32 @@ questions:
       A configuration has grown over two years to 40 standing instructions, several of which
       conflict. What is the most appropriate remediation?
     options:
-      - {label: A, text: "Audit the instructions against their documented purpose, remove those no longer needed, and resolve conflicts explicitly.", correct: true}
-      - {label: B, text: "Add a new instruction telling Claude how to resolve conflicts.", correct: false}
-      - {label: C, text: "Delete all instructions and start again with none.", correct: false}
-      - {label: D, text: "Keep all instructions but reorder them alphabetically.", correct: false}
+      - label: A
+        text: >-
+          Add one new instruction that tells Claude how to choose between conflicting rules,
+          so that the existing set can stay exactly as it is.
+        correct: false
+      - label: B
+        text: >-
+          Delete the whole set and start again from an empty configuration, adding rules
+          back one at a time as the team reports problems.
+        correct: false
+      - label: C
+        text: >-
+          Audit each instruction against its documented purpose, remove the ones no longer
+          needed, and resolve the remaining conflicts explicitly.
+        correct: true
+      - label: D
+        text: >-
+          Keep the full set but sort it by topic, so that related instructions sit together
+          and the conflicts between them are easier to see.
+        correct: false
     explanation: >-
-      Accumulated configuration needs auditing against purpose so obsolete rules can be
-      retired and genuine conflicts resolved at source. A meta-instruction layers complexity
-      over the contradiction, and wholesale deletion discards rules that are still load-bearing.
+      Accumulated configuration needs auditing against purpose, so that obsolete rules can
+      be retired and genuine conflicts resolved at source. Wholesale deletion discards rules
+      that are still load-bearing, and sorting makes conflicts visible without resolving
+      them. The tie-breaking instruction is the tempting answer because it is quick, but it
+      layers another rule over the contradictions and leaves every one of them in place.
 
   - external_id: CCAO-F-CKM-014
     type: mcq
@@ -227,29 +480,66 @@ questions:
       What is the practical difference between context supplied in a single prompt and
       context configured at the Project level?
     options:
-      - {label: A, text: "Prompt context applies to that one request; Project context persists across the conversations in that Project.", correct: true}
-      - {label: B, text: "Project context is processed by a different model.", correct: false}
-      - {label: C, text: "Prompt context is always more accurate.", correct: false}
-      - {label: D, text: "There is no practical difference.", correct: false}
+      - label: A
+        text: >-
+          Project context is handled by a separate model from prompt context, so the two
+          sources of context can produce different styles of answer.
+        correct: false
+      - label: B
+        text: >-
+          Context in a prompt belongs to that one conversation, while Project context is
+          present in every conversation started in that Project.
+        correct: true
+      - label: C
+        text: >-
+          There is no practical difference, because both reach the model as text, so where
+          a piece of context is placed changes nothing about it.
+        correct: false
+      - label: D
+        text: >-
+          Project context is visible to the person who created it, while context in a prompt
+          is shared with every team member who opens that Project.
+        correct: false
     explanation: >-
-      The distinction is scope and persistence. Per-prompt context is transient and specific
-      to one request; Project context is standing and shared across the work in that Project.
+      The distinction is scope and persistence. Context in a prompt is specific to the
+      conversation it was sent in, while Project context is standing and shared across the
+      work in that Project. A separate model is not involved, and visibility runs the other
+      way. "No difference" is the tempting distractor because both do reach the model as
+      text, but where the text lives decides which conversations it reaches.
 
   - external_id: CCAO-F-CKM-015
     type: mcq
     difficulty: 2
     stem: >-
       An operator must ensure a specific regulatory definition is used consistently across
-      all outputs from a team. Where does that definition best live?
+      every output from a team. Where does that definition best live?
     options:
-      - {label: A, text: "In the shared configuration, stated once as the authoritative definition.", correct: true}
-      - {label: B, text: "In each individual prompt, restated by whoever writes it.", correct: false}
-      - {label: C, text: "In a separate document that staff are asked to consult.", correct: false}
-      - {label: D, text: "Left implicit, since the model is likely to know it.", correct: false}
+      - label: A
+        text: >-
+          In the shared configuration, stated once as the authoritative definition, so that
+          every team conversation applies the same wording.
+        correct: true
+      - label: B
+        text: >-
+          In each individual prompt, restated by whoever writes that prompt, so that the
+          definition sits right beside the work it applies to.
+        correct: false
+      - label: C
+        text: >-
+          In a reference document on the intranet, which staff are asked to consult and copy
+          from whenever the regulated term comes up.
+        correct: false
+      - label: D
+        text: >-
+          Left unstated, since a well-known regulatory term is likely to be part of the
+          model's general knowledge in its standard form.
+        correct: false
     explanation: >-
-      Consistency requires a single authoritative statement applied automatically. Restating
-      it per prompt invites drift and omission, and relying on the model general knowledge
-      gives no guarantee it matches the organisation regulatory definition.
+      Consistency requires a single authoritative statement applied automatically.
+      Restating it per prompt invites drift and omission, and general knowledge gives no
+      guarantee that it matches the organisation's regulatory definition. The intranet
+      document is the tempting distractor because it is authoritative, but it depends on
+      each person remembering to consult and copy it every time.
 
   - external_id: CCAO-F-CKM-016
     type: mcq
@@ -257,11 +547,112 @@ questions:
     stem: >-
       Which is the best indicator that a shared knowledge source needs pruning?
     options:
-      - {label: A, text: "Answers increasingly cite material that is peripheral to the question asked.", correct: true}
-      - {label: B, text: "The number of documents has increased since launch.", correct: false}
-      - {label: C, text: "The team has been using the source for over a year.", correct: false}
-      - {label: D, text: "Some documents are longer than others.", correct: false}
+      - label: A
+        text: >-
+          The number of documents in the source has grown steadily since launch, as each
+          team has added the material it works with.
+        correct: false
+      - label: B
+        text: >-
+          The team has been using the source for more than a year, which is longer than most
+          knowledge sources stay accurate without attention.
+        correct: false
+      - label: C
+        text: >-
+          Answers increasingly cite material that is peripheral to the question asked, while
+          the directly relevant passages are passed over.
+        correct: true
+      - label: D
+        text: >-
+          Some documents in the source are many times longer than others, so it holds an
+          uneven mix of short and long reference material.
+        correct: false
     explanation: >-
       Peripheral material surfacing in answers is direct evidence that signal is being
-      diluted. Growth, elapsed time and varying document length are not by themselves
-      indicators of a problem.
+      diluted. Elapsed time and varying document length are not by themselves indicators of
+      a problem. Growth in document count is the tempting distractor because it often comes
+      before dilution, but a larger source of relevant material can be perfectly healthy;
+      what answers cite is the evidence.
+
+  - external_id: CCAO-F-CKM-017
+    type: mcq
+    difficulty: 2
+    stem: >-
+      Four shared knowledge sources each support a support team. Which one is set up to stay
+      reliable over time?
+    table:
+      columns: [Row, Document owner, Review cadence, Superseded documents, Scope]
+      rows:
+        - ["1", "Named owner per document", "None set", "Removed when replaced", "Every document the organisation produces"]
+        - ["2", "Named owner per document", "Quarterly, dates recorded", "Removed when replaced", "Documents the team's work needs"]
+        - ["3", "Named owner per document", "Quarterly, dates recorded", "Kept beside current versions", "Documents the team's work needs"]
+        - ["4", "Shared by the whole team", "Quarterly, dates recorded", "Removed when replaced", "Documents the team's work needs"]
+    options:
+      - label: A
+        text: >-
+          Row 1, because each document has a named owner and superseded material is removed,
+          and its broad scope leaves no question unanswered.
+        correct: false
+      - label: B
+        text: >-
+          Row 2, because each document has an owner and a recorded review date, superseded
+          material is removed, and the scope fits the work.
+        correct: true
+      - label: C
+        text: >-
+          Row 3, because owners and recorded reviews are in place, and keeping superseded
+          versions beside current ones preserves the full history.
+        correct: false
+      - label: D
+        text: >-
+          Row 4, because shared ownership lets anyone on the team correct a document, and
+          reviews and removals are already in place as well.
+        correct: false
+    explanation: >-
+      A reliable source needs a named owner, a review cadence, retirement of superseded
+      material and a scope matched to the work. Row 2 has all four. Row 3 is the most
+      tempting wrong answer because it has owners and recorded reviews, but superseded
+      versions kept beside current ones are how outdated guidance reaches answers. Row 1
+      has no reviews and an unscoped corpus, and in row 4 nobody is accountable.
+
+  - external_id: CCAO-F-CKM-018
+    type: mcq
+    difficulty: 3
+    stem: >-
+      An operator is configuring a team Project used for contract review. Which allocation
+      of content is best?
+    table:
+      columns: [Row, Tone and terminology preferences, Regulatory definitions, Today's contract]
+      rows:
+        - ["1", "Restated in each prompt", "Project instructions", "Project knowledge"]
+        - ["2", "Project instructions", "Left to the model's general knowledge", "Pasted into the prompt"]
+        - ["3", "Project instructions", "Project instructions", "Project knowledge"]
+        - ["4", "Project instructions", "Project instructions", "Pasted into the prompt"]
+    options:
+      - label: A
+        text: >-
+          Row 1, because restating tone rules in each prompt keeps them in front of the
+          model, and the definitions and contract both sit in the Project.
+        correct: false
+      - label: B
+        text: >-
+          Row 2, because tone rules are standing preferences, the contract is a one-off
+          input, and regulatory terms are widely documented already.
+        correct: false
+      - label: C
+        text: >-
+          Row 3, because standing rules and definitions sit in the Project, and storing
+          today's contract there keeps it ready for any later question.
+        correct: false
+      - label: D
+        text: >-
+          Row 4, because standing rules and definitions are configured once for every
+          conversation, and today's contract goes in with the task.
+        correct: true
+    explanation: >-
+      Standing, cross-cutting content belongs in the Project; one-off inputs belong in the
+      prompt. Row 4 follows that split. Row 3 is the most tempting wrong answer because its
+      standing content is placed correctly, but storing today's contract as Project
+      knowledge adds it to every future conversation, diluting context and leaving stale
+      material to retire. Row 1 restates standing rules by hand, and row 2 leaves the
+      definitions to general knowledge.
