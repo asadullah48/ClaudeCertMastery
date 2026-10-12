@@ -272,20 +272,22 @@ questions:
     options:
       - label: A
         text: >-
-          Which categories of data may, and may not, be submitted to Claude.
+          Which categories of data may, and may not, be submitted to Claude, with examples
+          of each.
         correct: true
       - label: B
         text: >-
-          Which decisions require human review before anyone acts on the output.
+          Which decisions require a human review before anyone acts on Claude's output.
         correct: true
       - label: C
         text: >-
-          A requirement that staff never disclose, inside or outside the organisation,
-          that Claude was used.
+          A requirement that staff keep their use of Claude hidden, inside and outside the
+          organisation.
         correct: false
       - label: D
         text: >-
-          How outputs used in regulated processes must be recorded and retained.
+          How outputs used in regulated processes must be recorded, retained and made
+          available for audit.
         correct: true
     explanation: >-
       Data boundaries, review requirements and record-keeping are core policy content.
@@ -476,24 +478,26 @@ questions:
       - label: A
         text: >-
           Human review is required for every use of AI in the organisation, whatever the
-          consequence of an error would be.
+          consequence of an error.
         correct: false
       - label: B
         text: >-
-          The consequences of an undetected error would be severe or irreversible.
+          The consequences of an undetected error would be severe or irreversible for the
+          people affected.
         correct: true
       - label: C
         text: >-
-          Regulation or policy requires a human decision-maker for this kind of decision.
+          Regulation or internal policy requires a named human decision-maker for this kind
+          of decision.
         correct: true
       - label: D
         text: >-
-          A reviewer in the loop moves accountability for any error away from the
-          organisation and onto that reviewer.
+          A reviewer in the loop moves accountability for any error onto that reviewer.
         correct: false
       - label: E
         text: >-
-          Live inputs may drift away from the conditions that testing covered.
+          Live inputs may drift away from the conditions that testing covered, and drift is
+          not visible in test results.
         correct: true
     explanation: >-
       Severity, regulatory requirement and distribution drift are all sound reasons to retain

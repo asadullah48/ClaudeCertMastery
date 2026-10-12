@@ -38,11 +38,9 @@ SCOPES = {s.scope: s for s in [*PER_DOMAIN, OVERALL]}
 # Rewritten and passing (entry removed): OEV, GRR, WISD, PTE, PMS, CKM, TRO, overall.
 # Add an entry here only for a scope that is known to fail and is being worked on.
 #
-# MR length rule, measured 2026-10-12 at commit 5d2b854 before the MR rewrite.
-# PTE, CKM and TRO pass at 1/3 (33%). Remove an entry once its MR rewrite passes.
-KNOWN_GAPS: dict[str, str] = {
-    "GRR": "MR correct set length-ordered 2/3 (67%)",
-}
+# MR length rule, first measured 2026-10-12 at commit 5d2b854 (overall 12/21, 57%):
+# OEV, PMS, WISD, GRR and overall failed; entries removed as each MR rewrite passed.
+KNOWN_GAPS: dict[str, str] = {}
 
 
 def _param(scope: str):
