@@ -30,17 +30,11 @@ from app.services.bank_realism import measure
 OVERALL, PER_DOMAIN = measure()
 SCOPES = {s.scope: s for s in [*PER_DOMAIN, OVERALL]}
 
-# Measured 2026-10-08 on the bank at commit 5725c39 (after step 2), before any
-# distractor rewrite. Remove a scope's entry once its rewrite passes the gate.
-# Rewritten and passing (entry removed): OEV, GRR, WISD, PTE, PMS.
-KNOWN_GAPS = {
-    "CKM": "longest=key 13/13 (100%); label A 59%; absolute-word wrong 5/6 (83%)",
-    "TRO": "longest=key 12/13 (92%); label A 73%; absolute-word wrong 8/8 (100%)",
-    "overall": (
-        "longest=key 86/91 (95%); labels A75 B58 C18 D3 (A 49%); "
-        "absolute-word wrong 44/51 (86%)"
-    ),
-}
+# First measured 2026-10-08 on the bank at commit 5725c39 (after step 2), before any
+# distractor rewrite. A scope's entry was removed once its rewrite passed the gate.
+# Rewritten and passing (entry removed): OEV, GRR, WISD, PTE, PMS, CKM, TRO, overall.
+# Add an entry here only for a scope that is known to fail and is being worked on.
+KNOWN_GAPS: dict[str, str] = {}
 
 
 def _param(scope: str):

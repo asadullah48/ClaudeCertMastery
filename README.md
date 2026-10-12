@@ -43,7 +43,9 @@ See [`SPEC-CERT-MASTERY.md`](SPEC-CERT-MASTERY.md) for the full specification, a
 - **AI explanation engine** &mdash; Claude-generated remediation aimed at the answer the
   candidate actually chose, cached per mistake rather than per question.
 - **Ask Zia** &mdash; optional companion tutor across all four tracks.
-- **112-question CCAO-F bank**, 16 per domain, each with an authored explanation.
+- **126-question CCAO-F bank**, 18 per domain (two of them table-format items), each
+  with an authored explanation. Format-leak statistics are under
+  [Bank realism](#bank-realism).
 
 The progress dashboard, spaced-repetition flashcards and auth are next. See "Roadmap".
 
@@ -218,7 +220,8 @@ pytest -q tests/test_scoring.py     # the scaled-scoring engine alone
 | `test_blueprint.py` | Apportionment totals, published-weight fidelity, determinism |
 | `test_grading.py` | MCQ, MR set equality, partial credit, mastery bands |
 | `test_exam_generator.py` | Quotas, seed reproducibility, shortfall redistribution |
-| `test_seed_integrity.py` | Per-question validation across all 112 authored items |
+| `test_seed_integrity.py` | Per-question validation across all 126 authored items |
+| `test_bank_realism.py` | CI gate: the bank must not give its answers away through format |
 | `test_api.py` | Endpoint behaviour and the generate&rarr;submit round trip |
 | `test_zia.py` | Ask Zia session lifecycle, citations, evidence honesty, every fallback |
 | `test_explanations.py` | Prompt-caching guards, dedup, the 409 gate, outage fallback |
@@ -305,6 +308,37 @@ Options are shuffled per attempt from the attempt's seed and re-lettered A&ndash
 display, so the letter carries no information about the key. The presented order is
 stored on each attempt item, and the review screen shows exactly the order and letters
 the candidate saw. Grading uses option ids, never letters.
+
+### Bank realism
+
+**VERIFIED 2026-10-12** with `cd backend && python -m app.services.bank_realism`
+(output reproduced as printed; the same figures gate CI through
+`tests/test_bank_realism.py`, which now passes for every scope with no xfail):
+
+```
+scope    items   mcq  mr table    longest=key   shortest=key   top label   absolute wrong  median
+PTE         18    15   3     2    4/15   27%    3/15   20%   B  25%     6/9    67%     124
+OEV         18    15   3     2    4/15   27%    3/15   20%   B  25%     2/4    50%     170
+PMS         18    15   3     2    5/15   33%    3/15   20%   B  25%     1/4    25%     126
+WISD        18    15   3     2    4/15   27%    3/15   20%   B  25%     4/8    50%     133
+CKM         18    15   3     2    2/15   13%    3/15   20%   B  25%     0/1     0%     131
+GRR         18    15   3     2    4/15   27%    4/15   27%   B  25%     5/8    62%     139
+TRO         18    15   3     2    3/15   20%    4/15   27%   B  25%     0/0     0%     125
+overall    126   105  21    14   26/105  25%   23/105  22%   B  25%    18/34   53%     130
+correct-option labels (overall): {'A': 35, 'B': 42, 'C': 40, 'D': 42, 'E': 9}
+violations: 0
+```
+
+Columns: how often the key is the uniquely longest or uniquely shortest option in
+single-answer items (chance with four options is 25%); the label holding the most
+correct options (authored order, before the per-attempt shuffle); how often an option
+saying always / never / only / all is wrong; median option length in characters. The
+gate fails any scope above 35% on the first three, or above 75% on the fourth. Before
+the rewrite (112 items) the key was the longest option in 86/91 items (95%), labels ran
+A75 B58 C18 D3, absolute-word options were wrong 44/51 (86%), and the median option was
+58 characters.
+
+These are bank-format statistics only. They say nothing about pass rates or readiness.
 
 ---
 
