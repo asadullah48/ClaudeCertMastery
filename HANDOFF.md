@@ -1,22 +1,21 @@
 # Handoff: CCAO-F bank realism
 
 Brief: stop the CCAO-F practice bank giving away its answers through format.
-Status as of 2026-10-12: the bank rewrite is complete and the gate passes
-for every scope with no xfail. Production rollout is not done (see Remaining).
+Status as of 2026-10-12: the bank rewrite is complete, including the MR
+option-length rewrite, and the gate passes for every scope with no xfail.
+Production rollout is not done (see Remaining).
 
 ## Completed (VERIFIED)
 
-Final full run after the KNOWN_GAPS removal, 2026-10-12 (Windows 11, Python 3.14.7,
+Final full run after the MR length rewrite, 2026-10-12 (Windows 11, Python 3.14.7,
 `python`):
 
-    backend:  847 passed in 205.34s (0:03:25)   (python -m pytest -o addopts="")
+    backend:  848 passed in 366.00s (0:06:06)   (python -m pytest -o addopts="")
     frontend: Tests  32 passed (32)              (npx vitest run)
 
-`-o addopts=""` only strips the `-q` in pytest.ini so the summary line prints;
-the plain `python -m pytest` also exits 0 with 847 passes. Previous full run
-at the PMS commit, 2026-10-08: backend 840 passed, 3 xfailed. The 3 xfails
-(CKM, TRO, overall) now pass; the other 4 new tests are
-`test_question_is_well_formed` for CKM-017/018 and TRO-017/018.
+`-o addopts=""` only strips the `-q` in pytest.ini so the summary line prints.
+848 = the 847 of the previous run (5d2b854) + the new synthetic MR-rule test.
+Earlier runs: 5d2b854, 847 passed; PMS commit (2026-10-08), 840 passed, 3 xfailed.
 
 | Step | Commit | What |
 |---|---|---|
@@ -31,7 +30,24 @@ at the PMS commit, 2026-10-08: backend 840 passed, 3 xfailed. The 3 xfails
 | 4 PMS | d009cf9 | Rewritten + 2 table items; passes. |
 | 4 CKM | d161a7e | Rewritten + 2 table items (CKM-017/018); passes. |
 | 4 TRO | 00ddaa8 | Rewritten + 2 table items (TRO-017/018); passes. |
-| Gate + README | (this commit) | KNOWN_GAPS emptied (CKM, TRO, overall removed); README "Bank realism" table marked VERIFIED. |
+| Gate + README | 5d2b854 | KNOWN_GAPS emptied (CKM, TRO, overall removed); README "Bank realism" table marked VERIFIED. |
+| MR gate | de5a8f8 | New rule: MR correct set exactly the N shortest or N longest options (strict), max 35% per scope; column `mr set=length`. Measured at 5d2b854: overall 12/21 (57%), all with the correct options shortest; OEV, PMS, WISD, GRR, overall failed (strict xfail). |
+| MR PTE | d6f1307 | PTE-004/008/013 rewritten. |
+| MR OEV | 15abb55 | OEV-004/008/012 rewritten; OEV gap removed. |
+| MR PMS | d48094f | PMS-004/008/014 rewritten; PMS and overall gaps removed (overall 6/21 at this point). |
+| MR WISD | 72868c3 | WISD-004/008/012 rewritten; WISD gap removed. |
+| MR CKM | c25b29d | CKM-004 distractor A shortened; CKM-008/012 already compliant, unchanged. |
+| MR GRR | 416e1ed | GRR-008/014 rewritten (GRR-008's wrong option no longer says "never"); GRR-004 unchanged; KNOWN_GAPS empty. |
+| MR TRO | 0bfe15d | TRO-015 rewritten; TRO-004/008 unchanged. |
+| MR README + handoff | (this commit) | README table with the new column, VERIFIED; this file. |
+
+MR rewrite: every MR option is now 70-130 chars and, in all 21 MR items, at
+least one correct option is longer than a wrong one and vice versa. Checked
+against 5d2b854 with a script: all 126 items keep identical correct sets,
+select_count, type and option labels; 56 option texts changed, all in MR
+items; no stem or explanation changed (each explanation's reference to a
+distractor was read and still matches). Each commit de5a8f8..0bfe15d was checked
+out in a worktree and `tests/test_bank_realism.py` passes on it (no fail, no XPASS).
 
 No correct answer was changed in any domain (correct=true stays on the same
 option; keys were reworded/extended with meaning kept; MR correct sets and
@@ -48,15 +64,15 @@ final commit was pushed, and it is green.
 
 Command: `cd backend && python -m app.services.bank_realism` (2026-10-12)
 
-    scope    items   mcq  mr table    longest=key   shortest=key   top label   absolute wrong  median
-    PTE         18    15   3     2    4/15   27%    3/15   20%   B  25%     6/9    67%     124
-    OEV         18    15   3     2    4/15   27%    3/15   20%   B  25%     2/4    50%     170
-    PMS         18    15   3     2    5/15   33%    3/15   20%   B  25%     1/4    25%     126
-    WISD        18    15   3     2    4/15   27%    3/15   20%   B  25%     4/8    50%     133
-    CKM         18    15   3     2    2/15   13%    3/15   20%   B  25%     0/1     0%     131
-    GRR         18    15   3     2    4/15   27%    4/15   27%   B  25%     5/8    62%     139
-    TRO         18    15   3     2    3/15   20%    4/15   27%   B  25%     0/0     0%     125
-    overall    126   105  21    14   26/105  25%   23/105  22%   B  25%    18/34   53%     130
+    scope    items   mcq  mr table    longest=key   shortest=key   top label   absolute wrong  mr set=length  median
+    PTE         18    15   3     2    4/15   27%    3/15   20%   B  25%     6/9    67%    0/3     0%     124
+    OEV         18    15   3     2    4/15   27%    3/15   20%   B  25%     2/4    50%    0/3     0%     170
+    PMS         18    15   3     2    5/15   33%    3/15   20%   B  25%     1/4    25%    0/3     0%     126
+    WISD        18    15   3     2    4/15   27%    3/15   20%   B  25%     4/8    50%    0/3     0%     133
+    CKM         18    15   3     2    2/15   13%    3/15   20%   B  25%     0/1     0%    0/3     0%     131
+    GRR         18    15   3     2    4/15   27%    4/15   27%   B  25%     4/7    57%    0/3     0%     139
+    TRO         18    15   3     2    3/15   20%    4/15   27%   B  25%     0/0     0%    0/3     0%     125
+    overall    126   105  21    14   26/105  25%   23/105  22%   B  25%    17/33   52%    0/21    0%     130
     correct-option labels (overall): {'A': 35, 'B': 42, 'C': 40, 'D': 42, 'E': 9}
     violations: 0
 
@@ -75,6 +91,16 @@ or readiness.
    (new ids) under graded attempts. A content-migration plan is needed.
 2. Optional: vary MR select counts beyond 3 (all MR items are still
    "Select 3"; that would change correct sets, so flag it explicitly).
-3. Minor: CKM/TRO MR options are 88-120 chars, longer than PMS's MR options
-   but below the 115-145 band used for single-answer options; PMS was the
-   style reference. The realism gate does not measure MR option lengths.
+   Related: five MR items have 4 options with 3 correct (PTE-008, OEV-008,
+   PMS-008, WISD-008, GRR-008), so a candidate only has to spot one wrong
+   option. A fifth wrong option would fix that without touching correct sets.
+
+## Line endings
+
+`core.autocrlf=true`. Git stores these files as LF (checked: every file touched
+between 5d2b854 and de5a8f8..0bfe15d, in each of those commits). Working
+copies are CRLF where git checked them out and LF where a tool rewrote the
+file; each file is internally consistent and commits normalise to LF. An
+earlier note here that the working tree was all LF was wrong: Git Bash's
+`$(printf '\r')` does not give grep a usable CR pattern. Count with Python
+(`Path(p).read_bytes().count(b'\r\n')`) instead.

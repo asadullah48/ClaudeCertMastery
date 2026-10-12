@@ -311,20 +311,21 @@ the candidate saw. Grading uses option ids, never letters.
 
 ### Bank realism
 
-**VERIFIED 2026-10-12** with `cd backend && python -m app.services.bank_realism`
+**VERIFIED 2026-10-12** (after the MR length rewrite) with
+`cd backend && python -m app.services.bank_realism`
 (output reproduced as printed; the same figures gate CI through
 `tests/test_bank_realism.py`, which now passes for every scope with no xfail):
 
 ```
-scope    items   mcq  mr table    longest=key   shortest=key   top label   absolute wrong  median
-PTE         18    15   3     2    4/15   27%    3/15   20%   B  25%     6/9    67%     124
-OEV         18    15   3     2    4/15   27%    3/15   20%   B  25%     2/4    50%     170
-PMS         18    15   3     2    5/15   33%    3/15   20%   B  25%     1/4    25%     126
-WISD        18    15   3     2    4/15   27%    3/15   20%   B  25%     4/8    50%     133
-CKM         18    15   3     2    2/15   13%    3/15   20%   B  25%     0/1     0%     131
-GRR         18    15   3     2    4/15   27%    4/15   27%   B  25%     5/8    62%     139
-TRO         18    15   3     2    3/15   20%    4/15   27%   B  25%     0/0     0%     125
-overall    126   105  21    14   26/105  25%   23/105  22%   B  25%    18/34   53%     130
+scope    items   mcq  mr table    longest=key   shortest=key   top label   absolute wrong  mr set=length  median
+PTE         18    15   3     2    4/15   27%    3/15   20%   B  25%     6/9    67%    0/3     0%     124
+OEV         18    15   3     2    4/15   27%    3/15   20%   B  25%     2/4    50%    0/3     0%     170
+PMS         18    15   3     2    5/15   33%    3/15   20%   B  25%     1/4    25%    0/3     0%     126
+WISD        18    15   3     2    4/15   27%    3/15   20%   B  25%     4/8    50%    0/3     0%     133
+CKM         18    15   3     2    2/15   13%    3/15   20%   B  25%     0/1     0%    0/3     0%     131
+GRR         18    15   3     2    4/15   27%    4/15   27%   B  25%     4/7    57%    0/3     0%     139
+TRO         18    15   3     2    3/15   20%    4/15   27%   B  25%     0/0     0%    0/3     0%     125
+overall    126   105  21    14   26/105  25%   23/105  22%   B  25%    17/33   52%    0/21    0%     130
 correct-option labels (overall): {'A': 35, 'B': 42, 'C': 40, 'D': 42, 'E': 9}
 violations: 0
 ```
@@ -332,11 +333,14 @@ violations: 0
 Columns: how often the key is the uniquely longest or uniquely shortest option in
 single-answer items (chance with four options is 25%); the label holding the most
 correct options (authored order, before the per-attempt shuffle); how often an option
-saying always / never / only / all is wrong; median option length in characters. The
-gate fails any scope above 35% on the first three, or above 75% on the fourth. Before
-the rewrite (112 items) the key was the longest option in 86/91 items (95%), labels ran
-A75 B58 C18 D3, absolute-word options were wrong 44/51 (86%), and the median option was
-58 characters.
+saying always / never / only / all is wrong; how many multi-response items have a
+correct set that is exactly the shortest (or longest) options, so that "pick the three
+shortest" would score full marks; median option length in characters. The gate fails any
+scope above 35% on the first three, above 75% on the fourth, or above 35% on the MR
+column. Before the rewrite (112 items) the key was the longest option in 86/91 items
+(95%), labels ran A75 B58 C18 D3, absolute-word options were wrong 44/51 (86%), and the
+median option was 58 characters. Before the MR length rewrite, 12/21 MR items had a
+length-ordered correct set (every one with the correct options shortest).
 
 These are bank-format statistics only. They say nothing about pass rates or readiness.
 
